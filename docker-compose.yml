@@ -82,6 +82,8 @@ services:
       REDIS_URL: redis://redis:6379
       APP_PUBLIC_URL: http://localhost:3000
       API_PORT: "3001"
+      SMTP_HOST: mailpit
+      SMTP_PORT: "1025"
     ports:
       - "3001:3001"
     depends_on:
@@ -143,6 +145,8 @@ services:
     environment:
       API_INTERNAL_URL: http://api:3001
       NEXT_PUBLIC_API_URL: http://localhost:3001
+      ADMIN_BASIC_USER: ${ADMIN_BASIC_USER:-admin}
+      ADMIN_BASIC_PASSWORD: ${ADMIN_BASIC_PASSWORD:-change-me}
     ports:
       - "3000:3000"
     depends_on:

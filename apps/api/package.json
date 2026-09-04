@@ -10,7 +10,13 @@
   "dependencies": {
     "@ai-gen-free/core": "workspace:*",
     "@ai-gen-free/db": "workspace:*",
+    "@fastify/cookie": "^11.1.2",
     "@fastify/cors": "^11.1.0",
-    "fastify": "^5.6.0"
+    "fastify": "^5.6.0",
+    "ioredis": "^5.7.0",
+    "nodemailer": "^10.0.0"
+  },
+  "devDependencies": {
+    "@types/nodemailer": "^8.0.1"
   }
 }

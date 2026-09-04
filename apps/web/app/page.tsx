@@ -1,10 +1,12 @@
+import { cookies } from "next/headers";
+import Link from "next/link";
+import { LogoutButton } from "./logout-button";
+
 async function readHealth(): Promise<{ ok: boolean; detail: string }> {
   const base = process.env.API_INTERNAL_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
   try {
     const res = await fetch(`${base}/api/health`, { cache: "no-store" });
-    if (!res.ok) {
-      return { ok: false, detail: `HTTP ${res.status}` };
-    }
+    if (!res.ok) return { ok: false, detail: `HTTP ${res.status}` };
     const body = (await res.json()) as { ok?: boolean; service?: string };
     return { ok: Boolean(body.ok), detail: body.service ?? "api" };
   } catch (err) {
@@ -13,18 +15,40 @@ async function readHealth(): Promise<{ ok: boolean; detail: string }> {
   }
 }
 
+async function readMe() {
+  const jar = await cookies();
+  const sid = jar.get("sid")?.value;
+  if (!sid) return null;
+  const base = process.env.API_INTERNAL_URL ?? "http://localhost:3001";
+  const res = await fetch(`${base}/api/me`, {
+    cache: "no-store",
+    headers: { cookie: `sid=${sid}` },
+  });
+  if (!res.ok) return null;
+  return (await res.json()) as { user: { email: string; role: string } };
+}
+
 export default async function HomePage() {
-  const health = await readHealth();
+  const [health, me] = await Promise.all([readHealth(), readMe()]);
 
   return (
     <main style={{ maxWidth: 640, margin: "4rem auto", padding: "0 1.5rem" }}>
       <p style={{ letterSpacing: "0.08em", textTransform: "uppercase", color: "#9aa0a6", fontSize: 12 }}>
-        M0 scaffold
+        M1 auth
       </p>
       <h1 style={{ fontWeight: 600, fontSize: "2rem" }}>ai-gen-free</h1>
-      <p style={{ lineHeight: 1.5, color: "#c5c9d1" }}>
-        Fondasi layanan. Login, poin, dan generate menyusul di fase berikutnya.
-      </p>
+      {me ? (
+        <div>
+          <p>Kamu masuk sebagai {me.user.email}.</p>
+          <LogoutButton />
+        </div>
+      ) : (
+        <p>
+          <Link href="/login" style={{ color: "#8ab4ff" }}>
+            Masuk dengan email
+          </Link>
+        </p>
+      )}
       <div
         style={{
           marginTop: "2rem",

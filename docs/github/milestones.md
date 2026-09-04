@@ -18,6 +18,8 @@ Issues:
 
 ## M1 — Auth
 
+**Status:** implemented locally (QA `docs/qa/M1-auth.md`)  
+**Spec:** `docs/product/M1-auth.md`  
 **Goal:** email OTP, sesi tunggal, admin Basic Auth + role.
 
 Issues:
