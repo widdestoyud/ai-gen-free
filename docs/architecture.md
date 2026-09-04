@@ -4,7 +4,7 @@ Dokumen ini adalah peta sistem. Keputusan yang dikunci ada di `docs/adr/`. Domai
 
 ## Tujuan v1
 
-Web app: user login email+OTP, top up poin, submit generate, job jalan di background, hasil privat 14 hari. Admin (Basic Auth + role) konfirmasi bayar, atur cooldown, lihat job.
+Web app: user login email+OTP, top up poin (unggah bukti di dashboard, admin mengkurasi notifikasi), submit generate, job jalan di background, hasil privat 14 hari. Admin (Basic Auth + role) kurasi bayar, atur cooldown, lihat job.
 
 ## Bukan tujuan v1
 
@@ -96,7 +96,7 @@ Lapisan:
 1. Basic Auth reverse proxy pada `/admin` dan `/api/admin`
 2. Form login admin terpisah, cookie `sid_admin`
 3. `users.role = admin` hanya dari seed/CLI
-4. Menu: invoice, user, job, **pengaturan cooldown**, adjust poin beralasan, audit log
+4. Menu: **notifikasi bukti transfer**, kurasi invoice, user, job, **pengaturan cooldown**, adjust poin beralasan, audit log
 
 ## Penyimpanan 14 hari
 
@@ -114,7 +114,7 @@ Lihat `docker-compose.yml`. Jalur kanonik: `docker compose up --build`.
 2. Prisma migrate + seed admin
 3. Auth OTP + sesi tunggal
 4. Admin Basic Auth + settings cooldown
-5. Ledger + invoice paid manual
+5. Ledger + unggah bukti + kurasi admin (bukan lunas tanpa file)
 6. Job dummy (tanpa Siray) + hold/capture + mutex + cooldown
 7. Tes race tab + dual login
 8. Adapter Siray t2i

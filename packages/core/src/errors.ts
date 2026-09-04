@@ -12,6 +12,9 @@ export const ErrorCodes = {
   INSUFFICIENT_POINTS: "INSUFFICIENT_POINTS",
   VALIDATION_ERROR: "VALIDATION_ERROR",
   NOT_FOUND: "NOT_FOUND",
+  INVOICE_NOT_PAYABLE: "INVOICE_NOT_PAYABLE",
+  PROOF_REQUIRED: "PROOF_REQUIRED",
+  PROOF_INVALID: "PROOF_INVALID",
 } as const;
 
 export type ErrorCode = (typeof ErrorCodes)[keyof typeof ErrorCodes];

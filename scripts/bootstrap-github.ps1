@@ -16,7 +16,7 @@ foreach ($name in @("aidlc","po","sa","be","fe","qa","orch")) {
 $milestones = @(
     @{ title = "M0-scaffold"; desc = "Compose + monorepo packages" },
     @{ title = "M1-auth"; desc = "Email OTP, single session, admin Basic Auth" },
-    @{ title = "M2-wallet"; desc = "Ledger hold/capture + invoice topup" },
+    @{ title = "M2-wallet"; desc = "Ledger, unggah bukti transfer, kurasi admin" },
     @{ title = "M3-jobs-dummy"; desc = "Background jobs, mutex, cooldown" },
     @{ title = "M4-siray-t2i"; desc = "GenerationProvider + Siray adapter" },
     @{ title = "M5-admin-retention"; desc = "Admin settings + 14-day media TTL" }
@@ -41,9 +41,11 @@ $issues = @(
     @{ title = "[M1] Admin Basic Auth + role seed"; labels = "aidlc,be"; mile = "M1-auth" },
     @{ title = "[M1] QA second-device session"; labels = "aidlc,qa"; mile = "M1-auth" },
     @{ title = "[M2] Ledger + wallet lock"; labels = "aidlc,be"; mile = "M2-wallet" },
-    @{ title = "[M2] Invoice admin paid"; labels = "aidlc,be"; mile = "M2-wallet" },
-    @{ title = "[M2] Wallet UI"; labels = "aidlc,fe"; mile = "M2-wallet" },
-    @{ title = "[M2] QA no client debit"; labels = "aidlc,qa"; mile = "M2-wallet" },
+    @{ title = "[M2] Invoice + upload payment proof"; labels = "aidlc,be"; mile = "M2-wallet" },
+    @{ title = "[M2] Admin notifications + approve/reject"; labels = "aidlc,be"; mile = "M2-wallet" },
+    @{ title = "[M2] Dashboard wallet + proof upload"; labels = "aidlc,fe"; mile = "M2-wallet" },
+    @{ title = "[M2] Admin curation UI"; labels = "aidlc,fe"; mile = "M2-wallet" },
+    @{ title = "[M2] QA no credit without approve"; labels = "aidlc,qa"; mile = "M2-wallet" },
     @{ title = "[M3] POST /jobs hold+mutex"; labels = "aidlc,be"; mile = "M3-jobs-dummy" },
     @{ title = "[M3] Dummy worker capture/release"; labels = "aidlc,be"; mile = "M3-jobs-dummy" },
     @{ title = "[M3] Job polling UI"; labels = "aidlc,fe"; mile = "M3-jobs-dummy" },

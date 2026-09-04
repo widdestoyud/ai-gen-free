@@ -31,14 +31,18 @@ Issues:
 
 ## M2 — Wallet
 
-**Goal:** ledger hold/capture/release; top up invoice admin.
+**Status:** implemented locally (QA `docs/qa/M2-wallet.md`)  
+**Spec:** `docs/product/M2-wallet.md`  
+**Goal:** ledger; invoice; unggah bukti transfer; notifikasi + kurasi admin.
 
 Issues:
 
 - `M2-1` [be] ledger + wallet lock
-- `M2-2` [be] invoice unpaid → admin paid → topup
-- `M2-3` [fe] saldo + riwayat + minta top up
-- `M2-4` [qa] tidak ada decrement poin dari klien
+- `M2-2` [be] invoice + unggah bukti → `awaiting_review`
+- `M2-3` [be] notifikasi admin + approve/reject (topup hanya saat approve)
+- `M2-4` [fe] dashboard: saldo, paket, unggah bukti, status kurasi
+- `M2-5` [fe] admin: badge notifikasi + kurasi bukti
+- `M2-6` [qa] tidak ada kredit tanpa approve; bukti privat; tidak double-topup
 
 ## M3 — Jobs dummy
 
@@ -64,7 +68,7 @@ Issues:
 
 ## M5 — Admin + retensi
 
-**Goal:** menu cooldown, konfirmasi bayar, hapus objek 14 hari.
+**Goal:** menu cooldown, hapus objek 14 hari. Kurasi bayar sudah di M2.
 
 Issues:
 

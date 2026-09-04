@@ -15,7 +15,7 @@ Indeks untuk manusia dan agen AI. Baca `AGENTS.md` di root dulu.
 | [github/milestones.md](./github/milestones.md) | Papan milestone/issue |
 | [wiki/Home.md](./wiki/Home.md) | Naskah Wiki GitHub |
 
-Product specs: [`product/program.md`](./product/program.md)  
+Product specs: [`product/program.md`](./product/program.md) — M2 pembayaran: unggah bukti + kurasi admin (`product/M2-wallet.md`)  
 SDLC: [`../aidlc/README.md`](../aidlc/README.md)  
 Prisma: [`../prisma/schema.prisma`](../prisma/schema.prisma)  
 Compose: [`../docker-compose.yml`](../docker-compose.yml)

@@ -4,7 +4,7 @@
 
 ## User-visible
 
-- Admin (setelah Basic Auth + OTP): daftar invoice unpaid, tombol lunas, field cooldown detik, daftar job/user (bukan file publik).
+- Admin (setelah Basic Auth + OTP): kurasi bukti transfer sudah di **M2**. M5: field cooldown detik, daftar job/user (bukan file publik).
 - User melihat “tersedia sampai {tanggal}” di gallery.
 - Setelah 14 hari: gambar tidak bisa dibuka; metadata job tetap.
 

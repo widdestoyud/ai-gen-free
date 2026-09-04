@@ -54,7 +54,9 @@ enum LedgerStatus {
 
 enum InvoiceStatus {
   unpaid
+  awaiting_review
   paid
+  rejected
   expired
   canceled
 }
@@ -182,18 +184,27 @@ model LedgerEntry {
 }
 
 model Invoice {
-  id              String        @id @default(cuid())
-  userId          String
-  user            User          @relation(fields: [userId], references: [id], onDelete: Restrict)
-  amountIdr       Decimal       @db.Decimal(20, 2)
-  points          Decimal       @db.Decimal(20, 0)
-  status          InvoiceStatus @default(unpaid)
-  uniqueCode      String        @unique
-  paidAt          DateTime?
-  paidByAdminId   String?
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
-  ledgerEntries   LedgerEntry[]
+  id                  String        @id @default(cuid())
+  userId              String
+  user                User          @relation(fields: [userId], references: [id], onDelete: Restrict)
+  amountIdr           Decimal       @db.Decimal(20, 2)
+  points              Decimal       @db.Decimal(20, 0)
+  status              InvoiceStatus @default(unpaid)
+  uniqueCode          String        @unique
+  proofStorageKey     String?
+  proofContentType    String?
+  proofBytes          Int?
+  proofSubmittedAt    DateTime?
+  reviewNote          String?
+  reviewedAt          DateTime?
+  reviewedByAdminId   String?
+  paidAt              DateTime?
+  paidByAdminId       String?
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+  ledgerEntries       LedgerEntry[]
+
+  @@index([status, proofSubmittedAt])
 }
 
 model AppSetting {

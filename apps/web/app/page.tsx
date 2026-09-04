@@ -34,12 +34,17 @@ export default async function HomePage() {
   return (
     <main style={{ maxWidth: 640, margin: "4rem auto", padding: "0 1.5rem" }}>
       <p style={{ letterSpacing: "0.08em", textTransform: "uppercase", color: "#9aa0a6", fontSize: 12 }}>
-        M1 auth
+        M2 wallet
       </p>
       <h1 style={{ fontWeight: 600, fontSize: "2rem" }}>ai-gen-free</h1>
       {me ? (
         <div>
           <p>Kamu masuk sebagai {me.user.email}.</p>
+          <p>
+            <Link href="/wallet" style={{ color: "#8ab4ff" }}>
+              Buka dompet
+            </Link>
+          </p>
           <LogoutButton />
         </div>
       ) : (

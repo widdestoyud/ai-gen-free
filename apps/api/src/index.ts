@@ -1,11 +1,13 @@
 import Fastify from "fastify";
 import cors from "@fastify/cors";
 import cookie from "@fastify/cookie";
+import multipart from "@fastify/multipart";
 import IORedis from "ioredis";
 import { ErrorCodes } from "@ai-gen-free/core";
 import { prisma } from "@ai-gen-free/db";
 import { createSmtpMailer } from "./mail/smtp.js";
 import { registerAuthRoutes } from "./routes/auth.js";
+import { registerWalletRoutes } from "./routes/wallet.js";
 
 const port = Number(process.env.API_PORT ?? 3001);
 const origin = process.env.APP_PUBLIC_URL ?? "http://localhost:3000";
@@ -20,6 +22,9 @@ await app.register(cors, {
   credentials: true,
 });
 await app.register(cookie);
+await app.register(multipart, {
+  limits: { fileSize: 5 * 1024 * 1024, files: 1 },
+});
 
 app.get("/api/health", async () => ({ ok: true, service: "api" }));
 
@@ -37,6 +42,7 @@ app.get("/api/ready", async (_req, reply) => {
 });
 
 await registerAuthRoutes(app, { redis, mailer });
+await registerWalletRoutes(app);
 
 const shutdown = async () => {
   await app.close();

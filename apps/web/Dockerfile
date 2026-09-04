@@ -11,6 +11,8 @@ COPY packages/providers-types/package.json packages/providers-types/
 COPY packages/providers-siray/package.json packages/providers-siray/
 RUN pnpm install --frozen-lockfile
 COPY . .
+ARG API_INTERNAL_URL=http://api:3001
+ENV API_INTERNAL_URL=$API_INTERNAL_URL
 RUN pnpm --filter @ai-gen-free/web build
 EXPOSE 3000
 CMD ["pnpm", "--filter", "@ai-gen-free/web", "start"]
