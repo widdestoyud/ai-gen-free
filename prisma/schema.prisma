@@ -138,12 +138,14 @@ model Job {
   startedAt      DateTime?
   finishedAt     DateTime?
   nextGenerateAt DateTime?
+  idempotencyKey String?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
   assets        JobAsset[]
   ledgerEntries LedgerEntry[]
 
+  @@unique([userId, idempotencyKey])
   @@index([userId, createdAt])
   @@index([status, createdAt])
 }

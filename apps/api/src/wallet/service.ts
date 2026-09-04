@@ -1,43 +1,18 @@
 import { randomBytes } from "node:crypto";
 import { LedgerStatus, LedgerType, Prisma } from "@prisma/client";
-import { ErrorCodes } from "@ai-gen-free/core";
+import { ErrorCodes, type ObjectStorage } from "@ai-gen-free/core";
 import { prisma } from "@ai-gen-free/db";
+import { computeBalance, refreshWalletCache } from "@ai-gen-free/wallet";
 import { AuthError } from "../auth/service.js";
-import { getObjectBytes, putObject, signedGetUrl } from "../storage/s3.js";
 import { findPackage, qrisInstructions, TOPUP_PACKAGES } from "./catalog.js";
+
+export { computeBalance, refreshWalletCache };
 
 const ALLOWED_PROOF = new Set(["image/jpeg", "image/png", "image/webp", "application/pdf"]);
 const MAX_PROOF_BYTES = 5 * 1024 * 1024;
 
 function asInt(value: Prisma.Decimal | number): number {
   return typeof value === "number" ? value : Number(value);
-}
-
-export async function computeBalance(userId: string) {
-  const entries = await prisma.ledgerEntry.findMany({ where: { userId } });
-  let postedNet = 0;
-  let held = 0;
-  for (const e of entries) {
-    const amt = asInt(e.amount);
-    if (e.status === LedgerStatus.posted) {
-      if (e.type === LedgerType.topup || e.type === LedgerType.refund) postedNet += amt;
-      else if (e.type === LedgerType.capture) postedNet -= amt;
-      else if (e.type === LedgerType.adjust) postedNet += amt;
-    }
-    if (e.type === LedgerType.hold && e.status === LedgerStatus.pending) {
-      held += amt;
-    }
-  }
-  return { available: postedNet - held, held, postedNet };
-}
-
-export async function refreshWalletCache(userId: string) {
-  const { available } = await computeBalance(userId);
-  await prisma.wallet.update({
-    where: { userId },
-    data: { availableCached: available, version: { increment: 1 } },
-  });
-  return available;
 }
 
 export function listPackages() {
@@ -115,6 +90,7 @@ export async function listNotifications() {
 }
 
 export async function submitProof(opts: {
+  storage: ObjectStorage;
   userId: string;
   invoiceId: string;
   buffer: Buffer;
@@ -134,7 +110,7 @@ export async function submitProof(opts: {
     throw new AuthError(ErrorCodes.INVOICE_NOT_PAYABLE, "Bukti hanya bisa diunggah untuk invoice yang belum lunas");
   }
   const key = `proofs/${opts.userId}/${invoice.id}`;
-  await putObject(key, opts.buffer, opts.contentType);
+  await opts.storage.put({ key, body: opts.buffer, contentType: opts.contentType });
   const updated = await prisma.invoice.update({
     where: { id: invoice.id },
     data: {
@@ -159,12 +135,12 @@ export async function submitProof(opts: {
   return serializeInvoice(updated, true);
 }
 
-export async function proofUrlForAdmin(invoiceId: string) {
+export async function proofUrlForAdmin(storage: ObjectStorage, invoiceId: string) {
   const invoice = await prisma.invoice.findUnique({ where: { id: invoiceId } });
   if (!invoice?.proofStorageKey) {
     throw new AuthError(ErrorCodes.PROOF_REQUIRED, "Belum ada bukti transfer", 400);
   }
-  const url = await signedGetUrl(invoice.proofStorageKey, 10 * 60);
+  const url = await storage.signGetUrl(invoice.proofStorageKey, 10 * 60);
   return {
     url,
     expiresAt: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
@@ -172,14 +148,14 @@ export async function proofUrlForAdmin(invoiceId: string) {
   };
 }
 
-export async function proofBytesForAdmin(invoiceId: string) {
+export async function proofBytesForAdmin(storage: ObjectStorage, invoiceId: string) {
   const invoice = await prisma.invoice.findUnique({ where: { id: invoiceId } });
   if (!invoice?.proofStorageKey) {
     throw new AuthError(ErrorCodes.PROOF_REQUIRED, "Belum ada bukti transfer", 400);
   }
-  const obj = await getObjectBytes(invoice.proofStorageKey);
+  const obj = await storage.get(invoice.proofStorageKey);
   return {
-    bytes: obj.bytes,
+    bytes: obj.body,
     contentType: invoice.proofContentType ?? obj.contentType ?? "application/octet-stream",
   };
 }

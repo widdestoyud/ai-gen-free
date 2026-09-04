@@ -46,6 +46,8 @@ Issues:
 
 ## M3 — Jobs dummy
 
+**Status:** implemented locally (QA `docs/qa/M3-jobs-dummy.md`)  
+**Spec:** `docs/product/M3-jobs-dummy.md`  
 **Goal:** generate palsu di worker; refresh aman; 1 job aktif; cooldown setelah sukses.
 
 Issues:

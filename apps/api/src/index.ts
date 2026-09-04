@@ -2,11 +2,14 @@ import Fastify from "fastify";
 import cors from "@fastify/cors";
 import cookie from "@fastify/cookie";
 import multipart from "@fastify/multipart";
+import { Queue } from "bullmq";
 import IORedis from "ioredis";
 import { ErrorCodes } from "@ai-gen-free/core";
 import { prisma } from "@ai-gen-free/db";
+import { createObjectStorageFromEnv } from "@ai-gen-free/storage";
 import { createSmtpMailer } from "./mail/smtp.js";
 import { registerAuthRoutes } from "./routes/auth.js";
+import { registerJobRoutes } from "./routes/jobs.js";
 import { registerWalletRoutes } from "./routes/wallet.js";
 
 const port = Number(process.env.API_PORT ?? 3001);
@@ -15,7 +18,10 @@ const redisUrl = process.env.REDIS_URL ?? "redis://127.0.0.1:6379";
 
 const app = Fastify({ logger: true });
 const redis = new IORedis(redisUrl);
+const queueConnection = new IORedis(redisUrl, { maxRetriesPerRequest: null });
+const queue = new Queue("generate", { connection: queueConnection });
 const mailer = createSmtpMailer();
+const storage = createObjectStorageFromEnv();
 
 await app.register(cors, {
   origin,
@@ -42,10 +48,13 @@ app.get("/api/ready", async (_req, reply) => {
 });
 
 await registerAuthRoutes(app, { redis, mailer });
-await registerWalletRoutes(app);
+await registerWalletRoutes(app, { storage });
+await registerJobRoutes(app, { storage, queue });
 
 const shutdown = async () => {
   await app.close();
+  await queue.close();
+  await queueConnection.quit();
   await redis.quit();
   await prisma.$disconnect();
   process.exit(0);

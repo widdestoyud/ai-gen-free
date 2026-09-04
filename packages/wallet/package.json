@@ -1,0 +1,13 @@
+{
+  "name": "@ai-gen-free/wallet",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@ai-gen-free/core": "workspace:*",
+    "@ai-gen-free/db": "workspace:*"
+  }
+}

@@ -34,7 +34,7 @@ export default async function HomePage() {
   return (
     <main style={{ maxWidth: 640, margin: "4rem auto", padding: "0 1.5rem" }}>
       <p style={{ letterSpacing: "0.08em", textTransform: "uppercase", color: "#9aa0a6", fontSize: 12 }}>
-        M2 wallet
+        M3 jobs
       </p>
       <h1 style={{ fontWeight: 600, fontSize: "2rem" }}>ai-gen-free</h1>
       {me ? (
@@ -43,6 +43,10 @@ export default async function HomePage() {
           <p>
             <Link href="/wallet" style={{ color: "#8ab4ff" }}>
               Buka dompet
+            </Link>
+            {" · "}
+            <Link href="/generate" style={{ color: "#8ab4ff" }}>
+              Generate
             </Link>
           </p>
           <LogoutButton />

@@ -9,6 +9,8 @@ COPY packages/core/package.json packages/core/
 COPY packages/db/package.json packages/db/
 COPY packages/providers-types/package.json packages/providers-types/
 COPY packages/providers-siray/package.json packages/providers-siray/
+COPY packages/storage/package.json packages/storage/
+COPY packages/wallet/package.json packages/wallet/
 RUN pnpm install --frozen-lockfile
 COPY . .
 ARG API_INTERNAL_URL=http://api:3001

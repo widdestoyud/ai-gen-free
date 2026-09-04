@@ -49,8 +49,10 @@ Browser
 | `apps/web` | UI, cookie ke API, polling job | Prisma, BullMQ, SDK Siray, hitung harga |
 | `apps/api` | HTTP, auth, validasi, transaksi hold+enqueue | Polling Siray menit-menitan di request |
 | `apps/worker` | Jalan job, adapter, capture/release | Percaya body klien |
-| `packages/core` | Use case, state machine, port | Import Fastify, Next, `siray` |
+| `packages/core` | Use case, state machine, port | Import Fastify, Next, `siray`, AWS SDK |
 | `packages/db` | Prisma, repository | Aturan harga, HTTP |
+| `packages/storage` | Adapter MinIO/S3/R2/memory | Ledger, sesi, HTTP |
+| `packages/wallet` | Ledger hold/capture/release | HTTP, SDK storage |
 | `packages/providers-siray` | Mapping ke API Siray | Ledger, sesi user |
 
 ## Alur generate (wajib dipatuhi)

@@ -9,6 +9,18 @@ async function main() {
     create: { key: "generate_cooldown_seconds", value: 43200 },
   });
 
+  await prisma.modelCatalog.upsert({
+    where: { mode_modelId: { mode: "t2i", modelId: "dummy-t2i" } },
+    update: { providerId: "dummy", costPoints: 10, enabled: true },
+    create: {
+      mode: "t2i",
+      modelId: "dummy-t2i",
+      providerId: "dummy",
+      costPoints: 10,
+      enabled: true,
+    },
+  });
+
   const emails = (process.env.ADMIN_EMAILS ?? "")
     .split(",")
     .map((e) => e.trim().toLowerCase())

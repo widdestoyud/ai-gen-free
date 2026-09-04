@@ -1,11 +1,14 @@
 import Fastify from "fastify";
 import { Queue, Worker } from "bullmq";
 import IORedis from "ioredis";
+import { createObjectStorageFromEnv } from "@ai-gen-free/storage";
+import { processDummyJob } from "./dummy.js";
 
 const healthPort = Number(process.env.WORKER_HEALTH_PORT ?? 3002);
 const redisUrl = process.env.REDIS_URL ?? "redis://127.0.0.1:6379";
 
 const connection = new IORedis(redisUrl, { maxRetriesPerRequest: null });
+const storage = createObjectStorageFromEnv();
 
 const queueName = "generate";
 const queue = new Queue(queueName, { connection });
@@ -13,8 +16,10 @@ const queue = new Queue(queueName, { connection });
 const worker = new Worker(
   queueName,
   async (job) => {
-    // M3 fills this in. M0 only proves the consumer is alive.
-    return { ignored: true, jobId: job.data?.jobId ?? job.id };
+    const jobId = typeof job.data?.jobId === "string" ? job.data.jobId : job.id;
+    if (!jobId) throw new Error("generate job missing jobId");
+    await processDummyJob(jobId, storage);
+    return { jobId };
   },
   {
     connection,

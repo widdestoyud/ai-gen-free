@@ -10,8 +10,9 @@
   "dependencies": {
     "@ai-gen-free/core": "workspace:*",
     "@ai-gen-free/db": "workspace:*",
-    "@aws-sdk/client-s3": "^3.1126.0",
-    "@aws-sdk/s3-request-presigner": "^3.1126.0",
+    "@ai-gen-free/storage": "workspace:*",
+    "@ai-gen-free/wallet": "workspace:*",
+    "bullmq": "^5.58.5",
     "@fastify/cookie": "^11.1.2",
     "@fastify/cors": "^11.1.0",
     "@fastify/multipart": "^10.1.1",

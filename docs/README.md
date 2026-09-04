@@ -10,6 +10,7 @@ Indeks untuk manusia dan agen AI. Baca `AGENTS.md` di root dulu.
 | [domain/wallet.md](./domain/wallet.md) | Ledger poin, hold/capture |
 | [domain/jobs.md](./domain/jobs.md) | Antrian, cooldown, 1 job aktif |
 | [providers/generation-port.md](./providers/generation-port.md) | Kontrak provider + Siray |
+| [providers/storage-port.md](./providers/storage-port.md) | Port file: MinIO / S3 / R2 via parameter |
 | [catatan-risiko-hukum-platform.md](./catatan-risiko-hukum-platform.md) | Risiko hukum platform (bukan nasihat hukum) |
 | [archify/](./archify/) | Diagram teknis (JSON + HTML) |
 | [github/milestones.md](./github/milestones.md) | Papan milestone/issue |

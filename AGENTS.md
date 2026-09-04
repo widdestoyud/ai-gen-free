@@ -23,7 +23,7 @@ Jangan mengarang ulang arsitektur. Jika ingin mengubah keputusan di `docs/adr/`,
 - `apps/web` = UI Next.js. `apps/api` = HTTP. `apps/worker` = job panjang. `packages/core` = domain.
 - Prisma + PostgreSQL.
 - Antrian Redis + BullMQ.
-- File di S3-kompatibel (MinIO lokal, R2/S3 produksi), TTL 14 hari.
+- File lewat port `ObjectStorage` (MinIO lokal, R2/S3 produksi via `STORAGE_DRIVER`), TTL 14 hari.
 - Poin: ledger + hold/capture/release. Klien tidak pernah memotong poin.
 - Satu sesi login per user. Login baru mencabut sesi lama.
 - Satu job aktif per user. Tab baru tidak boleh generate paralel.
@@ -51,10 +51,10 @@ HTML di `docs/archify/html/`. JSON di `docs/archify/src/`. Skill: `archify-docs`
 | Huruf | Artinya di kode |
 |---|---|
 | S | Satu service satu alasan berubah: `JobService`, `WalletService`, `AuthService`, `CooldownService` terpisah |
-| O | Provider baru = class baru di `packages/providers-*`, bukan `if (provider === ...)` di worker |
-| L | Setiap adapter memenuhi `GenerationProvider` tanpa syarat tersembunyi |
+| O | Provider/storage baru = class baru + register, bukan `if (driver === ...)` di wallet/job |
+| L | Setiap adapter memenuhi `GenerationProvider` / `ObjectStorage` tanpa syarat tersembunyi |
 | I | Jangan paksa adapter video mengimplementasi t2i. Capability dinyatakan di provider |
-| D | `apps/worker` bergantung pada port di `packages/core/ports`, bukan SDK Siray |
+| D | `apps/api` dan `apps/worker` bergantung pada port di `packages/core/ports`, bukan SDK Siray/S3 |
 
 UI dan Route Handler Next.js **dilarang** memanggil SDK Siray, Prisma wallet mutation, atau BullMQ langsung. Mereka hanya HTTP ke `apps/api`.
 

@@ -30,12 +30,12 @@ importers:
       '@ai-gen-free/db':
         specifier: workspace:*
         version: link:../../packages/db
-      '@aws-sdk/client-s3':
-        specifier: ^3.1126.0
-        version: 3.1126.0
-      '@aws-sdk/s3-request-presigner':
-        specifier: ^3.1126.0
-        version: 3.1126.0
+      '@ai-gen-free/storage':
+        specifier: workspace:*
+        version: link:../../packages/storage
+      '@ai-gen-free/wallet':
+        specifier: workspace:*
+        version: link:../../packages/wallet
       '@fastify/cookie':
         specifier: ^11.1.2
         version: 11.1.2
@@ -45,6 +45,9 @@ importers:
       '@fastify/multipart':
         specifier: ^10.1.1
         version: 10.1.1
+      bullmq:
+        specifier: ^5.58.5
+        version: 5.81.4
       fastify:
         specifier: ^5.6.0
         version: 5.12.3
@@ -95,6 +98,12 @@ importers:
       '@ai-gen-free/providers-siray':
         specifier: workspace:*
         version: link:../../packages/providers-siray
+      '@ai-gen-free/storage':
+        specifier: workspace:*
+        version: link:../../packages/storage
+      '@ai-gen-free/wallet':
+        specifier: workspace:*
+        version: link:../../packages/wallet
       bullmq:
         specifier: ^5.58.5
         version: 5.81.4
@@ -124,6 +133,27 @@ importers:
       '@ai-gen-free/core':
         specifier: workspace:*
         version: link:../core
+
+  packages/storage:
+    dependencies:
+      '@ai-gen-free/core':
+        specifier: workspace:*
+        version: link:../core
+      '@aws-sdk/client-s3':
+        specifier: ^3.1126.0
+        version: 3.1126.0
+      '@aws-sdk/s3-request-presigner':
+        specifier: ^3.1126.0
+        version: 3.1126.0
+
+  packages/wallet:
+    dependencies:
+      '@ai-gen-free/core':
+        specifier: workspace:*
+        version: link:../core
+      '@ai-gen-free/db':
+        specifier: workspace:*
+        version: link:../db
 
 packages:
 

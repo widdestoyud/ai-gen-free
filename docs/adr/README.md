@@ -12,3 +12,4 @@ Baca urut. Mencabut keputusan = ADR baru, jangan edit diam-diam.
 | [0006](./0006-auth-not-firebase.md) | OTP sendiri, bukan Firebase Auth |
 | [0007](./0007-docker.md) | Docker Compose kanonik |
 | [0008](./0008-credits-hold.md) | Ledger hold/capture |
+| [0009](./0009-object-storage-port.md) | Port ObjectStorage; MinIO/S3/R2 via parameter |

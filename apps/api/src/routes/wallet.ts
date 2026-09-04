@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import "@fastify/multipart";
-import { ErrorCodes } from "@ai-gen-free/core";
+import { ErrorCodes, type ObjectStorage } from "@ai-gen-free/core";
 import { AuthError, userFromCookie } from "../auth/service.js";
 import {
   approveInvoice,
@@ -58,7 +58,7 @@ async function requireAdmin(
   return session;
 }
 
-export async function registerWalletRoutes(app: FastifyInstance) {
+export async function registerWalletRoutes(app: FastifyInstance, deps: { storage: ObjectStorage }) {
   app.get("/api/wallet", async (req, reply) => {
     const session = await requireUser(req, reply);
     if (!session) return;
@@ -120,6 +120,7 @@ export async function registerWalletRoutes(app: FastifyInstance) {
       const buffer = await file.toBuffer();
       const { id } = req.params as { id: string };
       return await submitProof({
+        storage: deps.storage,
         userId: session.userId,
         invoiceId: id,
         buffer,
@@ -153,7 +154,7 @@ export async function registerWalletRoutes(app: FastifyInstance) {
     if (!session) return;
     try {
       const { id } = req.params as { id: string };
-      return await proofUrlForAdmin(id);
+      return await proofUrlForAdmin(deps.storage, id);
     } catch (err) {
       return sendError(reply, err);
     }
@@ -164,7 +165,7 @@ export async function registerWalletRoutes(app: FastifyInstance) {
     if (!session) return;
     try {
       const { id } = req.params as { id: string };
-      const proof = await proofBytesForAdmin(id);
+      const proof = await proofBytesForAdmin(deps.storage, id);
       reply.header("Content-Type", proof.contentType);
       reply.header("Cache-Control", "private, max-age=60");
       reply.header("Content-Disposition", "inline");
