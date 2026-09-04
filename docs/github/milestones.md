@@ -6,7 +6,9 @@ Wiki GitHub (jika diaktifkan) menyalin halaman dari `docs/wiki/`. Jangan andalka
 
 ## M0 — Scaffold
 
-**Goal:** `docker compose up` menyalakan postgres, redis, minio, mailpit. Monorepo kosong dengan paket yang terdaftar.
+**Status:** implemented locally (QA `docs/qa/M0-scaffold.md`)  
+**Spec:** `docs/product/M0-scaffold.md`  
+**Goal:** `docker compose up --build` menyalakan data plane + api + worker + web.
 
 Issues:
 

@@ -1,0 +1,27 @@
+{
+  "name": "ai-gen-free",
+  "private": true,
+  "packageManager": "pnpm@9.15.9",
+  "scripts": {
+    "dev:api": "pnpm --filter @ai-gen-free/api dev",
+    "dev:worker": "pnpm --filter @ai-gen-free/worker dev",
+    "dev:web": "pnpm --filter @ai-gen-free/web dev",
+    "build": "pnpm -r build",
+    "db:generate": "prisma generate --schema prisma/schema.prisma",
+    "db:migrate": "prisma migrate deploy --schema prisma/schema.prisma",
+    "db:seed": "tsx prisma/seed.ts",
+    "db:migrate-seed": "pnpm db:migrate && pnpm db:seed"
+  },
+  "devDependencies": {
+    "prisma": "^6.16.1",
+    "tsx": "^4.20.5",
+    "typescript": "^5.9.2"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.16.1"
+  },
+  "prisma": {
+    "schema": "prisma/schema.prisma",
+    "seed": "tsx prisma/seed.ts"
+  }
+}

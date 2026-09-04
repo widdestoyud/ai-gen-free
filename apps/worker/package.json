@@ -1,0 +1,18 @@
+{
+  "name": "@ai-gen-free/worker",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts"
+  },
+  "dependencies": {
+    "@ai-gen-free/core": "workspace:*",
+    "@ai-gen-free/db": "workspace:*",
+    "@ai-gen-free/providers-siray": "workspace:*",
+    "bullmq": "^5.58.5",
+    "fastify": "^5.6.0",
+    "ioredis": "^5.7.0"
+  }
+}

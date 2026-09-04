@@ -1,0 +1,21 @@
+export const ErrorCodes = {
+  NOT_READY: "NOT_READY",
+  UNAUTHENTICATED: "UNAUTHENTICATED",
+  FORBIDDEN: "FORBIDDEN",
+  RATE_LIMITED: "RATE_LIMITED",
+  INVALID_EMAIL: "INVALID_EMAIL",
+  OTP_INVALID: "OTP_INVALID",
+  OTP_EXPIRED: "OTP_EXPIRED",
+  OTP_LOCKED: "OTP_LOCKED",
+  JOB_IN_PROGRESS: "JOB_IN_PROGRESS",
+  COOLDOWN: "COOLDOWN",
+  INSUFFICIENT_POINTS: "INSUFFICIENT_POINTS",
+  VALIDATION_ERROR: "VALIDATION_ERROR",
+  NOT_FOUND: "NOT_FOUND",
+} as const;
+
+export type ErrorCode = (typeof ErrorCodes)[keyof typeof ErrorCodes];
+
+export type ApiErrorBody = {
+  error: { code: string; message: string };
+};

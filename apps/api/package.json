@@ -1,0 +1,16 @@
+{
+  "name": "@ai-gen-free/api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts"
+  },
+  "dependencies": {
+    "@ai-gen-free/core": "workspace:*",
+    "@ai-gen-free/db": "workspace:*",
+    "@fastify/cors": "^11.1.0",
+    "fastify": "^5.6.0"
+  }
+}
