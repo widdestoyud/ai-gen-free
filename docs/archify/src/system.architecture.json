@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "ai-gen-free system map",
+    "output": "docs/archify/html/system.architecture.html",
+    "quality_profile": "showcase",
+    "views": [
+      { "id": "user-request", "label": "User request path", "focus": ["browser", "web", "api", "postgres"], "note": "Browser talks only to the web UI; the API owns auth, jobs, and the ledger." },
+      { "id": "generate-path", "label": "Background generate", "focus": ["api", "redis", "worker", "siray", "minio"], "note": "Jobs leave the HTTP request immediately and finish in the worker." },
+      { "id": "admin-edge", "label": "Admin edge", "focus": ["admin", "web", "api", "postgres"], "note": "Basic Auth sits in front of /admin; role=admin is still checked in the API." }
+    ]
+  },
+  "components": [
+    { "id": "browser", "type": "external", "label": "Browser", "sublabel": "user + admin", "pos": [40, 300], "size": [120, 60] },
+    { "id": "admin", "type": "security", "label": "Basic Auth", "sublabel": "/admin gateway", "pos": [40, 120], "size": [120, 64], "tag": "proxy" },
+    { "id": "web", "type": "frontend", "label": "apps/web", "sublabel": "Next.js UI", "pos": [250, 300], "size": [130, 60] },
+    { "id": "api", "type": "backend", "label": "apps/api", "sublabel": "Fastify :3001", "pos": [480, 300], "size": [130, 60] },
+    { "id": "postgres", "type": "database", "label": "PostgreSQL", "sublabel": "Prisma ledger", "pos": [720, 300], "size": [130, 60] },
+    { "id": "redis", "type": "messagebus", "label": "Redis", "sublabel": "BullMQ", "pos": [480, 460], "size": [130, 60] },
+    { "id": "worker", "type": "backend", "label": "apps/worker", "sublabel": "generate jobs", "pos": [720, 460], "size": [130, 60] },
+    { "id": "minio", "type": "cloud", "label": "MinIO / R2", "sublabel": "14-day TTL", "pos": [950, 460], "size": [130, 60] },
+    { "id": "siray", "type": "external", "label": "Siray", "sublabel": "GenerationProvider", "pos": [950, 300], "size": [130, 60], "tag": "adapter" },
+    { "id": "mail", "type": "external", "label": "SMTP", "sublabel": "Mailpit / Resend", "pos": [250, 120], "size": [130, 60] }
+  ],
+  "boundaries": [
+    { "kind": "region", "label": "Docker Compose", "wraps": ["web", "api", "postgres", "redis", "worker", "minio", "mail"] },
+    { "kind": "security-group", "label": "packages/core — no Siray SDK", "wraps": ["api", "worker"] }
+  ],
+  "connections": [
+    { "id": "browser-web", "from": "browser", "to": "web", "variant": "emphasis" },
+    { "id": "admin-web", "from": "admin", "to": "web", "label": "Basic Auth", "variant": "security" },
+    { "id": "web-api", "from": "web", "to": "api" },
+    { "id": "api-otp", "from": "api", "to": "mail", "label": "OTP", "variant": "dashed" },
+    { "id": "api-sql", "from": "api", "to": "postgres", "label": "Prisma TX" },
+    { "id": "api-enqueue", "from": "api", "to": "redis", "variant": "dashed" },
+    { "id": "redis-worker", "from": "redis", "to": "worker" },
+    { "id": "worker-siray", "from": "worker", "to": "siray", "label": "adapter" },
+    { "id": "worker-minio", "from": "worker", "to": "minio" },
+    { "id": "worker-sql", "from": "worker", "to": "postgres", "label": "capture" }
+  ],
+  "cards": [
+    { "dot": "cyan", "title": "UI boundary", "items": ["Next.js never calls Siray or mutates the ledger", "Refresh only polls GET /api/jobs/:id"] },
+    { "dot": "emerald", "title": "Generate path", "items": ["POST /jobs returns 202 after hold + enqueue", "Worker copies Siray output into private object storage"] },
+    { "dot": "rose", "title": "Trust", "items": ["Cost and role never come from the client", "Admin is Basic Auth plus a seeded role, not a public login switch"] }
+  ]
+}

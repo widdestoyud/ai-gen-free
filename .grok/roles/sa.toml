@@ -1,0 +1,4 @@
+description = "Solutions Architect — contracts and ADRs, no feature code"
+default_capability_mode = "read-write"
+reasoning_effort = "high"
+prompt_file = ".grok/agents/sa.md"

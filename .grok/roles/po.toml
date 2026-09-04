@@ -1,0 +1,4 @@
+description = "Product Owner — stories and acceptance, no app code"
+default_capability_mode = "read-write"
+reasoning_effort = "high"
+prompt_file = ".grok/agents/po.md"

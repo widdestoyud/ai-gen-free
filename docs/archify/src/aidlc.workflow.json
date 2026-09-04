@@ -1,0 +1,54 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "AIDLC MVP — orchestrator and specialists",
+    "output": "docs/archify/html/aidlc.workflow.html",
+    "quality_profile": "showcase",
+    "views": [
+      { "id": "happy-path", "label": "Happy path", "focus": ["user", "orch", "po", "sa", "build", "qa", "github"], "note": "Conductor routes work through PO, SA, construction, then QA before GitHub." },
+      { "id": "gate", "label": "Human gates", "focus": ["orch", "gate", "po", "sa"], "note": "No construction starts until the user approves PO + SA artifacts." },
+      { "id": "records", "label": "Project records", "focus": ["github", "qa", "build"], "note": "Milestones and issues are the durable project board, not chat history." }
+    ]
+  },
+  "lanes": [
+    { "id": "human", "label": "Human" },
+    { "id": "conductor", "label": "Orchestrator" },
+    { "id": "specialists", "label": "Specialists" },
+    { "id": "records", "label": "GitHub records" }
+  ],
+  "phases": [
+    { "id": "ideation", "label": "Ideation", "fromCol": 0, "toCol": 1 },
+    { "id": "inception", "label": "Inception", "fromCol": 2, "toCol": 2, "variant": "emphasis" },
+    { "id": "construction", "label": "Construction", "fromCol": 3, "toCol": 5, "variant": "dashed" }
+  ],
+  "groups": [
+    { "id": "gate_group", "label": "Verification gate", "lane": "human", "fromCol": 2, "toCol": 3, "variant": "security" },
+    { "id": "build_group", "label": "BE + FE in parallel", "lane": "specialists", "fromCol": 3, "toCol": 4, "variant": "emphasis" }
+  ],
+  "mainPath": ["user", "orch", "po", "sa", "gate", "build", "qa", "github"],
+  "nodes": [
+    { "id": "user", "lane": "human", "col": 0, "type": "external", "label": "Product owner (human)", "sublabel": "intent + gates", "width": 140 },
+    { "id": "gate", "lane": "human", "col": 3, "type": "security", "label": "Approve gate", "sublabel": "PO + SA artifacts", "tag": "stop / go", "width": 140 },
+    { "id": "orch", "lane": "conductor", "col": 1, "type": "backend", "label": "Orchestrator", "sublabel": "AIDLC conductor", "tag": "no domain code", "width": 140 },
+    { "id": "po", "lane": "specialists", "col": 1, "type": "frontend", "label": "PO agent", "sublabel": "stories + acceptance", "width": 132 },
+    { "id": "sa", "lane": "specialists", "col": 2, "type": "backend", "label": "SA agent", "sublabel": "ADR + contracts", "width": 132 },
+    { "id": "build", "lane": "specialists", "col": 4, "type": "backend", "label": "BE + FE agents", "sublabel": "api / web / worker", "tag": "parallel", "width": 140 },
+    { "id": "qa", "lane": "specialists", "col": 5, "type": "security", "label": "QA agent", "sublabel": "race + policy tests", "width": 132 },
+    { "id": "github", "lane": "records", "col": 5, "type": "cloud", "label": "GitHub", "sublabel": "issues + milestones", "width": 132 }
+  ],
+  "edges": [
+    { "id": "intent", "from": "user", "to": "orch", "label": "intent", "variant": "emphasis" },
+    { "id": "dispatch-po", "from": "orch", "to": "po", "label": "dispatch PO" },
+    { "id": "po-sa", "from": "po", "to": "sa", "label": "stories" },
+    { "id": "sa-gate", "from": "sa", "to": "gate", "label": "design pack", "variant": "security" },
+    { "id": "gate-build", "from": "gate", "to": "build", "label": "approved", "variant": "emphasis" },
+    { "id": "gate-reject", "from": "gate", "to": "orch", "label": "revise", "variant": "dashed", "role": "branch" },
+    { "id": "build-qa", "from": "build", "to": "qa", "label": "diff + contracts" },
+    { "id": "qa-github", "from": "qa", "to": "github", "label": "pass / fail issues" }
+  ],
+  "cards": [
+    { "dot": "cyan", "title": "Conductor", "items": ["Orchestrator never writes product code", "It only routes, gates, and records"] },
+    { "dot": "rose", "title": "Gate", "items": ["Construction is blocked until PO + SA artifacts are approved", "Failed QA opens issues; it does not silently merge"] }
+  ]
+}

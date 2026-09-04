@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Dokumentasi arsitektur
+    url: https://github.com/widdestoyud/ai-gen-free/blob/main/docs/architecture.md
+    about: Baca ADR dan peta sistem sebelum buka issue spekulatif

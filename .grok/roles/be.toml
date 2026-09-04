@@ -1,0 +1,4 @@
+description = "Backend implementer — api, worker, packages, prisma"
+default_capability_mode = "all"
+reasoning_effort = "high"
+prompt_file = ".grok/agents/be.md"

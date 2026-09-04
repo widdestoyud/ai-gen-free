@@ -1,0 +1,40 @@
+name: Unit kerja AIDLC
+description: Satu unit untuk orchestrator (PO → SA → BE/FE → QA)
+title: "[Mx] "
+labels: ["aidlc"]
+body:
+  - type: dropdown
+    id: role
+    attributes:
+      label: Role pemilik
+      options: [po, sa, be, fe, qa, orch]
+    validations:
+      required: true
+  - type: dropdown
+    id: milestone_name
+    attributes:
+      label: Milestone
+      options: [M0-scaffold, M1-auth, M2-wallet, M3-jobs-dummy, M4-siray-t2i, M5-admin-retention]
+    validations:
+      required: true
+  - type: input
+    id: unit_id
+    attributes:
+      label: Unit id
+      placeholder: M1-auth
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance
+      description: Given / When / Then. Wajib merujuk ADR jika menyentuh poin, sesi, atau job.
+    validations:
+      required: true
+  - type: textarea
+    id: ownership
+    attributes:
+      label: File ownership
+      placeholder: BE = apps/api … ; FE = apps/web only
+    validations:
+      required: true

@@ -1,0 +1,228 @@
+// Sumber kebenaran data. Ubah schema dulu, baru kode.
+// Lihat docs/adr/0002-prisma.md dan docs/domain/*.md
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  user
+  admin
+}
+
+enum SessionKind {
+  user
+  admin
+}
+
+enum JobStatus {
+  queued
+  running
+  succeeded
+  failed
+  canceled
+}
+
+enum JobMode {
+  t2i
+  i2i
+  t2v
+  i2v
+  inpaint
+  faceswap
+}
+
+enum LedgerType {
+  topup
+  hold
+  capture
+  release
+  refund
+  adjust
+}
+
+enum LedgerStatus {
+  pending
+  posted
+  void
+}
+
+enum InvoiceStatus {
+  unpaid
+  paid
+  expired
+  canceled
+}
+
+enum AssetKind {
+  input
+  output
+}
+
+model User {
+  id              String    @id @default(cuid())
+  email           String    @unique
+  emailVerifiedAt DateTime?
+  role            UserRole  @default(user)
+  bannedAt        DateTime?
+  nextGenerateAt  DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  wallet        Wallet?
+  sessions      Session[]
+  jobs          Job[]
+  ledgerEntries LedgerEntry[]
+  invoices      Invoice[]
+  auditLogs     AuditLog[]    @relation("AuditActor")
+}
+
+model Wallet {
+  userId          String   @id
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// Cache saja. Sumber kebenaran = ledger_entries.
+  availableCached Decimal  @default(0) @db.Decimal(20, 0)
+  version         Int      @default(0)
+  updatedAt       DateTime @updatedAt
+}
+
+model Session {
+  id        String      @id @default(cuid())
+  userId    String
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind      SessionKind
+  tokenHash String      @unique
+  expiresAt DateTime
+  ip        String?
+  userAgent String?
+  createdAt DateTime    @default(now())
+
+  @@index([userId, kind])
+}
+
+model OtpChallenge {
+  id         String    @id @default(cuid())
+  email      String
+  codeHash   String
+  expiresAt  DateTime
+  attempts   Int       @default(0)
+  consumedAt DateTime?
+  ip         String?
+  createdAt  DateTime  @default(now())
+
+  @@index([email, consumedAt])
+}
+
+model Job {
+  id             String    @id @default(cuid())
+  userId         String
+  user           User      @relation(fields: [userId], references: [id], onDelete: Restrict)
+  mode           JobMode
+  status         JobStatus @default(queued)
+  cost           Decimal   @db.Decimal(20, 0)
+  modelId        String
+  providerId     String
+  providerJobId  String?
+  prompt         String    @db.Text
+  params         Json      @default("{}")
+  errorCode      String?
+  progressPct    Int       @default(0)
+  queuePosition  Int?
+  startedAt      DateTime?
+  finishedAt     DateTime?
+  nextGenerateAt DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  assets        JobAsset[]
+  ledgerEntries LedgerEntry[]
+
+  @@index([userId, createdAt])
+  @@index([status, createdAt])
+}
+
+model JobAsset {
+  id          String    @id @default(cuid())
+  jobId       String
+  job         Job       @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  kind        AssetKind
+  storageKey  String
+  sha256      String?
+  phash       String?
+  contentType String
+  bytes       Int
+  expiresAt   DateTime
+  createdAt   DateTime  @default(now())
+
+  @@index([expiresAt])
+}
+
+model LedgerEntry {
+  id              String       @id @default(cuid())
+  userId          String
+  user            User         @relation(fields: [userId], references: [id], onDelete: Restrict)
+  jobId           String?
+  job             Job?         @relation(fields: [jobId], references: [id], onDelete: SetNull)
+  invoiceId       String?
+  invoice         Invoice?     @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  type            LedgerType
+  status          LedgerStatus
+  amount          Decimal      @db.Decimal(20, 0)
+  idempotencyKey  String       @unique
+  reason          String?
+  createdByUserId String?
+  createdAt       DateTime     @default(now())
+
+  @@index([userId, createdAt])
+}
+
+model Invoice {
+  id              String        @id @default(cuid())
+  userId          String
+  user            User          @relation(fields: [userId], references: [id], onDelete: Restrict)
+  amountIdr       Decimal       @db.Decimal(20, 2)
+  points          Decimal       @db.Decimal(20, 0)
+  status          InvoiceStatus @default(unpaid)
+  uniqueCode      String        @unique
+  paidAt          DateTime?
+  paidByAdminId   String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  ledgerEntries   LedgerEntry[]
+}
+
+model AppSetting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+}
+
+model ModelCatalog {
+  id         String   @id @default(cuid())
+  mode       JobMode
+  modelId    String
+  providerId String
+  costPoints Decimal  @db.Decimal(20, 0)
+  enabled    Boolean  @default(true)
+  createdAt  DateTime @default(now())
+
+  @@unique([mode, modelId])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  actorId   String?
+  actor     User?    @relation("AuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+  action    String
+  target    String?
+  ip        String?
+  meta      Json     @default("{}")
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}
