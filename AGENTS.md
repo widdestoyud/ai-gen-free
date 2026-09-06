@@ -116,3 +116,8 @@ UI dan Route Handler Next.js **dilarang** memanggil SDK Siray, Prisma wallet mut
 - Error API: `{ error: { code, message } }`.
 - Log: jangan kirim foto input / prompt kesusilaan ke Sentry tanpa redaksi.
 - Commit: kecil, satu topik. Jangan campur schema + UI acak.
+
+## Directives & Permissions Agent
+
+- Agen diizinkan secara otomatis mengeksekusi perintah terminal alur pengujian & pengembangan (`cmd /c git status`, `cmd /c git diff`, `cmd /c pnpm test`, `cmd /c git add`, `cmd /c git commit`, `cmd /c git push`, `docker compose`).
+- Agen diizinkan mengedit dan membuat file kode di dalam workspace tanpa perlu konfirmasi manual berulang.

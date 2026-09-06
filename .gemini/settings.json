@@ -1,0 +1,15 @@
+{
+  "antigravity.permissions.autoApprove": [
+    "run_command",
+    "write_to_file",
+    "replace_file_content"
+  ],
+  "antigravity.terminal.autoApproveCommands": [
+    "git *",
+    "cmd /c git *",
+    "pnpm *",
+    "cmd /c pnpm *",
+    "docker *",
+    "cmd /c docker *"
+  ]
+}
