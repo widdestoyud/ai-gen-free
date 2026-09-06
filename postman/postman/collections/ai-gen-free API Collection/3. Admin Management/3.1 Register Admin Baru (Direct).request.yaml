@@ -1,0 +1,14 @@
+$kind: http-request
+description: Mendaftar akun admin baru secara langsung dengan role admin dan email terverifikasi otomatis (tanpa perlu OTP atau verifikasi email).
+url: "{{baseUrl}}/admin/register"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "email": "admin.baru@gmail.com",
+      "password": "AdminPassword123!"
+    }
+order: 1000

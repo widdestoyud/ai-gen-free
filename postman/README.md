@@ -52,10 +52,12 @@ Port `4000` telah dipublish ke host di `docker-compose.yml`.
 ### 7. Logout User (`POST /user/logout` & `POST /auth/logout`)
 - Mencabut sesi user aktif di database dan menghapus cookie `sid`.
 
-### 8. Admin Management (`POST /admin/register`, `POST /admin/login`, `GET /admin/customer/list`, `POST /admin/logout`)
-- `POST /admin/register`: Mendaftar akun admin baru langsung dengan `role: "admin"` tanpa memerlukan OTP atau verifikasi email.
-- `POST /admin/login`: Login khusus admin via email + password tanpa OTP.
-- `GET /admin/customer/list`: Melihat seluruh daftar pengguna customer/user (khusus role admin).
+### 8. Admin Management (`POST /admin/register`, `POST /admin/login`, `GET /admin/customer/list`, `PUT /admin/settings/generate_cooldown_seconds`, `POST /admin/logout`)
+- `POST /admin/register`: Body `{ "username": "admin123", "password": "AdminPassword123!" }`. Mendaftar akun admin baru langsung dengan `role: "admin"` (tanpa OTP/verifikasi email).
+- `POST /admin/login`: Body `{ "username": "admin123", "password": "AdminPassword123!" }`. Login admin via username & password.
+- `GET /admin/customer/list`: Header/Cookie `sid_admin`. Melihat seluruh daftar pengguna customer/user.
+- `PUT /admin/settings/generate_cooldown_seconds`: Body `{ "value": 3600 }`. Mengubah durasi cooldown generator global.
 - `POST /admin/logout`: Mencabut sesi admin dan menghapus cookie `sid_admin`.
+
 
 

@@ -62,8 +62,9 @@ export async function registerAdminRoutes(app: FastifyInstance, deps: { storage:
   // -------------------------------------------------------------
   const handleAdminRegister = async (req: any, reply: any) => {
     try {
-      const body = (req.body ?? {}) as { email?: unknown; password?: unknown };
+      const body = (req.body ?? {}) as { username?: unknown; email?: unknown; password?: unknown };
       const result = await registerAdmin({
+        usernameRaw: body.username,
         emailRaw: body.email,
         passwordRaw: body.password,
         ip: requestIp(req),
@@ -89,8 +90,9 @@ export async function registerAdminRoutes(app: FastifyInstance, deps: { storage:
   // -------------------------------------------------------------
   const handleAdminLogin = async (req: any, reply: any) => {
     try {
-      const body = (req.body ?? {}) as { email?: unknown; password?: unknown };
+      const body = (req.body ?? {}) as { username?: unknown; email?: unknown; password?: unknown };
       const result = await loginAdmin({
+        usernameRaw: body.username,
         emailRaw: body.email,
         passwordRaw: body.password,
         ip: requestIp(req),

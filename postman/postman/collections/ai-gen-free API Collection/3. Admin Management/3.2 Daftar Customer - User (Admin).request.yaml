@@ -5,4 +5,4 @@ url: "{{baseUrl}}/admin/customer/list"
 method: GET
 headers:
   Cookie: sid_admin={{adminSessionToken}}
-order: 2000
+order: 3000

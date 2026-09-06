@@ -315,51 +315,8 @@ export async function registerAuthRoutes(
   });
 
   // -------------------------------------------------------------
-  // 8. ADMIN AUTH (Basic Auth + OTP)
+  // 8. ADMIN AUTH (Session Cookie / Header)
   // -------------------------------------------------------------
-  app.addHook("preHandler", async (req, reply) => {
-    if (!req.url.startsWith("/api/admin/auth/otp")) return;
-    if (!basicAuthorized(req.headers.authorization)) {
-      reply.header("WWW-Authenticate", 'Basic realm="admin"');
-      return reply.status(401).send({
-        error: { code: ErrorCodes.UNAUTHENTICATED, message: "Basic Auth wajib" },
-      });
-    }
-  });
-
-  app.post("/api/admin/auth/otp/request", async (req, reply) => {
-    try {
-      const body = (req.body ?? {}) as { email?: unknown };
-      await requestOtp({
-        emailRaw: body.email,
-        ip: clientIp(req),
-        redis: deps.redis,
-        mailer: deps.mailer,
-        adminOnly: true,
-      });
-      return { ok: true, message: AuthResponses.success.OTP_SENT.message };
-    } catch (err) {
-      return sendAuthError(reply, err, req);
-    }
-  });
-
-  app.post("/api/admin/auth/otp/verify", async (req, reply) => {
-    try {
-      const body = (req.body ?? {}) as { email?: unknown; code?: unknown };
-      const result = await verifyOtp({
-        emailRaw: body.email,
-        codeRaw: body.code,
-        ip: clientIp(req),
-        userAgent: typeof req.headers["user-agent"] === "string" ? req.headers["user-agent"] : undefined,
-        kind: "admin",
-      });
-      reply.setCookie("sid_admin", result.token, cookieOpts);
-      return { user: result.user, sessionToken: result.token, message: AuthResponses.success.LOGIN_SUCCESS.message };
-    } catch (err) {
-      return sendAuthError(reply, err, req);
-    }
-  });
-
   app.post("/api/admin/auth/logout", async (req, reply) => {
     await logout(req.cookies.sid_admin, "admin");
     reply.clearCookie("sid_admin", { path: "/" });

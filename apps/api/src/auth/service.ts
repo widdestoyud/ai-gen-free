@@ -834,30 +834,60 @@ export async function logout(token: string | undefined, kind: SessionKind) {
   await prisma.session.deleteMany({ where: { tokenHash, kind } });
 }
 
+export function parseAdminIdentifier(raw: unknown): { identifier: string; internalEmail: string } {
+  if (typeof raw !== "string" || !raw.trim()) {
+    throw new AuthError(AuthResponses.errors.INVALID_EMAIL.code, "Username atau email wajib diisi.");
+  }
+  const clean = raw.trim();
+  if (clean.includes("@")) {
+    const email = normalizeEmail(clean);
+    if (!isEmailFormat(email)) {
+      throw new AuthError(AuthResponses.errors.INVALID_EMAIL.code, AuthResponses.errors.INVALID_EMAIL.message);
+    }
+    return { identifier: email, internalEmail: email };
+  } else {
+    if (clean.length < 3) {
+      throw new AuthError(AuthResponses.errors.INVALID_EMAIL.code, "Username minimal 3 karakter.");
+    }
+    const cleanUser = clean.toLowerCase();
+    return { identifier: cleanUser, internalEmail: `${cleanUser}@admin.local` };
+  }
+}
+
 /**
- * Login admin menggunakan email dan password (tanpa OTP & tanpa verifikasi email):
+ * Login admin menggunakan username (atau email) dan password (tanpa OTP & verifikasi email):
  * - Memastikan user.role === "admin"
  * - Membuat sesi kind "admin" dan mengembalikan token
  */
 export async function loginAdmin(opts: {
-  emailRaw: unknown;
+  usernameRaw?: unknown;
+  emailRaw?: unknown;
   passwordRaw: unknown;
   ip: string;
   userAgent?: string;
   redis: IORedis;
-}): Promise<{ token: string; user: { id: string; email: string; role: "admin" }; message: string }> {
-  const email = parseEmailOrThrow(opts.emailRaw);
+}): Promise<{ token: string; user: { id: string; username: string; role: "admin" }; message: string }> {
+  const { identifier, internalEmail } = parseAdminIdentifier(opts.usernameRaw ?? opts.emailRaw);
   if (typeof opts.passwordRaw !== "string" || !opts.passwordRaw) {
     throw new AuthError(AuthResponses.errors.INVALID_CREDENTIALS.code, AuthResponses.errors.INVALID_CREDENTIALS.message, 401);
   }
 
-  // Rate limit admin login per IP + Email
-  const rl = await enforceRateLimit(opts.redis, `ratelimit:admin:login:${email}:${opts.ip}`, RateLimitConfig.login);
+  // Rate limit admin login per IP + identifier
+  const rl = await enforceRateLimit(opts.redis, `ratelimit:admin:login:${identifier}:${opts.ip}`, RateLimitConfig.login);
   if (!rl.allowed) {
     throw new AuthError(AuthResponses.errors.RATE_LIMITED.code, RateLimitConfig.login.message, 429);
   }
 
-  const user = await findUserOrThrow(email);
+  const user = await prisma.user.findFirst({
+    where: {
+      OR: [{ email: internalEmail }, { email: identifier }],
+    },
+  });
+
+  if (!user) {
+    throw new AuthError(AuthResponses.errors.INVALID_CREDENTIALS.code, AuthResponses.errors.INVALID_CREDENTIALS.message, 401);
+  }
+
   if (user.role !== "admin") {
     throw new AuthError(AuthResponses.errors.FORBIDDEN.code, "Akun Anda tidak memiliki hak akses sebagai admin.", 403);
   }
@@ -898,35 +928,34 @@ export async function loginAdmin(opts: {
 
   return {
     token,
-    user: { id: user.id, email: user.email, role: "admin" },
+    user: { id: user.id, username: identifier, role: "admin" },
     message: AuthResponses.success.ADMIN_LOGIN_SUCCESS.message,
   };
 }
 
 /**
- * Registrasi admin baru:
- * - Email wajib domain resmi (@gmail, @yahoo, @ymail)
- * - Password minimal 8 karakter, 1 huruf kapital, 1 angka
+ * Registrasi admin baru via username (atau email) & password:
  * - role: "admin", emailVerifiedAt: new Date() (tanpa OTP/verifikasi email)
  */
 export async function registerAdmin(opts: {
-  emailRaw: unknown;
+  usernameRaw?: unknown;
+  emailRaw?: unknown;
   passwordRaw: unknown;
   ip: string;
   redis: IORedis;
-}): Promise<{ message: string; user: { id: string; email: string; role: string } }> {
-  const email = parseEmailOrThrow(opts.emailRaw);
+}): Promise<{ message: string; user: { id: string; username: string; role: string } }> {
+  const { identifier, internalEmail } = parseAdminIdentifier(opts.usernameRaw ?? opts.emailRaw);
 
-  // Validasi domain whitelist
-  if (!isAllowedEmailDomain(email)) {
-    throw new AuthError(
-      AuthResponses.errors.INVALID_EMAIL_DOMAIN.code,
-      AuthResponses.errors.INVALID_EMAIL_DOMAIN.message,
-      AuthResponses.errors.INVALID_EMAIL_DOMAIN.status,
-    );
+  if (internalEmail.includes("@") && !internalEmail.endsWith("@admin.local")) {
+    if (!isAllowedEmailDomain(internalEmail)) {
+      throw new AuthError(
+        AuthResponses.errors.INVALID_EMAIL_DOMAIN.code,
+        AuthResponses.errors.INVALID_EMAIL_DOMAIN.message,
+        AuthResponses.errors.INVALID_EMAIL_DOMAIN.status,
+      );
+    }
   }
 
-  // Validasi kekuatan password
   const passCheck = validatePassword(opts.passwordRaw);
   if (!passCheck.valid) {
     throw new AuthError(
@@ -936,17 +965,20 @@ export async function registerAdmin(opts: {
     );
   }
 
-  // Rate limit registrasi per IP
   const rl = await enforceRateLimit(opts.redis, `ratelimit:register:ip:${opts.ip}`, RateLimitConfig.register);
   if (!rl.allowed) {
     throw new AuthError(AuthResponses.errors.RATE_LIMITED.code, RateLimitConfig.register.message, 429);
   }
 
-  const existing = await prisma.user.findUnique({ where: { email } });
+  const existing = await prisma.user.findFirst({
+    where: {
+      OR: [{ email: internalEmail }, { email: identifier }],
+    },
+  });
   if (existing) {
     throw new AuthError(
       AuthResponses.errors.EMAIL_ALREADY_REGISTERED.code,
-      AuthResponses.errors.EMAIL_ALREADY_REGISTERED.message,
+      "Username atau email ini sudah terdaftar.",
       AuthResponses.errors.EMAIL_ALREADY_REGISTERED.status,
     );
   }
@@ -955,10 +987,10 @@ export async function registerAdmin(opts: {
 
   const created = await prisma.user.create({
     data: {
-      email,
+      email: internalEmail,
       passwordHash,
       role: "admin",
-      emailVerifiedAt: new Date(), // Langsung terverifikasi tanpa OTP/email verification
+      emailVerifiedAt: new Date(),
       wallet: { create: {} },
     },
   });
@@ -967,9 +999,10 @@ export async function registerAdmin(opts: {
     message: AuthResponses.success.ADMIN_REGISTER_SUCCESS.message,
     user: {
       id: created.id,
-      email: created.email,
+      username: identifier,
       role: created.role,
     },
   };
 }
+
 
