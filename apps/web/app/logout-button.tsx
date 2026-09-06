@@ -1,27 +1,22 @@
 "use client";
 
+import { Button } from "@mantine/core";
 import { useRouter } from "next/navigation";
+import { logoutUser } from "@/lib/auth-actions";
 
 export function LogoutButton() {
   const router = useRouter();
   return (
-    <button
+    <Button
       type="button"
+      variant="default"
+      mt="sm"
       onClick={async () => {
-        await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
+        await logoutUser();
         router.refresh();
-      }}
-      style={{
-        marginTop: 12,
-        padding: "8px 12px",
-        borderRadius: 8,
-        border: 0,
-        background: "#2a2f3a",
-        color: "white",
-        cursor: "pointer",
       }}
     >
       Keluar
-    </button>
+    </Button>
   );
 }

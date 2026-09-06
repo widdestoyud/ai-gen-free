@@ -1,0 +1,15 @@
+---
+description: apps/web — Mantine + NextAuth
+globs: apps/web/**/*
+alwaysApply: false
+---
+
+`apps/web` only. HTTP to `apps/api`.
+
+- Mantine components and existing wrappers (`PageShell`, `ItemCard`, `ErrorAlert`, `AppLink`).
+- No `style={{ … }}`. No new hex colors in JSX.
+- Pages never import `next-auth`. Use `lib/auth-actions.ts` / `lib/server-api.ts`.
+- Login: OTP request still Fastify via `/api/auth/otp/request`; verify via session helpers.
+- Swapping session/storage/email adapters must not change layout or flows (ADR 0012).
+- Helpers: `apps/web/lib/api.ts`, `format.ts`, `server-api.ts`.
+- Do not import Prisma, BullMQ, or Siray.

@@ -1,4 +1,7 @@
+import "@mantine/core/styles.css";
+import { ColorSchemeScript, mantineHtmlProps } from "@mantine/core";
 import type { ReactNode } from "react";
+import { AppProviders } from "@/components/app-providers";
 
 export const metadata = {
   title: "ai-gen-free",
@@ -7,16 +10,12 @@ export const metadata = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="id">
-      <body
-        style={{
-          margin: 0,
-          fontFamily: "system-ui, sans-serif",
-          background: "#0f1115",
-          color: "#e8eaed",
-        }}
-      >
-        {children}
+    <html lang="id" {...mantineHtmlProps}>
+      <head>
+        <ColorSchemeScript defaultColorScheme="dark" />
+      </head>
+      <body>
+        <AppProviders>{children}</AppProviders>
       </body>
     </html>
   );

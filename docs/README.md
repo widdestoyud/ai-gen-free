@@ -5,7 +5,8 @@ Indeks untuk manusia dan agen AI. Baca `AGENTS.md` di root dulu.
 | Dokumen | Isi |
 |---|---|
 | [architecture.md](./architecture.md) | Sistem, batas aplikasi, alur, Docker |
-| [adr/](./adr/) | Keputusan arsitektur yang dikunci |
+| [adr/](./adr/) | Keputusan arsitektur yang dikunci (termasuk NextAuth, Mantine) |
+| [../.kiro/steering/](../.kiro/steering/) | Steering Kiro (dan ringkasan stack) |
 | [domain/auth.md](./domain/auth.md) | Email OTP, sesi tunggal |
 | [domain/wallet.md](./domain/wallet.md) | Ledger poin, hold/capture |
 | [domain/jobs.md](./domain/jobs.md) | Antrian, cooldown, 1 job aktif |

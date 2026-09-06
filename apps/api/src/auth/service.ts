@@ -1,17 +1,23 @@
 import type { SessionKind } from "@prisma/client";
 import {
+  AuthResponses,
   ErrorCodes,
   hashSecret,
+  isAllowedEmailDomain,
   isDisposableEmail,
   isEmailFormat,
   normalizeEmail,
   randomOtp,
   randomToken,
   safeEqualHex,
+  validatePassword,
+  hashPassword,
+  verifyPassword,
+  RateLimitConfig,
 } from "@ai-gen-free/core";
 import { prisma } from "@ai-gen-free/db";
 import type IORedis from "ioredis";
-import { hitLimit } from "./rate-limit.js";
+import { enforceRateLimit, hitLimit } from "./rate-limit.js";
 
 export class AuthError extends Error {
   constructor(
@@ -24,7 +30,7 @@ export class AuthError extends Error {
 }
 
 const OTP_TTL_MS = 10 * 60 * 1000;
-const OTP_MAX_ATTEMPTS = 5;
+const EMAIL_VERIFICATION_TTL_MS = 24 * 60 * 60 * 1000; // 24 jam
 const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 function appSecret(): string {
@@ -37,15 +43,623 @@ function appSecret(): string {
 
 export function parseEmailOrThrow(raw: unknown): string {
   if (typeof raw !== "string") {
-    throw new AuthError(ErrorCodes.INVALID_EMAIL, "Email tidak valid");
+    throw new AuthError(AuthResponses.errors.INVALID_EMAIL.code, AuthResponses.errors.INVALID_EMAIL.message);
   }
   const email = normalizeEmail(raw);
   if (!isEmailFormat(email) || isDisposableEmail(email)) {
-    throw new AuthError(ErrorCodes.INVALID_EMAIL, "Email tidak valid");
+    throw new AuthError(AuthResponses.errors.INVALID_EMAIL.code, AuthResponses.errors.INVALID_EMAIL.message);
   }
   return email;
 }
 
+/**
+ * Helper terpakai-ulang (reusable) untuk memastikan user dengan email terdaftar di database.
+ * Melempar AuthError EMAIL_NOT_FOUND (A018, HTTP 404) jika email tidak ditemukan.
+ */
+export async function findUserOrThrow(email: string) {
+  const user = await prisma.user.findUnique({ where: { email } });
+  if (!user) {
+    throw new AuthError(
+      AuthResponses.errors.EMAIL_NOT_FOUND.code,
+      AuthResponses.errors.EMAIL_NOT_FOUND.message,
+      AuthResponses.errors.EMAIL_NOT_FOUND.status,
+    );
+  }
+  return user;
+}
+
+/**
+ * Memastikan user atau request belum dalam keadaan login (active session).
+ * Melempar AuthError ALREADY_LOGGED_IN (A019, HTTP 409) jika user sudah login / memiliki sesi aktif.
+ */
+export async function ensureNotLoggedIn(userId: string, currentSessionToken?: string) {
+  if (currentSessionToken) {
+    const session = await userFromCookie(currentSessionToken, "user");
+    if (session) {
+      throw new AuthError(
+        AuthResponses.errors.ALREADY_LOGGED_IN.code,
+        AuthResponses.errors.ALREADY_LOGGED_IN.message,
+        AuthResponses.errors.ALREADY_LOGGED_IN.status,
+      );
+    }
+  }
+
+  const activeSession = await prisma.session.findFirst({
+    where: {
+      userId,
+      kind: "user",
+      expiresAt: { gt: new Date() },
+    },
+  });
+
+  if (activeSession) {
+    throw new AuthError(
+      AuthResponses.errors.ALREADY_LOGGED_IN.code,
+      AuthResponses.errors.ALREADY_LOGGED_IN.message,
+      AuthResponses.errors.ALREADY_LOGGED_IN.status,
+    );
+  }
+}
+
+/**
+ * Registrasi user baru:
+ * - Email wajib domain resmi (@gmail, @yahoo, @ymail)
+ * - Password minimal 8 karakter, 1 huruf kapital, 1 angka
+ * - Mengirim tautan verifikasi email ke user
+ */
+export async function registerUser(opts: {
+  emailRaw: unknown;
+  passwordRaw: unknown;
+  ip: string;
+  redis: IORedis;
+  mailer: import("@ai-gen-free/core").EmailPort;
+}): Promise<{ message: string; email: string }> {
+  const email = parseEmailOrThrow(opts.emailRaw);
+
+  // Validasi domain whitelist
+  if (!isAllowedEmailDomain(email)) {
+    throw new AuthError(
+      AuthResponses.errors.INVALID_EMAIL_DOMAIN.code,
+      AuthResponses.errors.INVALID_EMAIL_DOMAIN.message,
+      AuthResponses.errors.INVALID_EMAIL_DOMAIN.status,
+    );
+  }
+
+  // Validasi kekuatan password
+  const passCheck = validatePassword(opts.passwordRaw);
+  if (!passCheck.valid) {
+    throw new AuthError(
+      AuthResponses.errors.WEAK_PASSWORD.code,
+      passCheck.message ?? AuthResponses.errors.WEAK_PASSWORD.message,
+      AuthResponses.errors.WEAK_PASSWORD.status,
+    );
+  }
+
+  // Rate limit registrasi per IP
+  const rl = await enforceRateLimit(opts.redis, `ratelimit:register:ip:${opts.ip}`, RateLimitConfig.register);
+  if (!rl.allowed) {
+    throw new AuthError(AuthResponses.errors.RATE_LIMITED.code, RateLimitConfig.register.message, 429);
+  }
+
+  const existing = await prisma.user.findUnique({ where: { email } });
+  if (existing && existing.emailVerifiedAt) {
+    throw new AuthError(
+      AuthResponses.errors.EMAIL_ALREADY_REGISTERED.code,
+      AuthResponses.errors.EMAIL_ALREADY_REGISTERED.message,
+      AuthResponses.errors.EMAIL_ALREADY_REGISTERED.status,
+    );
+  }
+
+  const passwordHash = await hashPassword(opts.passwordRaw as string);
+
+  let userId: string;
+  if (existing) {
+    // User pernah daftar tapi belum verifikasi email -> perbarui password
+    userId = existing.id;
+    await prisma.user.update({
+      where: { id: existing.id },
+      data: { passwordHash },
+    });
+  } else {
+    // User baru
+    const created = await prisma.user.create({
+      data: {
+        email,
+        passwordHash,
+        role: "user",
+        emailVerifiedAt: null,
+        wallet: { create: {} },
+      },
+    });
+    userId = created.id;
+  }
+
+  // Generate verification token (24 jam)
+  const token = randomToken();
+  const tokenHash = hashSecret(appSecret(), token);
+
+  await prisma.$transaction([
+    prisma.emailVerificationToken.updateMany({
+      where: { userId, consumedAt: null },
+      data: { consumedAt: new Date() },
+    }),
+    prisma.emailVerificationToken.create({
+      data: {
+        userId,
+        tokenHash,
+        expiresAt: new Date(Date.now() + EMAIL_VERIFICATION_TTL_MS),
+      },
+    }),
+  ]);
+
+  try {
+    await opts.mailer.sendVerificationEmail(email, token);
+  } catch (err) {
+    const raw = err instanceof Error ? err.message : "";
+    console.error("verification mail failed", raw);
+    throw new AuthError(
+      AuthResponses.errors.EMAIL_UNAVAILABLE.code,
+      AuthResponses.errors.EMAIL_UNAVAILABLE.message,
+      503,
+    );
+  }
+
+  return {
+    message: AuthResponses.success.REGISTER.message,
+    email,
+  };
+}
+
+/**
+ * Validasi token email setelah mendaftar.
+ */
+export async function validateEmailToken(tokenRaw: unknown): Promise<{ message: string }> {
+  if (typeof tokenRaw !== "string" || !tokenRaw.trim()) {
+    throw new AuthError(
+      AuthResponses.errors.VERIFICATION_TOKEN_INVALID.code,
+      AuthResponses.errors.VERIFICATION_TOKEN_INVALID.message,
+      400,
+    );
+  }
+
+  const token = tokenRaw.trim();
+  const tokenHash = hashSecret(appSecret(), token);
+
+  const record = await prisma.emailVerificationToken.findFirst({
+    where: {
+      tokenHash,
+      consumedAt: null,
+      expiresAt: { gt: new Date() },
+    },
+  });
+
+  if (!record) {
+    throw new AuthError(
+      AuthResponses.errors.VERIFICATION_TOKEN_INVALID.code,
+      AuthResponses.errors.VERIFICATION_TOKEN_INVALID.message,
+      400,
+    );
+  }
+
+  await prisma.$transaction([
+    prisma.emailVerificationToken.update({
+      where: { id: record.id },
+      data: { consumedAt: new Date() },
+    }),
+    prisma.user.update({
+      where: { id: record.userId },
+      data: { emailVerifiedAt: new Date() },
+    }),
+  ]);
+
+  return { message: AuthResponses.success.EMAIL_VERIFIED.message };
+}
+
+/**
+ * Login user menggunakan email dan password:
+ * - Menolak bila belum verifikasi email
+ * - Deteksi ganti device / first login -> kirim OTP ke email
+ * - Sesi tunggal (login sukses mencabut sesi lama)
+ */
+export async function loginUser(opts: {
+  emailRaw: unknown;
+  passwordRaw: unknown;
+  deviceIdRaw?: unknown;
+  sessionTokenRaw?: string;
+  ip: string;
+  userAgent?: string;
+  redis: IORedis;
+  mailer: import("@ai-gen-free/core").EmailPort;
+}): Promise<
+  | { requiresOtp: true; deviceId: string; message: string; email: string }
+  | { requiresOtp: false; token: string; user: { id: string; email: string; role: "user" | "admin" }; message: string }
+> {
+  const email = parseEmailOrThrow(opts.emailRaw);
+  if (typeof opts.passwordRaw !== "string" || !opts.passwordRaw) {
+    throw new AuthError(AuthResponses.errors.INVALID_CREDENTIALS.code, AuthResponses.errors.INVALID_CREDENTIALS.message, 401);
+  }
+
+  const user = await findUserOrThrow(email);
+
+  // Mencegah login jika akun sudah dalam posisi login
+  await ensureNotLoggedIn(user.id, opts.sessionTokenRaw);
+
+  // Rate limit login attempt per email + IP
+  const rl = await enforceRateLimit(opts.redis, `ratelimit:login:${email}:${opts.ip}`, RateLimitConfig.login);
+  if (!rl.allowed) {
+    throw new AuthError(AuthResponses.errors.RATE_LIMITED.code, RateLimitConfig.login.message, 429);
+  }
+
+  if (!user.passwordHash) {
+    throw new AuthError(
+      AuthResponses.errors.INVALID_CREDENTIALS.code,
+      AuthResponses.errors.INVALID_CREDENTIALS.message,
+      AuthResponses.errors.INVALID_CREDENTIALS.status,
+    );
+  }
+
+  const validPassword = await verifyPassword(opts.passwordRaw, user.passwordHash);
+  if (!validPassword) {
+    throw new AuthError(
+      AuthResponses.errors.INVALID_CREDENTIALS.code,
+      AuthResponses.errors.INVALID_CREDENTIALS.message,
+      AuthResponses.errors.INVALID_CREDENTIALS.status,
+    );
+  }
+
+  if (!user.emailVerifiedAt) {
+    throw new AuthError(AuthResponses.errors.EMAIL_NOT_VERIFIED.code, AuthResponses.errors.EMAIL_NOT_VERIFIED.message, 403);
+  }
+
+  if (user.bannedAt) {
+    throw new AuthError(AuthResponses.errors.FORBIDDEN.code, AuthResponses.errors.FORBIDDEN.message, 403);
+  }
+
+  // Tentukan identifier device
+  const deviceId =
+    typeof opts.deviceIdRaw === "string" && opts.deviceIdRaw.trim().length > 0
+      ? opts.deviceIdRaw.trim()
+      : hashSecret(appSecret(), `${opts.userAgent ?? "default-agent"}:${opts.ip}`);
+
+  const isFirstLogin = !user.lastDeviceId || !user.lastLoginAt;
+  const isDeviceChanged = user.lastDeviceId !== deviceId;
+
+  // Jika login pertama kali ATAU ganti device -> kirim OTP untuk verifikasi perangkat
+  if (isFirstLogin || isDeviceChanged) {
+    // Rate limit pengiriman OTP (maks 3x per 30 menit)
+    const otpRl = await enforceRateLimit(opts.redis, `ratelimit:otp:request:${email}`, RateLimitConfig.otpRequest);
+    if (!otpRl.allowed) {
+      throw new AuthError(AuthResponses.errors.RATE_LIMITED.code, RateLimitConfig.otpRequest.message, 429);
+    }
+
+    const code = randomOtp();
+    const codeHash = hashSecret(appSecret(), `${email}:${code}`);
+
+    await prisma.otpChallenge.updateMany({
+      where: { email, consumedAt: null },
+      data: { consumedAt: new Date() },
+    });
+
+    await prisma.otpChallenge.create({
+      data: {
+        email,
+        codeHash,
+        expiresAt: new Date(Date.now() + OTP_TTL_MS),
+        ip: opts.ip,
+        attempts: 0,
+      },
+    });
+
+    try {
+      await opts.mailer.sendOtp(email, code);
+    } catch (err) {
+      const raw = err instanceof Error ? err.message : "";
+      console.error("otp mail failed", raw);
+      throw new AuthError(
+        AuthResponses.errors.EMAIL_UNAVAILABLE.code,
+        AuthResponses.errors.EMAIL_UNAVAILABLE.message,
+        503,
+      );
+    }
+
+    return {
+      requiresOtp: true,
+      deviceId,
+      email,
+      message: AuthResponses.errors.NEW_DEVICE_OTP_REQUIRED.message,
+    };
+  }
+
+  // Jika device sama -> langsung masuk, cabut semua sesi lama (single session)
+  const token = randomToken();
+  const tokenHash = hashSecret(appSecret(), token);
+
+  await prisma.$transaction([
+    prisma.session.deleteMany({ where: { userId: user.id, kind: "user" } }),
+    prisma.session.create({
+      data: {
+        userId: user.id,
+        kind: "user",
+        tokenHash,
+        expiresAt: new Date(Date.now() + SESSION_TTL_MS),
+        ip: opts.ip,
+        userAgent: opts.userAgent,
+      },
+    }),
+    prisma.user.update({
+      where: { id: user.id },
+      data: { lastLoginAt: new Date() },
+    }),
+  ]);
+
+  return {
+    requiresOtp: false,
+    token,
+    user: { id: user.id, email: user.email, role: user.role },
+    message: AuthResponses.success.LOGIN_SUCCESS.message,
+  };
+}
+
+/**
+ * Permintaan kirim ulang OTP (/auth/otp):
+ * - Dibatasi maksimal 3x per 30 menit.
+ */
+export async function resendOtp(opts: {
+  emailRaw: unknown;
+  sessionTokenRaw?: string;
+  ip: string;
+  redis: IORedis;
+  mailer: import("@ai-gen-free/core").EmailPort;
+}): Promise<{ message: string }> {
+  const email = parseEmailOrThrow(opts.emailRaw);
+
+  const user = await findUserOrThrow(email);
+  if (user.bannedAt) {
+    throw new AuthError(AuthResponses.errors.FORBIDDEN.code, AuthResponses.errors.FORBIDDEN.message, 403);
+  }
+
+  // Mencegah request OTP jika akun sudah dalam posisi login
+  await ensureNotLoggedIn(user.id, opts.sessionTokenRaw);
+
+  // Rate limit: 3x per 30 menit
+  const rl = await enforceRateLimit(opts.redis, `ratelimit:otp:request:${email}`, RateLimitConfig.otpRequest);
+  if (!rl.allowed) {
+    throw new AuthError(AuthResponses.errors.RATE_LIMITED.code, RateLimitConfig.otpRequest.message, 429);
+  }
+
+  const code = randomOtp();
+  const codeHash = hashSecret(appSecret(), `${email}:${code}`);
+
+  await prisma.otpChallenge.updateMany({
+    where: { email, consumedAt: null },
+    data: { consumedAt: new Date() },
+  });
+
+  await prisma.otpChallenge.create({
+    data: {
+      email,
+      codeHash,
+      expiresAt: new Date(Date.now() + OTP_TTL_MS),
+      ip: opts.ip,
+      attempts: 0,
+    },
+  });
+
+  try {
+    await opts.mailer.sendOtp(email, code);
+  } catch (err) {
+    const raw = err instanceof Error ? err.message : "";
+    console.error("otp mail failed", raw);
+    throw new AuthError(
+      AuthResponses.errors.EMAIL_UNAVAILABLE.code,
+      AuthResponses.errors.EMAIL_UNAVAILABLE.message,
+      503,
+    );
+  }
+
+  return { message: AuthResponses.success.OTP_SENT.message };
+}
+
+/**
+ * Validasi OTP (/auth/otp-validation):
+ * - Jika 3x salah input OTP -> kode OTP dikunci permanen
+ * - Sukses validasi -> update lastDeviceId, cabut sesi lama (single session)
+ */
+export async function validateOtp(opts: {
+  emailRaw: unknown;
+  codeRaw: unknown;
+  deviceIdRaw?: unknown;
+  sessionTokenRaw?: string;
+  ip: string;
+  userAgent?: string;
+  kind?: SessionKind;
+}): Promise<{ token: string; user: { id: string; email: string; role: "user" | "admin" }; message: string }> {
+  const email = parseEmailOrThrow(opts.emailRaw);
+  const kind: SessionKind = opts.kind ?? "user";
+
+  const user = await findUserOrThrow(email);
+  if (user.bannedAt) {
+    throw new AuthError(AuthResponses.errors.FORBIDDEN.code, AuthResponses.errors.FORBIDDEN.message, 403);
+  }
+
+  // Mencegah validasi OTP jika akun sudah dalam posisi login
+  await ensureNotLoggedIn(user.id, opts.sessionTokenRaw);
+
+  if (typeof opts.codeRaw !== "string" || !/^\d{6}$/.test(opts.codeRaw)) {
+    throw new AuthError(AuthResponses.errors.OTP_INVALID.code, AuthResponses.errors.OTP_INVALID.message);
+  }
+
+  const challenge = await prisma.otpChallenge.findFirst({
+    where: { email, consumedAt: null },
+    orderBy: { createdAt: "desc" },
+  });
+
+  if (!challenge) {
+    throw new AuthError(AuthResponses.errors.OTP_INVALID.code, AuthResponses.errors.OTP_INVALID.message);
+  }
+
+  if (challenge.expiresAt.getTime() < Date.now()) {
+    throw new AuthError(AuthResponses.errors.OTP_EXPIRED.code, AuthResponses.errors.OTP_EXPIRED.message);
+  }
+
+  // Jika sudah 3x salah sebelumnya, tolak langsung
+  if (challenge.attempts >= RateLimitConfig.otpValidation.maxAttempts) {
+    await prisma.otpChallenge.update({
+      where: { id: challenge.id },
+      data: { consumedAt: new Date() },
+    });
+    throw new AuthError(AuthResponses.errors.OTP_LOCKED.code, RateLimitConfig.otpValidation.message, 429);
+  }
+
+  const expected = hashSecret(appSecret(), `${email}:${opts.codeRaw}`);
+  if (!safeEqualHex(expected, challenge.codeHash)) {
+    const newAttempts = challenge.attempts + 1;
+    if (newAttempts >= RateLimitConfig.otpValidation.maxAttempts) {
+      // Kunci permanen
+      await prisma.otpChallenge.update({
+        where: { id: challenge.id },
+        data: { attempts: newAttempts, consumedAt: new Date() },
+      });
+      throw new AuthError(AuthResponses.errors.OTP_LOCKED.code, RateLimitConfig.otpValidation.message, 429);
+    } else {
+      await prisma.otpChallenge.update({
+        where: { id: challenge.id },
+        data: { attempts: newAttempts },
+      });
+      const remaining = RateLimitConfig.otpValidation.maxAttempts - newAttempts;
+      throw new AuthError(
+        AuthResponses.errors.OTP_INVALID.code,
+        `Kode OTP salah. Sisa percobaan: ${remaining}x.`,
+        400,
+      );
+    }
+  }
+
+  // OTP Benar -> Burn challenge
+  await prisma.otpChallenge.update({
+    where: { id: challenge.id },
+    data: { consumedAt: new Date() },
+  });
+  await prisma.otpChallenge.updateMany({
+    where: { email, consumedAt: null },
+    data: { consumedAt: new Date() },
+  });
+
+
+  const deviceId =
+    typeof opts.deviceIdRaw === "string" && opts.deviceIdRaw.trim().length > 0
+      ? opts.deviceIdRaw.trim()
+      : hashSecret(appSecret(), `${opts.userAgent ?? "default-agent"}:${opts.ip}`);
+
+  // Sesi tunggal: cabut semua sesi lama
+  const token = randomToken();
+  const tokenHash = hashSecret(appSecret(), token);
+
+  await prisma.$transaction([
+    prisma.session.deleteMany({ where: { userId: user.id, kind } }),
+    prisma.session.create({
+      data: {
+        userId: user.id,
+        kind,
+        tokenHash,
+        expiresAt: new Date(Date.now() + SESSION_TTL_MS),
+        ip: opts.ip,
+        userAgent: opts.userAgent,
+      },
+    }),
+    prisma.user.update({
+      where: { id: user.id },
+      data: {
+        lastDeviceId: deviceId,
+        lastLoginAt: new Date(),
+        emailVerifiedAt: user.emailVerifiedAt ?? new Date(),
+      },
+    }),
+  ]);
+
+  return {
+    token,
+    user: { id: user.id, email: user.email, role: user.role },
+    message: AuthResponses.success.OTP_VALIDATED.message,
+  };
+}
+
+/**
+ * Ambil data profil user saat ini (IDOR SAFE: identitas dari session.userId).
+ */
+export async function getUserProfile(userId: string) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      email: true,
+      displayName: true,
+      phoneNumber: true,
+      ktp: true,
+      address: true,
+      role: true,
+      emailVerifiedAt: true,
+      createdAt: true,
+      updatedAt: true,
+    },
+  });
+  if (!user) {
+    throw new AuthError(AuthResponses.errors.UNAUTHENTICATED.code, AuthResponses.errors.UNAUTHENTICATED.message, 401);
+  }
+  return user;
+}
+
+/**
+ * Update data profil user (IDOR SAFE: identitas mutlak dari session.userId).
+ * Parameter userId dari request body atau query sengaja diabaikan.
+ */
+export async function updateUserProfile(
+  userId: string,
+  data: {
+    displayName?: unknown;
+    phoneNumber?: unknown;
+    ktp?: unknown;
+    address?: unknown;
+  },
+) {
+  const updateData: {
+    displayName?: string;
+    phoneNumber?: string;
+    ktp?: string;
+    address?: string;
+  } = {};
+
+  if (typeof data.displayName === "string") updateData.displayName = data.displayName.trim();
+  if (typeof data.phoneNumber === "string") updateData.phoneNumber = data.phoneNumber.trim();
+  if (typeof data.ktp === "string") updateData.ktp = data.ktp.trim();
+  if (typeof data.address === "string") updateData.address = data.address.trim();
+
+  const user = await prisma.user.update({
+    where: { id: userId },
+    data: updateData,
+    select: {
+      id: true,
+      email: true,
+      displayName: true,
+      phoneNumber: true,
+      ktp: true,
+      address: true,
+      role: true,
+      emailVerifiedAt: true,
+      createdAt: true,
+      updatedAt: true,
+    },
+  });
+
+  return {
+    user,
+    message: AuthResponses.success.PROFILE_UPDATED.message,
+  };
+}
+
+/**
+ * Legacy requestOtp (kompatibilitas admin & flow lama)
+ */
 export async function requestOtp(opts: {
   emailRaw: unknown;
   ip: string;
@@ -57,7 +671,7 @@ export async function requestOtp(opts: {
   const overEmail = await hitLimit(opts.redis, `otp:email:${email}`, 3, 15 * 60);
   const overIp = await hitLimit(opts.redis, `otp:ip:${opts.ip}`, 10, 60 * 60);
   if (overEmail || overIp) {
-    throw new AuthError(ErrorCodes.RATE_LIMITED, "Terlalu banyak permintaan", 429);
+    throw new AuthError(AuthResponses.errors.RATE_LIMITED.code, AuthResponses.errors.RATE_LIMITED.message, 429);
   }
 
   if (opts.adminOnly) {
@@ -79,11 +693,28 @@ export async function requestOtp(opts: {
       codeHash,
       expiresAt: new Date(Date.now() + OTP_TTL_MS),
       ip: opts.ip,
+      attempts: 0,
     },
   });
-  await opts.mailer.sendOtp(email, code);
+  try {
+    await opts.mailer.sendOtp(email, code);
+  } catch (err) {
+    const raw = err instanceof Error ? err.message : "";
+    console.error("otp mail failed", raw);
+    const credits = /insufficient credits/i.test(raw);
+    throw new AuthError(
+      AuthResponses.errors.EMAIL_UNAVAILABLE.code,
+      credits
+        ? "Kuota email SMTP habis. Isi kredit penyedia email, lalu coba lagi."
+        : AuthResponses.errors.EMAIL_UNAVAILABLE.message,
+      503,
+    );
+  }
 }
 
+/**
+ * Legacy verifyOtp (kompatibilitas admin & flow lama)
+ */
 export async function verifyOtp(opts: {
   emailRaw: unknown;
   codeRaw: unknown;
@@ -93,7 +724,7 @@ export async function verifyOtp(opts: {
 }): Promise<{ token: string; user: { id: string; email: string; role: "user" | "admin" } }> {
   const email = parseEmailOrThrow(opts.emailRaw);
   if (typeof opts.codeRaw !== "string" || !/^\d{6}$/.test(opts.codeRaw)) {
-    throw new AuthError(ErrorCodes.OTP_INVALID, "Kode OTP salah");
+    throw new AuthError(AuthResponses.errors.OTP_INVALID.code, AuthResponses.errors.OTP_INVALID.message);
   }
 
   const challenge = await prisma.otpChallenge.findFirst({
@@ -101,22 +732,26 @@ export async function verifyOtp(opts: {
     orderBy: { createdAt: "desc" },
   });
   if (!challenge) {
-    throw new AuthError(ErrorCodes.OTP_INVALID, "Kode OTP salah");
+    throw new AuthError(AuthResponses.errors.OTP_INVALID.code, AuthResponses.errors.OTP_INVALID.message);
   }
   if (challenge.expiresAt.getTime() < Date.now()) {
-    throw new AuthError(ErrorCodes.OTP_EXPIRED, "Kode OTP kedaluwarsa");
+    throw new AuthError(AuthResponses.errors.OTP_EXPIRED.code, AuthResponses.errors.OTP_EXPIRED.message);
   }
-  if (challenge.attempts >= OTP_MAX_ATTEMPTS) {
-    throw new AuthError(ErrorCodes.OTP_LOCKED, "Kode OTP terkunci", 429);
+  if (challenge.attempts >= RateLimitConfig.otpValidation.maxAttempts) {
+    throw new AuthError(AuthResponses.errors.OTP_LOCKED.code, RateLimitConfig.otpValidation.message, 429);
   }
 
   const expected = hashSecret(appSecret(), `${email}:${opts.codeRaw}`);
   if (!safeEqualHex(expected, challenge.codeHash)) {
+    const newAttempts = challenge.attempts + 1;
     await prisma.otpChallenge.update({
       where: { id: challenge.id },
-      data: { attempts: { increment: 1 } },
+      data: { attempts: newAttempts },
     });
-    throw new AuthError(ErrorCodes.OTP_INVALID, "Kode OTP salah");
+    if (newAttempts >= RateLimitConfig.otpValidation.maxAttempts) {
+      throw new AuthError(AuthResponses.errors.OTP_LOCKED.code, RateLimitConfig.otpValidation.message, 429);
+    }
+    throw new AuthError(AuthResponses.errors.OTP_INVALID.code, AuthResponses.errors.OTP_INVALID.message);
   }
 
   await prisma.otpChallenge.update({
@@ -131,7 +766,7 @@ export async function verifyOtp(opts: {
   let user = await prisma.user.findUnique({ where: { email } });
   if (opts.kind === "admin") {
     if (!user || user.role !== "admin" || user.bannedAt) {
-      throw new AuthError(ErrorCodes.FORBIDDEN, "Tidak diizinkan", 403);
+      throw new AuthError(AuthResponses.errors.FORBIDDEN.code, AuthResponses.errors.FORBIDDEN.message, 403);
     }
   } else if (!user) {
     user = await prisma.user.create({
@@ -143,7 +778,7 @@ export async function verifyOtp(opts: {
       },
     });
   } else if (user.bannedAt) {
-    throw new AuthError(ErrorCodes.FORBIDDEN, "Akun dinonaktifkan", 403);
+    throw new AuthError(AuthResponses.errors.FORBIDDEN.code, AuthResponses.errors.FORBIDDEN.message, 403);
   } else if (!user.emailVerifiedAt) {
     user = await prisma.user.update({
       where: { id: user.id },

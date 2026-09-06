@@ -1,0 +1,4 @@
+$kind: collection
+description: |-
+  Collection Postman resmi untuk testing backend ai-gen-free.
+  Mencakup registrasi akun, verifikasi email, login password, verifikasi OTP 2FA, rate limiting, anti-IDOR profil pengguna, job generator, dan admin.

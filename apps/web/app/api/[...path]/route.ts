@@ -1,4 +1,7 @@
 import { NextRequest } from "next/server";
+import { adminAuth } from "@/auth-admin";
+import { auth } from "@/auth";
+import { mergeCookie } from "@/lib/cookie-header";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -17,7 +20,7 @@ const HOP = new Set([
 ]);
 
 function apiBase() {
-  return process.env.API_INTERNAL_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+  return process.env.API_INTERNAL_URL ?? "http://api:4000";
 }
 
 async function proxy(req: NextRequest, path: string[]) {
@@ -26,6 +29,20 @@ async function proxy(req: NextRequest, path: string[]) {
   req.headers.forEach((value, key) => {
     if (!HOP.has(key.toLowerCase())) headers.set(key, value);
   });
+
+  const isAdmin = path[0] === "admin";
+  if (isAdmin) {
+    const session = await adminAuth();
+    if (session?.sid) {
+      headers.set("cookie", mergeCookie(headers.get("cookie"), `sid_admin=${session.sid}`));
+    }
+  } else {
+    const session = await auth();
+    if (session?.sid) {
+      headers.set("cookie", mergeCookie(headers.get("cookie"), `sid=${session.sid}`));
+    }
+  }
+
   const init: RequestInit = { method: req.method, headers, redirect: "manual" };
   if (req.method !== "GET" && req.method !== "HEAD") {
     init.body = Buffer.from(await req.arrayBuffer());

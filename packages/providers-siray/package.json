@@ -6,6 +6,9 @@
   "exports": {
     ".": "./src/index.ts"
   },
+  "scripts": {
+    "test": "tsx --test src/token-bucket.test.ts src/map.test.ts src/siray.test.ts"
+  },
   "dependencies": {
     "@ai-gen-free/core": "workspace:*"
   }

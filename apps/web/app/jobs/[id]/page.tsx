@@ -1,29 +1,14 @@
-import { cookies } from "next/headers";
-import Link from "next/link";
+import { Text } from "@mantine/core";
 import { redirect } from "next/navigation";
+import { AppLink } from "@/components/app-link";
+import { PageShell } from "@/components/page-shell";
+import type { JobView } from "@/lib/job-status";
+import { fetchUserApi } from "@/lib/server-api";
 import { JobClient } from "./job-client";
 
-const apiBase = () => process.env.API_INTERNAL_URL ?? "http://localhost:3001";
-
-export type JobView = {
-  id: string;
-  status: string;
-  progressPct: number;
-  prompt: string;
-  cost: number;
-  errorCode: string | null;
-  nextGenerateAt: string | null;
-  output: { url: string; contentType: string; availableUntil: string } | null;
-};
-
 async function load(id: string): Promise<JobView | null | "unauth"> {
-  const jar = await cookies();
-  const sid = jar.get("sid")?.value;
-  if (!sid) return "unauth";
-  const res = await fetch(`${apiBase()}/api/jobs/${id}`, {
-    headers: { cookie: `sid=${sid}` },
-    cache: "no-store",
-  });
+  const res = await fetchUserApi(`/api/jobs/${id}`);
+  if (!res) return "unauth";
   if (res.status === 404) return null;
   if (!res.ok) return "unauth";
   return (await res.json()) as JobView;
@@ -35,23 +20,15 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
   if (job === "unauth") redirect("/login");
   if (!job) {
     return (
-      <main style={{ maxWidth: 720, margin: "3rem auto", padding: "0 1.5rem" }}>
-        <p>Job tidak ditemukan.</p>
-        <Link href="/generate" style={{ color: "#8ab4ff" }}>
-          Kembali
-        </Link>
-      </main>
+      <PageShell title="Job" backHref="/generate" backLabel="Kembali" size="md">
+        <Text>Job tidak ditemukan.</Text>
+        <AppLink href="/generate">Kembali</AppLink>
+      </PageShell>
     );
   }
   return (
-    <main style={{ maxWidth: 720, margin: "3rem auto", padding: "0 1.5rem" }}>
-      <p>
-        <Link href="/generate" style={{ color: "#8ab4ff" }}>
-          ← Generate
-        </Link>
-      </p>
-      <h1>Job</h1>
+    <PageShell title="Job" backHref="/generate" backLabel="← Generate" size="md">
       <JobClient initial={job} />
-    </main>
+    </PageShell>
   );
 }

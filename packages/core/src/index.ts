@@ -1,5 +1,11 @@
-export { ErrorCodes, type ErrorCode, type ApiErrorBody } from "./errors.js";
+export { ErrorCodes, JobErrorCodes, type ErrorCode, type JobErrorCode, type ApiErrorBody } from "./errors.js";
 export { AppError } from "./app-error.js";
+export {
+  RetryableProviderError,
+  TerminalProviderError,
+  isRetryableProviderError,
+  isTerminalProviderError,
+} from "./provider-error.js";
 export type {
   Capability,
   CanonicalGenerateInput,
@@ -15,5 +21,9 @@ export type {
   PutObjectInput,
   StoredObject,
 } from "./ports/storage.js";
-export { normalizeEmail, isEmailFormat, isDisposableEmail } from "./auth/email.js";
+export { normalizeEmail, isEmailFormat, isDisposableEmail, isAllowedEmailDomain } from "./auth/email.js";
 export { hashSecret, safeEqualHex, randomOtp, randomToken } from "./auth/crypto.js";
+export { validatePassword, hashPassword, verifyPassword } from "./auth/password.js";
+export { RateLimitConfig, type RateLimitRule } from "./config/rate-limit.config.js";
+export { AuthResponses, type ErrorDefinition, type SuccessDefinition } from "./config/responses.config.js";
+

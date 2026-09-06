@@ -1,0 +1,19 @@
+$kind: http-request
+name: 2.4 Submit Job Generator (POST /api/jobs)
+description: Mengirimkan permintaan generator gambar (202 Accepted + jobId). Memerlukan Idempotency-Key 8–128 karakter.
+url: "{{baseUrl}}/api/jobs"
+method: POST
+headers:
+  Content-Type: application/json
+  Idempotency-Key: idemp-test-job-001
+body:
+  type: text
+  content: |-
+    {
+      "mode": "t2i",
+      "prompt": "Seekor kucing memakai mahkota raja emas di atas tahta, gaya lukisan minyak cat emas kustom",
+      "params": {
+        "aspectRatio": "1:1"
+      }
+    }
+order: 4000

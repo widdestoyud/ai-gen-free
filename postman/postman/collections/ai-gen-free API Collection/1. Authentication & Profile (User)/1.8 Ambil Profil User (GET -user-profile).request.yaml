@@ -1,0 +1,6 @@
+$kind: http-request
+name: 1.8 Ambil Profil User (GET /user/profile)
+description: Melihat data profil pengguna saat ini. Diotentikasi mutlak dari cookie sesi sid.
+url: "{{baseUrl}}/user/profile"
+method: GET
+order: 8000

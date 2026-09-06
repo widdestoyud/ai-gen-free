@@ -1,0 +1,9 @@
+# apps/api
+
+Baca root `AGENTS.md`. Jangan edit `apps/web`.
+
+- OTP, hash sesi, satu sesi per `kind` tetap di sini.
+- `POST /api/auth/otp/verify` dan admin equivalent merespons `{ user, sessionToken }`. Cookie `sid` boleh tetap untuk klien API langsung.
+- NextAuth hidup di `apps/web`; jangan pasang Auth.js di Fastify.
+- Jangan percaya `cost` / `role` / `balance` dari body. Hold/capture di server.
+- `POST /jobs` → 202. Jangan blokir request pada latency Siray.

@@ -38,3 +38,5 @@ signGetUrl(key, expiresSeconds) → URL yang bisa dibuka browser
 ```
 
 Bucket, path-style, dan hostname internal vs publik adalah urusan adapter. `signGetUrl` memakai `STORAGE_PUBLIC_ENDPOINT` (bukan hostname Docker).
+
+Retensi 14 hari (M5): worker memanggil `delete(key)` lewat port ini. Hanya key `outputs/**` dan `inputs/**`. Jangan lifecycle bucket-wide — prefix `proofs/` punya jadwal sendiri. `delete` pada key yang sudah tidak ada harus aman (idempoten).

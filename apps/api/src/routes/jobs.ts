@@ -35,9 +35,24 @@ export async function registerJobRoutes(
       const accepted = await submitJob({
         userId: session.userId,
         idempotencyKey: req.headers["idempotency-key"],
-        body: (req.body ?? {}) as { mode?: unknown; prompt?: unknown; params?: unknown },
+        body: (req.body ?? {}) as {
+          mode?: unknown;
+          modelId?: unknown;
+          prompt?: unknown;
+          params?: unknown;
+          cost?: unknown;
+          providerId?: unknown;
+        },
         enqueue: async (jobId) => {
-          await deps.queue.add("generate", { jobId }, { jobId });
+          await deps.queue.add(
+            "generate",
+            { jobId },
+            {
+              jobId,
+              attempts: 5,
+              backoff: { type: "custom" },
+            },
+          );
         },
       });
       return reply.code(202).send(accepted);
@@ -49,7 +64,7 @@ export async function registerJobRoutes(
   app.get("/api/jobs", async (req, reply) => {
     const session = await requireUser(req, reply);
     if (!session) return;
-    return { jobs: await listJobsForUser({ userId: session.userId, storage: deps.storage }) };
+    return await listJobsForUser({ userId: session.userId, storage: deps.storage });
   });
 
   app.get("/api/jobs/:id", async (req, reply) => {

@@ -31,7 +31,7 @@ export function createObjectStorageFromEnv(env: NodeJS.ProcessEnv = process.env)
 }
 
 export function objectStorageParamsFromEnv(env: NodeJS.ProcessEnv = process.env): ObjectStorageParams {
-  const driver = (env.STORAGE_DRIVER ?? "minio").toLowerCase() as ObjectStorageDriver;
+  const driver = (env.STORAGE_DRIVER ?? "r2").toLowerCase() as ObjectStorageDriver;
   const forceRaw = first(env, "STORAGE_FORCE_PATH_STYLE", "S3_FORCE_PATH_STYLE");
   return {
     driver,

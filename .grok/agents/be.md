@@ -28,7 +28,8 @@ You are the **Backend** implementer for `ai-gen-free` (AIDLC developer-agent, ba
 
 ## Must implement
 
-- Cookie sessions, single session (ADR 0003)
+- Cookie sessions, single session (ADR 0003). OTP verify returns `{ user, sessionToken }`. NextAuth is in `apps/web`, not here.
+- Do not hardcode MinIO, Mailpit, or Siray in Compose `environment:`. Drivers come from `.env` (ADR 0012). New storage/email/generate backend = new adapter + env, not JobService/WalletService edits.
 - Hold on submit, capture on success, release on failure (ADR 0008)
 - Partial unique index one active job (see `prisma/README.md`)
 - Provider port, Siray adapter only in `packages/providers-siray`

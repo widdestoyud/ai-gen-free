@@ -1,27 +1,21 @@
-import { cookies } from "next/headers";
-import Link from "next/link";
 import { redirect } from "next/navigation";
+import { PageShell } from "@/components/page-shell";
+import { fetchUserApi } from "@/lib/server-api";
 import { WalletClient } from "./wallet-client";
 
-const apiBase = () => process.env.API_INTERNAL_URL ?? "http://localhost:3001";
-
 async function loadWallet() {
-  const jar = await cookies();
-  const sid = jar.get("sid")?.value;
-  if (!sid) return null;
-  const headers = { cookie: `sid=${sid}` };
   const [wallet, catalog, invoices, ledger] = await Promise.all([
-    fetch(`${apiBase()}/api/wallet`, { headers, cache: "no-store" }),
-    fetch(`${apiBase()}/api/catalog/topup`, { headers, cache: "no-store" }),
-    fetch(`${apiBase()}/api/invoices`, { headers, cache: "no-store" }),
-    fetch(`${apiBase()}/api/wallet/ledger`, { headers, cache: "no-store" }),
+    fetchUserApi("/api/wallet"),
+    fetchUserApi("/api/catalog/topup"),
+    fetchUserApi("/api/invoices"),
+    fetchUserApi("/api/wallet/ledger"),
   ]);
-  if (!wallet.ok) return null;
+  if (!wallet || !wallet.ok) return null;
   return {
     wallet: (await wallet.json()) as { available: number; held: number },
-    packages: ((await catalog.json()) as { packages: Package[] }).packages,
-    invoices: ((await invoices.json()) as { invoices: Invoice[] }).invoices,
-    entries: ((await ledger.json()) as { entries: LedgerRow[] }).entries,
+    packages: ((await catalog!.json()) as { packages: Package[] }).packages,
+    invoices: ((await invoices!.json()) as { invoices: Invoice[] }).invoices,
+    entries: ((await ledger!.json()) as { entries: LedgerRow[] }).entries,
   };
 }
 
@@ -43,13 +37,7 @@ export default async function WalletPage() {
   const data = await loadWallet();
   if (!data) redirect("/login");
   return (
-    <main style={{ maxWidth: 720, margin: "3rem auto", padding: "0 1.5rem" }}>
-      <p>
-        <Link href="/" style={{ color: "#8ab4ff" }}>
-          ← Beranda
-        </Link>
-      </p>
-      <h1>Dompet</h1>
+    <PageShell title="Dompet" backHref="/" backLabel="← Beranda" size="md">
       <WalletClient
         available={data.wallet.available}
         held={data.wallet.held}
@@ -57,6 +45,6 @@ export default async function WalletPage() {
         invoices={data.invoices}
         entries={data.entries}
       />
-    </main>
+    </PageShell>
   );
 }

@@ -70,19 +70,40 @@ model User {
   id              String    @id @default(cuid())
   email           String    @unique
   emailVerifiedAt DateTime?
+  passwordHash    String?
+  displayName     String?
+  phoneNumber     String?
+  ktp             String?
+  address         String?
+  lastDeviceId    String?
+  lastLoginAt     DateTime?
   role            UserRole  @default(user)
   bannedAt        DateTime?
   nextGenerateAt  DateTime?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
-  wallet        Wallet?
-  sessions      Session[]
-  jobs          Job[]
-  ledgerEntries LedgerEntry[]
-  invoices      Invoice[]
-  auditLogs     AuditLog[]    @relation("AuditActor")
+  wallet             Wallet?
+  sessions           Session[]
+  jobs               Job[]
+  ledgerEntries      LedgerEntry[]
+  invoices           Invoice[]
+  auditLogs          AuditLog[]               @relation("AuditActor")
+  verificationTokens EmailVerificationToken[]
 }
+
+model EmailVerificationToken {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash  String    @unique
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([userId, consumedAt])
+}
+
 
 model Wallet {
   userId          String   @id
@@ -161,9 +182,13 @@ model JobAsset {
   contentType String
   bytes       Int
   expiresAt   DateTime
+  /// Objek storage sudah dihapus worker retensi. Baris Job tetap.
+  purgedAt    DateTime?
   createdAt   DateTime  @default(now())
 
+  @@unique([jobId, kind])
   @@index([expiresAt])
+  @@index([expiresAt, purgedAt])
 }
 
 model LedgerEntry {
@@ -216,13 +241,14 @@ model AppSetting {
 }
 
 model ModelCatalog {
-  id         String   @id @default(cuid())
-  mode       JobMode
-  modelId    String
-  providerId String
-  costPoints Decimal  @db.Decimal(20, 0)
-  enabled    Boolean  @default(true)
-  createdAt  DateTime @default(now())
+  id          String   @id @default(cuid())
+  mode        JobMode
+  modelId     String
+  displayName String   @default("")
+  providerId  String
+  costPoints  Decimal  @db.Decimal(20, 0)
+  enabled     Boolean  @default(true)
+  createdAt   DateTime @default(now())
 
   @@unique([mode, modelId])
 }

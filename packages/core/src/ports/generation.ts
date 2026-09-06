@@ -2,6 +2,7 @@ export type Capability = "t2i" | "i2i" | "t2v" | "i2v" | "inpaint" | "faceswap";
 
 export type CanonicalGenerateInput = {
   mode: Capability;
+  modelId: string;
   prompt: string;
   params: Record<string, unknown>;
   inputFiles: { bytes: Uint8Array; contentType: string }[];

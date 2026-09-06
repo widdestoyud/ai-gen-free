@@ -35,3 +35,21 @@ export function isDisposableEmail(email: string): boolean {
   const domain = email.split("@")[1] ?? "";
   return DISPOSABLE.has(domain);
 }
+
+/**
+ * Validasi domain email terpercaya (gmail, yahoo, ymail).
+ * Menolak email test / palsu di luar domain konsumen resmi.
+ */
+export function isAllowedEmailDomain(email: string): boolean {
+  const parts = email.split("@");
+  if (parts.length !== 2) return false;
+  const domain = parts[1]!.toLowerCase();
+  if (domain === "gmail.com" || domain === "googlemail.com" || domain === "ymail.com") {
+    return true;
+  }
+  if (domain === "yahoo.com" || domain.startsWith("yahoo.")) {
+    return true;
+  }
+  return false;
+}
+

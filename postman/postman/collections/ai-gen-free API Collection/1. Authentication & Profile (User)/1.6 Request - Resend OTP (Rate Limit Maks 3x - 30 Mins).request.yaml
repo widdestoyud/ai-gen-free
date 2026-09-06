@@ -1,0 +1,14 @@
+$kind: http-request
+name: 1.6 Request / Resend OTP (Rate Limit Maks 3x / 30 Mins)
+description: Meminta atau mengirim ulang kode OTP ke email terdaftar. Dibatasi maksimal 3x per 30 menit. Percobaan ke-4 akan mengembalikan HTTP 429 (lockout 30 menit).
+url: "{{baseUrl}}/auth/otp"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "email": "user.test123@gmail.com"
+    }
+order: 6000

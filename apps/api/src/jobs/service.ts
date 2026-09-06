@@ -3,20 +3,21 @@ import { AppError, ErrorCodes, type ObjectStorage } from "@ai-gen-free/core";
 import { prisma } from "@ai-gen-free/db";
 import { assertEnoughPoints, computeBalance, refreshWalletCache } from "@ai-gen-free/wallet";
 import { resolveModel } from "./catalog.js";
+import { parseGenerateParams } from "./params.js";
+import { isOutputAssetLive, isOutputPurged, promptPreview, resolveJobOutput } from "./output.js";
 
 const PROMPT_MAX = 4000;
-const SIGNED_SECONDS = 10 * 60;
 
 export async function submitJob(opts: {
   userId: string;
   idempotencyKey: unknown;
-  body: { mode?: unknown; prompt?: unknown; params?: unknown; cost?: unknown };
+  body: { mode?: unknown; modelId?: unknown; prompt?: unknown; params?: unknown; cost?: unknown; providerId?: unknown };
   enqueue: (jobId: string) => Promise<void>;
 }) {
   const idempotencyKey = parseIdempotencyKey(opts.idempotencyKey);
   const prompt = parsePrompt(opts.body.prompt);
-  const params = parseParams(opts.body.params);
-  const model = await resolveModel(opts.body.mode);
+  const model = await resolveModel(opts.body.mode, opts.body.modelId);
+  const params = parseGenerateParams(opts.body.params, model.providerId);
 
   const replay = await prisma.job.findFirst({
     where: { userId: opts.userId, idempotencyKey },
@@ -91,6 +92,16 @@ export async function submitJob(opts: {
   const queuePosition = queuedAhead + 1;
   await prisma.job.update({ where: { id: job.id }, data: { queuePosition } });
   await opts.enqueue(job.id);
+  console.log(
+    JSON.stringify({
+      event: "job.accepted",
+      jobId: job.id,
+      userId: opts.userId,
+      costHeld: model.costPoints,
+      modelId: model.modelId,
+      providerId: model.providerId,
+    }),
+  );
   return toAccepted({ ...job, queuePosition });
 }
 
@@ -104,13 +115,108 @@ export async function getJobForUser(opts: { userId: string; id: string; storage:
 }
 
 export async function listJobsForUser(opts: { userId: string; storage: ObjectStorage }) {
+  const user = await prisma.user.findUniqueOrThrow({
+    where: { id: opts.userId },
+    select: { nextGenerateAt: true },
+  });
   const rows = await prisma.job.findMany({
     where: { userId: opts.userId },
     orderBy: { createdAt: "desc" },
     take: 30,
     include: { assets: { where: { kind: "output" }, orderBy: { createdAt: "desc" }, take: 1 } },
   });
-  return Promise.all(rows.map((row) => serializeJob(row, opts.storage)));
+  return {
+    nextGenerateAt: user.nextGenerateAt?.toISOString() ?? null,
+    jobs: await Promise.all(rows.map((row) => serializeJob(row, opts.storage))),
+  };
+}
+
+const outputInclude = {
+  assets: { where: { kind: "output" as const }, orderBy: { createdAt: "desc" as const }, take: 1 },
+};
+
+export async function listAdminJobs(opts: {
+  status?: JobStatus;
+  userId?: string;
+  q?: string;
+  limit: number;
+  offset: number;
+}) {
+  const rows = await prisma.job.findMany({
+    where: {
+      ...(opts.status ? { status: opts.status } : {}),
+      ...(opts.userId ? { userId: opts.userId } : {}),
+      ...(opts.q ? { user: { email: { contains: opts.q, mode: "insensitive" } } } : {}),
+    },
+    orderBy: { createdAt: "desc" },
+    take: opts.limit,
+    skip: opts.offset,
+    include: {
+      user: { select: { email: true } },
+      ...outputInclude,
+    },
+  });
+  const now = new Date();
+  return rows.map((row) => {
+    const asset = row.assets[0];
+    return {
+      id: row.id,
+      userId: row.userId,
+      email: row.user.email,
+      mode: row.mode,
+      status: row.status,
+      modelId: row.modelId,
+      cost: Number(row.cost),
+      promptPreview: promptPreview(row.prompt),
+      outputSha256: asset?.sha256 ?? null,
+      createdAt: row.createdAt.toISOString(),
+      finishedAt: row.finishedAt?.toISOString() ?? null,
+      availableUntil: asset?.expiresAt.toISOString() ?? null,
+      purged: isOutputPurged(asset, now),
+    };
+  });
+}
+
+export async function getAdminJob(opts: { id: string; storage: ObjectStorage }) {
+  const job = await prisma.job.findUnique({
+    where: { id: opts.id },
+    include: {
+      user: { select: { email: true } },
+      ...outputInclude,
+    },
+  });
+  if (!job) throw new AppError(ErrorCodes.NOT_FOUND, "Job tidak ditemukan", 404);
+  const serialized = await serializeJob(job, opts.storage);
+  const asset = job.assets[0];
+  return {
+    ...serialized,
+    userId: job.userId,
+    email: job.user.email,
+    params: job.params,
+    purged: isOutputPurged(asset, new Date()),
+    outputSha256: asset?.sha256 ?? null,
+  };
+}
+
+export async function getAdminJobOutputFile(opts: { id: string; storage: ObjectStorage }) {
+  const job = await prisma.job.findUnique({
+    where: { id: opts.id },
+    include: outputInclude,
+  });
+  if (!job) throw new AppError(ErrorCodes.NOT_FOUND, "Job tidak ditemukan", 404);
+  const asset = job.assets[0];
+  if (!asset || !isOutputAssetLive(asset, new Date())) {
+    throw new AppError(ErrorCodes.NOT_FOUND, "File tidak ditemukan", 404);
+  }
+  try {
+    const obj = await opts.storage.get(asset.storageKey);
+    return {
+      bytes: obj.body,
+      contentType: asset.contentType || obj.contentType || "application/octet-stream",
+    };
+  } catch {
+    throw new AppError(ErrorCodes.NOT_FOUND, "File tidak ditemukan", 404);
+  }
 }
 
 function parseIdempotencyKey(raw: unknown): string {
@@ -131,14 +237,6 @@ function parsePrompt(raw: unknown): string {
   return prompt;
 }
 
-function parseParams(raw: unknown): Prisma.InputJsonValue {
-  if (raw === undefined || raw === null) return {};
-  if (typeof raw !== "object" || Array.isArray(raw)) {
-    throw new AppError(ErrorCodes.VALIDATION_ERROR, "params harus objek");
-  }
-  return raw as Prisma.InputJsonValue;
-}
-
 function toAccepted(job: { id: string; status: string; cost: Prisma.Decimal | number; queuePosition: number | null }) {
   const cost = typeof job.cost === "number" ? job.cost : Number(job.cost);
   return {
@@ -154,6 +252,7 @@ async function serializeJob(
     id: string;
     status: string;
     mode: string;
+    modelId: string;
     prompt: string;
     cost: Prisma.Decimal;
     progressPct: number;
@@ -162,29 +261,21 @@ async function serializeJob(
     createdAt: Date;
     finishedAt: Date | null;
     nextGenerateAt: Date | null;
-    assets: { storageKey: string; contentType: string; expiresAt: Date }[];
+    assets: { storageKey: string; contentType: string; expiresAt: Date; purgedAt: Date | null }[];
   },
   storage: ObjectStorage,
 ) {
-  const asset = job.status === "succeeded" ? job.assets[0] : undefined;
-  let output: { url: string; contentType: string; availableUntil: string; signedExpiresAt: string } | null = null;
-  if (asset) {
-    const url = await storage.signGetUrl(asset.storageKey, SIGNED_SECONDS);
-    output = {
-      url,
-      contentType: asset.contentType,
-      availableUntil: asset.expiresAt.toISOString(),
-      signedExpiresAt: new Date(Date.now() + SIGNED_SECONDS * 1000).toISOString(),
-    };
-  }
+  const asset = job.assets[0];
+  const output = await resolveJobOutput(job.status, asset, storage);
   return {
     id: job.id,
     status: job.status,
     mode: job.mode,
+    modelId: job.modelId,
     prompt: job.prompt,
     cost: Number(job.cost),
     progressPct: job.progressPct,
-    errorCode: job.errorCode,
+    errorCode: job.status === "failed" ? job.errorCode : null,
     queuePosition: job.queuePosition,
     createdAt: job.createdAt.toISOString(),
     finishedAt: job.finishedAt?.toISOString() ?? null,

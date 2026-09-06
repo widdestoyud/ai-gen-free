@@ -10,14 +10,39 @@ async function main() {
   });
 
   await prisma.modelCatalog.upsert({
+    where: { mode_modelId: { mode: "t2i", modelId: "black-forest-labs/flux-1.1-pro-t2i" } },
+    update: {
+      displayName: "Flux 1.1 Pro",
+      providerId: "siray",
+      costPoints: 10,
+      enabled: true,
+    },
+    create: {
+      mode: "t2i",
+      modelId: "black-forest-labs/flux-1.1-pro-t2i",
+      displayName: "Flux 1.1 Pro",
+      providerId: "siray",
+      costPoints: 10,
+      enabled: true,
+    },
+  });
+
+  const dummyEnabled = process.env.ENABLE_DUMMY_T2I === "true";
+  await prisma.modelCatalog.upsert({
     where: { mode_modelId: { mode: "t2i", modelId: "dummy-t2i" } },
-    update: { providerId: "dummy", costPoints: 10, enabled: true },
+    update: {
+      displayName: "Dummy",
+      providerId: "dummy",
+      costPoints: 10,
+      enabled: dummyEnabled,
+    },
     create: {
       mode: "t2i",
       modelId: "dummy-t2i",
+      displayName: "Dummy",
       providerId: "dummy",
       costPoints: 10,
-      enabled: true,
+      enabled: dummyEnabled,
     },
   });
 

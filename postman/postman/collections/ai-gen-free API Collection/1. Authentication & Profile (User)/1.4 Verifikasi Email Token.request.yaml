@@ -1,0 +1,13 @@
+$kind: http-request
+description: Memverifikasi token email yang dikirim setelah pendaftaran agar status akun menjadi terverifikasi.
+url: "{{baseUrl}}/auth/email-validation"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "token": "{{emailVerificationToken}}"
+    }
+order: 4000

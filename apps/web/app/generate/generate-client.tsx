@@ -1,111 +1,300 @@
 "use client";
 
+import { Button, Select, SimpleGrid, Text, Textarea, Title } from "@mantine/core";
 import { useRouter } from "next/navigation";
-import { useState, type CSSProperties, type FormEvent } from "react";
-import type { JobRow, Model } from "./page";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { AppLink } from "@/components/app-link";
+import { CooldownText } from "@/components/cooldown-text";
+import { EmptyState } from "@/components/empty-state";
+import { ErrorAlert } from "@/components/error-alert";
+import { ItemCard } from "@/components/item-card";
+import { JobOutput } from "@/components/job-output";
+import { WaitAlert } from "@/components/wait-alert";
+import { requestJson } from "@/lib/api";
+import { remainingSeconds } from "@/lib/format";
+import {
+  hasLiveOutput,
+  isJobActive,
+  jobStatusLabel,
+  signedRefreshDelayMs,
+  type JobsListView,
+  type JobView,
+} from "@/lib/job-status";
+import type { Model } from "./page";
 
-export function GenerateClient(props: { available: number; held: number; models: Model[]; jobs: JobRow[] }) {
+const ASPECT_RATIOS = [
+  { value: "1:1", label: "1:1 Persegi" },
+  { value: "16:9", label: "16:9 Lebar" },
+  { value: "9:16", label: "9:16 Vertikal" },
+  { value: "3:2", label: "3:2" },
+  { value: "2:3", label: "2:3" },
+  { value: "4:5", label: "4:5" },
+  { value: "5:4", label: "5:4" },
+  { value: "3:4", label: "3:4" },
+  { value: "4:3", label: "4:3" },
+];
+
+function t2iModels(models: Model[]): Model[] {
+  return models.filter((m) => m.mode === "t2i");
+}
+
+function nearestSignedRefresh(jobs: JobView[]): number | null {
+  let best: number | null = null;
+  for (const job of jobs) {
+    const delay = signedRefreshDelayMs(job.output);
+    if (delay == null) continue;
+    if (best == null || delay < best) best = delay;
+  }
+  return best;
+}
+
+export function GenerateClient(props: {
+  available: number;
+  held: number;
+  models: Model[];
+  jobs: JobView[];
+  nextGenerateAt: string | null;
+}) {
   const router = useRouter();
-  const t2i = props.models.find((m) => m.mode === "t2i");
+  const catalog = useMemo(() => t2iModels(props.models), [props.models]);
+  const [jobs, setJobs] = useState(props.jobs);
+  const [modelId, setModelId] = useState(catalog[0]?.modelId ?? "");
   const [prompt, setPrompt] = useState("");
-  const [fail, setFail] = useState(false);
+  const [aspectRatio, setAspectRatio] = useState("1:1");
   const [error, setError] = useState("");
+  const [errorCode, setErrorCode] = useState("");
   const [busy, setBusy] = useState(false);
-  const active = props.jobs.find((j) => j.status === "queued" || j.status === "running");
+  const [now, setNow] = useState(() => Date.now());
+  const [cooldownUntil, setCooldownUntil] = useState<string | null>(props.nextGenerateAt);
+
+  const selected = catalog.find((m) => m.modelId === modelId) ?? catalog[0];
+  const active = jobs.find((j) => isJobActive(j.status));
+  const hasActive = Boolean(active);
+  const gallery = jobs.filter((j) => j.status === "succeeded" && hasLiveOutput(j.output));
+  const history = jobs.filter((j) => !isJobActive(j.status) && !(j.status === "succeeded" && hasLiveOutput(j.output)));
+  const cooldownLeft = remainingSeconds(cooldownUntil, now);
+  const onCooldown = cooldownLeft > 0;
+  const waiting = errorCode === "JOB_IN_PROGRESS" || errorCode === "COOLDOWN";
+  const signedKey = jobs
+    .filter((j) => hasLiveOutput(j.output) && j.output.signedExpiresAt)
+    .map((j) => `${j.id}:${j.output?.signedExpiresAt ?? ""}`)
+    .join("|");
+
+  useEffect(() => {
+    setJobs(props.jobs);
+    setCooldownUntil(props.nextGenerateAt);
+  }, [props.jobs, props.nextGenerateAt]);
+
+  useEffect(() => {
+    if (catalog.length === 0) return;
+    if (!catalog.some((m) => m.modelId === modelId)) {
+      setModelId(catalog[0]!.modelId);
+    }
+  }, [catalog, modelId]);
+
+  useEffect(() => {
+    const tick = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(tick);
+  }, []);
+
+  async function applyJobs(data: JobsListView) {
+    setJobs(data.jobs);
+    setCooldownUntil(data.nextGenerateAt ?? null);
+  }
+
+  async function refreshJobs() {
+    const result = await requestJson<JobsListView>("/api/jobs");
+    if (!result.ok) return;
+    await applyJobs(result.data);
+  }
+
+  useEffect(() => {
+    if (!hasActive) return;
+    let cancelled = false;
+    const timer = window.setInterval(() => {
+      void (async () => {
+        const result = await requestJson<JobsListView>("/api/jobs");
+        if (cancelled || !result.ok) return;
+        await applyJobs(result.data);
+      })();
+    }, 1500);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [hasActive]);
+
+  useEffect(() => {
+    if (hasActive || !onCooldown) return;
+    let cancelled = false;
+    const timer = window.setInterval(() => {
+      void (async () => {
+        const result = await requestJson<{ user: { nextGenerateAt: string | null } }>("/api/me");
+        if (cancelled || !result.ok) return;
+        setCooldownUntil(result.data.user.nextGenerateAt ?? null);
+      })();
+    }, 4000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [hasActive, onCooldown]);
+
+  useEffect(() => {
+    if (hasActive) return;
+    const delay = nearestSignedRefresh(jobs);
+    if (delay == null) return;
+    const timer = window.setTimeout(() => {
+      void refreshJobs();
+    }, delay);
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [hasActive, signedKey]);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setError("");
+    setErrorCode("");
     setBusy(true);
-    try {
-      const res = await fetch("/api/jobs", {
-        method: "POST",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-          "Idempotency-Key": crypto.randomUUID(),
-        },
-        body: JSON.stringify({
-          mode: "t2i",
-          prompt,
-          params: fail ? { fail: true } : {},
-        }),
-      });
-      const body = (await res.json()) as {
-        job_id?: string;
-        error?: { message: string };
-        retry_after_seconds?: number;
-      };
-      if (!res.ok) {
-        const wait = body.retry_after_seconds
-          ? ` Coba lagi dalam ${Math.ceil(body.retry_after_seconds / 3600)} jam.`
-          : "";
-        setError((body.error?.message ?? "Gagal submit") + wait);
-        return;
+    const result = await requestJson<{ job_id?: string }>("/api/jobs", {
+      method: "POST",
+      headers: { "Idempotency-Key": crypto.randomUUID() },
+      body: JSON.stringify({
+        mode: "t2i",
+        modelId: selected?.modelId,
+        prompt,
+        params: { aspectRatio },
+      }),
+    });
+    setBusy(false);
+    if (!result.ok) {
+      setError(result.message);
+      setErrorCode(result.code ?? "");
+      if (result.code === "COOLDOWN" && typeof result.retryAfterSeconds === "number") {
+        setCooldownUntil(new Date(Date.now() + result.retryAfterSeconds * 1000).toISOString());
       }
-      if (body.job_id) router.push(`/jobs/${body.job_id}`);
-    } finally {
-      setBusy(false);
+      await refreshJobs();
+      return;
     }
+    if (result.data.job_id) router.push(`/jobs/${result.data.job_id}`);
   }
+
+  const blocked = busy || !selected || Boolean(active) || cooldownLeft > 0;
 
   return (
     <div>
-      <p>
+      <Text>
         Saldo <strong>{props.available}</strong> poin
         {props.held > 0 ? ` (terkunci ${props.held})` : ""}
-      </p>
-      <p style={{ color: "#c5c9d1" }}>
-        Biaya t2i dummy: <strong>{t2i?.costPoints ?? "—"}</strong> poin. Poin dipotong hanya jika berhasil.
-        Gambar dummy tersimpan 14 hari.
-      </p>
+        {" · "}
+        <AppLink href="/wallet">Dompet</AppLink>
+      </Text>
+      {selected ? (
+        <Text c="dimmed">
+          Mode t2i · {selected.displayName} · biaya <strong>{selected.costPoints}</strong> poin dari server. Poin
+          dipotong hanya jika berhasil. Hasil tersimpan 14 hari.
+        </Text>
+      ) : (
+        <EmptyState>Tidak ada model t2i aktif.</EmptyState>
+      )}
       {active ? (
-        <p>
-          Ada generate yang masih jalan.{" "}
-          <a href={`/jobs/${active.id}`} style={{ color: "#8ab4ff" }}>
-            Buka job
-          </a>
-        </p>
+        <WaitAlert message="Sedang generate. Tab lain tidak bisa submit paralel.">
+          <Text mt="xs">
+            <AppLink href={`/jobs/${active.id}`}>Buka job</AppLink>
+          </Text>
+        </WaitAlert>
       ) : null}
+      {cooldownLeft > 0 && !active ? <CooldownText until={cooldownUntil} /> : null}
+
       <form onSubmit={(e) => void onSubmit(e)}>
-        <label style={{ display: "block", margin: "16px 0 8px" }}>
-          Prompt
-          <textarea
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
-            required
-            rows={4}
-            style={{
-              display: "block",
-              width: "100%",
-              marginTop: 6,
-              padding: 8,
-              borderRadius: 8,
-              border: "1px solid #2a2f3a",
-              background: "#0f1115",
-              color: "#e8eaed",
-              boxSizing: "border-box",
+        {catalog.length > 1 ? (
+          <Select
+            label="Model"
+            data={catalog.map((m) => ({
+              value: m.modelId,
+              label: `${m.displayName} · ${m.costPoints} poin`,
+            }))}
+            value={selected?.modelId ?? null}
+            onChange={(value) => {
+              if (value) setModelId(value);
             }}
+            mt="md"
           />
-        </label>
-        <label style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 12 }}>
-          <input type="checkbox" checked={fail} onChange={(e) => setFail(e.target.checked)} />
-          Simulasikan gagal (poin dikembalikan, tanpa jeda)
-        </label>
-        {error ? <p style={{ color: "#ff8a80" }}>{error}</p> : null}
-        <button type="submit" disabled={busy || !t2i} style={btn}>
+        ) : null}
+        <Select
+          label="Rasio"
+          data={ASPECT_RATIOS}
+          value={aspectRatio}
+          onChange={(value) => {
+            if (value) setAspectRatio(value);
+          }}
+          mt="sm"
+        />
+        <Textarea
+          label="Prompt"
+          value={prompt}
+          onChange={(e) => setPrompt(e.currentTarget.value)}
+          required
+          minRows={4}
+          maxLength={4000}
+          mt="md"
+          mb="sm"
+        />
+        {waiting ? (
+          <WaitAlert message={error}>
+            {errorCode === "JOB_IN_PROGRESS" && active ? (
+              <Text mt="xs">
+                <AppLink href={`/jobs/${active.id}`}>Buka job yang sedang jalan</AppLink>
+              </Text>
+            ) : null}
+          </WaitAlert>
+        ) : (
+          <ErrorAlert message={error} />
+        )}
+        {errorCode === "INSUFFICIENT_POINTS" || (selected && selected.costPoints > props.available) ? (
+          <Text mt="xs">
+            Saldo kurang dari biaya model. <AppLink href="/wallet">Isi saldo</AppLink>
+          </Text>
+        ) : null}
+        <Button type="submit" disabled={blocked} mt="sm">
           Generate
-        </button>
+        </Button>
       </form>
+
+      <Title order={2} mt="xl">
+        Hasil kamu
+      </Title>
+      {gallery.length === 0 && history.length === 0 ? (
+        <EmptyState>Belum ada hasil. Generate dulu.</EmptyState>
+      ) : null}
+      <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm" mt="sm">
+        {gallery.map((job) => (
+          <ItemCard key={job.id}>
+            <Text lineClamp={2}>{job.prompt}</Text>
+            {job.output?.url ? (
+              <JobOutput url={job.output.url} availableUntil={job.output.availableUntil} maw={320} />
+            ) : null}
+            <AppLink href={`/jobs/${job.id}`}>Detail</AppLink>
+          </ItemCard>
+        ))}
+      </SimpleGrid>
+      {history.length > 0 ? (
+        <>
+          <Title order={2} mt="xl">
+            Riwayat
+          </Title>
+          {history.map((job) => (
+            <ItemCard key={job.id}>
+              <Text lineClamp={2}>{job.prompt}</Text>
+              <Text size="sm" c="dimmed">
+                {job.status === "succeeded" ? "File sudah tidak tersedia." : jobStatusLabel(job.status)}
+              </Text>
+              <AppLink href={`/jobs/${job.id}`}>Detail</AppLink>
+            </ItemCard>
+          ))}
+        </>
+      ) : null}
     </div>
   );
 }
-
-const btn: CSSProperties = {
-  padding: "10px 12px",
-  borderRadius: 8,
-  border: 0,
-  background: "#3d7dff",
-  color: "white",
-  cursor: "pointer",
-};

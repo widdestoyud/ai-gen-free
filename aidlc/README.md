@@ -41,7 +41,8 @@ BE dan FE paralel **hanya** jika kontrak SA beku dan file ownership tidak bertab
 dengan `args.intent` misalnya `M1-auth`.  
 Atau sesi agent `orchestrator`, lalu biarkan ia men-spawn `po` / `sa` / `be` / `fe` / `qa`.
 
-Definisi: `.grok/agents/*.md`, `.grok/roles/*.toml`, `.grok/workflows/aidlc-mvp.rhai`.
+Definisi: `.grok/agents/*.md`, `.grok/roles/*.toml`, `.grok/workflows/aidlc-mvp.rhai`.  
+Steering (semua tool): `AGENTS.md` + `.kiro/steering/` (lihat `.kiro/steering/README.md`).
 
 ### Kiro / Claude / Cursor (opsional, full engine)
 

@@ -1,0 +1,26 @@
+name: ai-gen-free local (via Next BFF)
+values:
+  - key: baseUrl
+    value: 'http://localhost:4000'
+  - key: email
+    value: user@example.com
+  - key: otp
+    value: ''
+  - key: adminEmail
+    value: you@example.com
+  - key: adminOtp
+    value: ''
+  - key: adminBasicUser
+    value: admin
+  - key: adminBasicPassword
+    value: change-me
+  - key: packageId
+    value: ''
+  - key: invoiceId
+    value: ''
+  - key: jobId
+    value: ''
+  - key: userId
+    value: ''
+  - key: idempotencyKey
+    value: ''

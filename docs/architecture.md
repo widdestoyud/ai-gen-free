@@ -15,6 +15,7 @@ Web app: user login email+OTP, top up poin (unggah bukti di dashboard, admin men
 - Firebase Auth
 - ComfyUI / RunPod always-on
 - Semua logika di dalam Next.js
+- MinIO/Mailpit sebagai satu-satunya cara jalan (opsional `--profile`; driver dari `.env`)
 
 ## Diagram
 
@@ -39,14 +40,14 @@ Browser
          apps/worker
                 ├─ JobService, WalletService (packages/core)
                 ├─ GenerationRouter → SirayAdapter | (adapter lain)
-                └─ MinIO / S3  (TTL 14 hari)
+                └─ ObjectStorage (R2 / S3 / MinIO via STORAGE_DRIVER, TTL 14 hari)
 ```
 
 ## Batas tanggung jawab
 
 | Paket | Boleh | Dilarang |
 |---|---|---|
-| `apps/web` | UI, cookie ke API, polling job | Prisma, BullMQ, SDK Siray, hitung harga |
+| `apps/web` | UI Mantine, NextAuth cookie, BFF proxy, polling job | Prisma, BullMQ, SDK Siray, hitung harga, style inline |
 | `apps/api` | HTTP, auth, validasi, transaksi hold+enqueue | Polling Siray menit-menitan di request |
 | `apps/worker` | Jalan job, adapter, capture/release | Percaya body klien |
 | `packages/core` | Use case, state machine, port | Import Fastify, Next, `siray`, AWS SDK |
@@ -85,7 +86,7 @@ Adapter Siray memakai token bucket agar 429 dari Siray tidak merusak FIFO (job k
 
 ## Auth
 
-Lihat `docs/domain/auth.md`. Bukan Firebase.
+Lihat `docs/domain/auth.md`. Bukan Firebase. Cookie browser = NextAuth di `apps/web` (ADR 0010); OTP dan baris sesi tetap di `apps/api`.
 
 ## Poin
 
@@ -96,7 +97,7 @@ Lihat `docs/domain/wallet.md`. Hold/capture.
 Lapisan:
 
 1. Basic Auth reverse proxy pada `/admin` dan `/api/admin`
-2. Form login admin terpisah, cookie `sid_admin`
+2. Form login admin terpisah; NextAuth cookie admin + `sid_admin` ke API
 3. `users.role = admin` hanya dari seed/CLI
 4. Menu: **notifikasi bukti transfer**, kurasi invoice, user, job, **pengaturan cooldown**, adjust poin beralasan, audit log
 
@@ -112,7 +113,7 @@ Lihat `docker-compose.yml`. Jalur kanonik: `docker compose up --build`.
 
 ## Urutan implementasi (agen wajib ikut)
 
-1. Compose: postgres, redis, minio, mailpit
+1. Compose: postgres, redis; storage/email dari `.env`; MinIO/Mailpit opsional `--profile`
 2. Prisma migrate + seed admin
 3. Auth OTP + sesi tunggal
 4. Admin Basic Auth + settings cooldown

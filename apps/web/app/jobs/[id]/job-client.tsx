@@ -1,54 +1,115 @@
 "use client";
 
+import { Progress, Text } from "@mantine/core";
 import { useEffect, useState } from "react";
-import type { JobView } from "./page";
+import { AppLink } from "@/components/app-link";
+import { CooldownText } from "@/components/cooldown-text";
+import { ErrorAlert } from "@/components/error-alert";
+import { JobOutput } from "@/components/job-output";
+import { requestJson } from "@/lib/api";
+import { formatDateId } from "@/lib/format";
+import {
+  hasLiveOutput,
+  isJobActive,
+  isJobTerminal,
+  jobErrorMessage,
+  jobStatusLabel,
+  signedRefreshDelayMs,
+  type JobView,
+} from "@/lib/job-status";
 
 export function JobClient({ initial }: { initial: JobView }) {
   const [job, setJob] = useState(initial);
+  const [userNextGenerateAt, setUserNextGenerateAt] = useState<string | null>(initial.nextGenerateAt);
 
   useEffect(() => {
-    if (job.status === "succeeded" || job.status === "failed" || job.status === "canceled") return;
-    const timer = setInterval(() => {
-      void (async () => {
-        const res = await fetch(`/api/jobs/${job.id}`, { credentials: "include" });
-        if (!res.ok) return;
-        setJob((await res.json()) as JobView);
-      })();
-    }, 1500);
-    return () => clearInterval(timer);
-  }, [job.id, job.status]);
+    let cancelled = false;
 
-  const statusLabel =
-    job.status === "queued"
-      ? "Dalam antrean"
-      : job.status === "running"
-        ? "Sedang generate"
-        : job.status === "succeeded"
-          ? "Berhasil"
-          : job.status === "failed"
-            ? "Gagal"
-            : job.status;
+    async function refresh() {
+      const result = await requestJson<JobView>(`/api/jobs/${job.id}`);
+      if (!cancelled && result.ok) setJob(result.data);
+    }
+
+    if (!isJobTerminal(job.status)) {
+      const timer = window.setInterval(() => {
+        void refresh();
+      }, 1500);
+      return () => {
+        cancelled = true;
+        window.clearInterval(timer);
+      };
+    }
+
+    const delay = signedRefreshDelayMs(job.output);
+    if (delay == null) return;
+    const timer = window.setTimeout(() => {
+      void refresh();
+    }, delay);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [job.id, job.status, job.output?.url, job.output?.signedExpiresAt]);
+
+  useEffect(() => {
+    if (job.status !== "succeeded") return;
+    let cancelled = false;
+    async function loadMe() {
+      const result = await requestJson<{ user: { nextGenerateAt: string | null } }>("/api/me");
+      if (!cancelled && result.ok) setUserNextGenerateAt(result.data.user.nextGenerateAt ?? null);
+    }
+    void loadMe();
+    const timer = window.setInterval(() => {
+      void loadMe();
+    }, 4000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [job.status]);
 
   return (
     <div>
-      <p>
-        Status: <strong>{statusLabel}</strong> · {job.progressPct}%
-      </p>
-      <p style={{ color: "#c5c9d1" }}>{job.prompt}</p>
-      {job.status === "queued" || job.status === "running" ? (
-        <p>Boleh refresh. Job tetap jalan di server.</p>
+      <Text>
+        Status: <strong>{jobStatusLabel(job.status)}</strong> · {job.progressPct}%
+      </Text>
+      <Text c="dimmed">{job.prompt}</Text>
+      {job.createdAt ? (
+        <Text c="dimmed" size="sm">
+          Dibuat: {formatDateId(job.createdAt)}
+        </Text>
       ) : null}
-      {job.status === "succeeded" && job.output ? (
+      {job.finishedAt ? (
+        <Text c="dimmed" size="sm">
+          Selesai: {formatDateId(job.finishedAt)}
+        </Text>
+      ) : null}
+      {isJobActive(job.status) ? (
+        <>
+          {job.status === "queued" && job.queuePosition != null ? (
+            <Text>Posisi antrean: {job.queuePosition}</Text>
+          ) : null}
+          <Progress value={job.progressPct} mt="sm" />
+          <Text mt="sm">Boleh refresh. Job tetap jalan di server.</Text>
+        </>
+      ) : null}
+      {job.status === "succeeded" ? (
         <div>
-          <p>Poin terpakai: {job.cost}. Jeda generate berikutnya sampai cooldown selesai.</p>
-          <p style={{ color: "#c5c9d1" }}>
-            Tersedia sampai {new Date(job.output.availableUntil).toLocaleString("id-ID")} (14 hari).
-          </p>
-          <img src={job.output.url} alt="Hasil generate" style={{ maxWidth: 240, borderRadius: 8, background: "#fff" }} />
+          <Text>Poin terpakai: {job.cost}.</Text>
+          <CooldownText until={userNextGenerateAt} />
+          {hasLiveOutput(job.output) ? (
+            <JobOutput url={job.output.url} availableUntil={job.output.availableUntil} />
+          ) : (
+            <Text mt="sm">File sudah tidak tersedia.</Text>
+          )}
         </div>
       ) : null}
       {job.status === "failed" ? (
-        <p style={{ color: "#ff8a80" }}>Gagal ({job.errorCode ?? "error"}). Poin dikembalikan, tidak ada jeda.</p>
+        <>
+          <ErrorAlert message={jobErrorMessage(job.errorCode)} />
+          <Text mt="sm">Kamu boleh generate lagi.</Text>
+          <AppLink href="/generate">Generate lagi</AppLink>
+        </>
       ) : null}
     </div>
   );

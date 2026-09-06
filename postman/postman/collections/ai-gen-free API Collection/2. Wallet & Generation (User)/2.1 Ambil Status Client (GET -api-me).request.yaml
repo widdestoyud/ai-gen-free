@@ -1,0 +1,6 @@
+$kind: http-request
+name: 2.1 Ambil Status Client (GET /api/me)
+description: Mengecek informasi identitas user dan timer cooldown generator.
+url: "{{baseUrl}}/api/me"
+method: GET
+order: 1000

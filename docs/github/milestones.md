@@ -59,6 +59,8 @@ Issues:
 
 ## M4 — Siray t2i
 
+**Status:** implemented locally (QA `docs/qa/M4-siray-t2i.md`; unit 29/29; live Compose `scripts/qa-m4-run.mjs` belum dijalankan)  
+**Spec:** `docs/product/M4-siray-t2i.md`  
 **Goal:** adapter Siray, port `GenerationProvider`, t2i nyata.
 
 Issues:
@@ -70,6 +72,8 @@ Issues:
 
 ## M5 — Admin + retensi
 
+**Status:** implemented locally (QA `docs/qa/M5-admin-retention.md`; unit 47/47; live Compose belum dijalankan)  
+**Spec:** `docs/product/M5-admin-retention.md`  
 **Goal:** menu cooldown, hapus objek 14 hari. Kurasi bayar sudah di M2.
 
 Issues:

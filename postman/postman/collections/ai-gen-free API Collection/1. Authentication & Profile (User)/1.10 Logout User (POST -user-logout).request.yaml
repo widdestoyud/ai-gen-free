@@ -1,0 +1,6 @@
+$kind: http-request
+name: 1.10 Logout User (POST /user/logout)
+description: Keluar dari sistem, menghapus cookie sid, dan mencabut sesi di database.
+url: "{{baseUrl}}/user/logout"
+method: POST
+order: 10000

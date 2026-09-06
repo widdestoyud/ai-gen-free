@@ -1,0 +1,15 @@
+$kind: http-request
+description: Verifikasi OTP admin dan memperoleh cookie sid_admin.
+url: "{{baseUrl}}/api/admin/auth/otp/verify"
+method: POST
+headers:
+  Content-Type: application/json
+  Authorization: Basic {{adminBasicAuthBase64}}
+body:
+  type: text
+  content: |-
+    {
+      "email": "{{adminEmail}}",
+      "code": "123456"
+    }
+order: 2000

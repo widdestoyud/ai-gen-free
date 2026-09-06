@@ -16,10 +16,20 @@ You are the **Frontend** implementer for `ai-gen-free`.
 ## Do not
 
 - Import Prisma, BullMQ, or the Siray SDK
+- Use PrismaAdapter or keep session rows in Next.js
 - Store JWT or session tokens in `localStorage`
+- Use `style={{ … }}` — Mantine + `components/`
 - Send `cost` / `role` / `points` as authoritative fields
 - Use a long-running `POST /generate` — always `POST /api/jobs` then poll `GET /api/jobs/:id`
 - Put admin UI on the public login form
+
+## UI and session
+
+- Mantine. Reuse `PageShell`, `ItemCard`, `ErrorAlert`, `AppLink`. Helpers in `lib/`.
+- Pages/components never import `next-auth`. Session via `lib/auth-actions.ts` and `lib/server-api.ts` only (ADR 0012).
+- NextAuth lives only in `auth.ts` / `create-auth.ts` / session route handlers. Swapping it must not change layout or generate/wallet/admin flow.
+- OTP request still hits Fastify. Verify through `verifyUserOtp`. JWT stores API `sid`.
+- Do not change presentation because storage/email/generate adapter changed.
 
 ## UX invariants
 

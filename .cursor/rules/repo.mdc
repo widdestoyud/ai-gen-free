@@ -1,0 +1,12 @@
+---
+description: Canonical repo rules for ai-gen-free
+alwaysApply: true
+---
+
+Read `AGENTS.md` before writing code. Then `docs/adr/` and `docs/architecture.md`.
+
+- Monorepo: `apps/web` UI only, `apps/api` HTTP, `apps/worker` jobs, domain in `packages/core`.
+- Browser session: NextAuth. OTP/single-session stay in the API. Not Firebase. Not `localStorage` JWT.
+- UI: Mantine. No inline `style={{ }}`. Reusable items in `apps/web/components/`.
+- Client never cuts points. `POST /jobs` returns 202.
+- Do not silently change ADRs. AIDLC: PO → SA → human gate → BE → FE → QA.

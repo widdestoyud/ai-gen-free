@@ -1,0 +1,15 @@
+$kind: http-request
+name: 1.2 Register User (Tolak Domain Palsu/Test)
+description: Uji coba penolakan domain di luar whitelist (@test.com / @mailinator.com). Harus mengembalikan HTTP 400 dengan error code A010.
+url: "{{baseUrl}}/user/register"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "email": "user.hacker@test.com",
+      "password": "ValidPassword123!"
+    }
+order: 2000

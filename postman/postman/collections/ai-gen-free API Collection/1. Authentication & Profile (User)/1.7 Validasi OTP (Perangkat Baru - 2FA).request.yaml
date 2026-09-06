@@ -1,0 +1,17 @@
+$kind: http-request
+name: 1.7 Validasi OTP (Perangkat Baru / 2FA)
+description: Validasi kode OTP 6 digit. Jika salah 3x berturut-turut, OTP dikunci permanen (HTTP 429). Jika benar, membuat sesi baru dan mengeset cookie sid.
+url: "{{baseUrl}}/auth/otp-validation"
+method: POST
+headers:
+  Content-Type: application/json
+  x-device-id: device-desktop-chrome-v1
+body:
+  type: text
+  content: |-
+    {
+      "email": "user.test123@gmail.com",
+      "code": "123456",
+      "deviceId": "device-desktop-chrome-v1"
+    }
+order: 7000

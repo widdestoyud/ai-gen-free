@@ -1,0 +1,17 @@
+$kind: http-request
+name: 1.9 Update Profil User (PATCH /user/profile - Anti IDOR)
+description: Memperbarui nama alias, nomor telepon, KTP, dan alamat. Kebal celah IDOR karena identitas diambil dari session.userId server.
+url: "{{baseUrl}}/user/profile"
+method: PATCH
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "displayName": "Budi Santoso",
+      "phoneNumber": "081234567890",
+      "ktp": "3171012345670001",
+      "address": "Jl. Merdeka No. 45, Jakarta Pusat"
+    }
+order: 9000
