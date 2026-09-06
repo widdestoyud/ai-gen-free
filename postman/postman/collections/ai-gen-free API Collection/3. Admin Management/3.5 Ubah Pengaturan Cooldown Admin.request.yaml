@@ -1,14 +1,14 @@
 $kind: http-request
 description: Mengubah durasi cooldown generator global (misalnya menjadi 3600 detik = 1 jam).
-url: "{{baseUrl}}/api/admin/settings/generate_cooldown_seconds"
+url: "{{baseUrl}}/admin/settings/generate_cooldown_seconds"
 method: PUT
 headers:
   Content-Type: application/json
-  Authorization: Basic {{adminBasicAuthBase64}}
+  Cookie: sid_admin={{adminSessionToken}}
 body:
   type: text
   content: |-
     {
       "value": 3600
     }
-order: 8000
+order: 5000

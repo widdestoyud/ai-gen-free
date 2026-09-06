@@ -106,10 +106,20 @@ export async function registerAuthRoutes(
   // -------------------------------------------------------------
   const handleLogin = async (req: any, reply: any) => {
     try {
-      const body = (req.body ?? {}) as { email?: unknown; password?: unknown; deviceId?: unknown };
+      const body = (req.body ?? {}) as {
+        email?: unknown;
+        password?: unknown;
+        deviceId?: unknown;
+        token?: unknown;
+        sessionToken?: unknown;
+      };
       const deviceIdHeader = req.headers["x-device-id"];
       const deviceId = body.deviceId ?? deviceIdHeader;
-      const sessionToken = req.cookies?.sid ?? req.headers["x-session-token"];
+      const sessionToken =
+        (typeof body.token === "string" && body.token.trim().length > 0 ? body.token.trim() : undefined) ??
+        (typeof body.sessionToken === "string" && body.sessionToken.trim().length > 0 ? body.sessionToken.trim() : undefined) ??
+        req.cookies?.sid ??
+        (typeof req.headers["x-session-token"] === "string" ? req.headers["x-session-token"] : undefined);
 
       const result = await loginUser({
         emailRaw: body.email,

@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "start": "tsx src/index.ts",
-    "test": "tsx --test src/jobs/params.test.ts src/jobs/catalog.test.ts src/jobs/output.test.ts src/admin/parse.test.ts"
+    "test": "tsx --test src/jobs/params.test.ts src/jobs/catalog.test.ts src/jobs/output.test.ts src/admin/parse.test.ts src/routes/empty-body.test.ts src/auth/auth-flow.test.ts"
   },
   "dependencies": {
     "@ai-gen-free/core": "workspace:*",

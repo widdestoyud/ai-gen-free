@@ -90,11 +90,29 @@ export async function registerAdminRoutes(app: FastifyInstance, deps: { storage:
   // -------------------------------------------------------------
   const handleAdminLogin = async (req: any, reply: any) => {
     try {
-      const body = (req.body ?? {}) as { username?: unknown; email?: unknown; password?: unknown };
+      const body = (req.body ?? {}) as {
+        username?: unknown;
+        email?: unknown;
+        password?: unknown;
+        deviceId?: unknown;
+        token?: unknown;
+        sessionToken?: unknown;
+      };
+      const deviceIdHeader = req.headers["x-device-id"];
+      const deviceId = body.deviceId ?? deviceIdHeader;
+      const sessionToken =
+        (typeof body.token === "string" && body.token.trim().length > 0 ? body.token.trim() : undefined) ??
+        (typeof body.sessionToken === "string" && body.sessionToken.trim().length > 0 ? body.sessionToken.trim() : undefined) ??
+        req.cookies?.sid_admin ??
+        req.cookies?.sid ??
+        (typeof req.headers["x-session-token"] === "string" ? req.headers["x-session-token"] : undefined);
+
       const result = await loginAdmin({
         usernameRaw: body.username,
         emailRaw: body.email,
         passwordRaw: body.password,
+        deviceIdRaw: deviceId,
+        sessionTokenRaw: sessionToken,
         ip: requestIp(req),
         userAgent: typeof req.headers["user-agent"] === "string" ? req.headers["user-agent"] : undefined,
         redis: deps.redis,

@@ -31,6 +31,20 @@ const app = Fastify({
   requestIdHeader: "x-transaction-id",
 });
 
+app.addContentTypeParser("application/json", { parseAs: "string" }, (_req, body: string, done) => {
+  if (!body || body.trim() === "") {
+    done(null, {});
+    return;
+  }
+  try {
+    const json = JSON.parse(body);
+    done(null, json);
+  } catch (err: any) {
+    err.statusCode = 400;
+    done(err, undefined);
+  }
+});
+
 app.addHook("preSerialization", async (req, _reply, payload) => {
   if (
     payload !== null &&

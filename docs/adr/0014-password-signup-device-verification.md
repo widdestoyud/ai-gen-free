@@ -33,16 +33,18 @@ Ditemukan kebutuhan bisnis & keamanan:
 - Input: `token` (via body atau query parameter).
 - Token dicocokkan dengan tabel `EmailVerificationToken`. Jika valid, tandai `consumedAt` dan perbarui `User.emailVerifiedAt = now()`.
 
-### 3. Login Pengguna (`POST /user/login` & `/api/user/login`)
-- Input: `email`, `password`, dan opsi `deviceId`.
+### 3. Login Pengguna (`POST /user/login`) & Login Admin (`POST /admin/login`)
+- Input: `email`/`username`, `password`, opsi `deviceId`, `sessionToken`/cookie.
 - Menolak jika kredensial salah (`A012`) atau email belum diverifikasi (`A013`).
-- **Deteksi Perangkat**:
+- **Pencegahan Login Berulang (Already Logged In)**:
+  - Jika request membawa token/cookie sesi yang masih aktif ATAU user/admin sudah memiliki sesi aktif pada perangkat yang sama (`lastDeviceId === deviceId`), sistem **dilarang mengembalikan HTTP 200 OK**.
+  - Sistem melempar `AuthError` reusable `ALREADY_LOGGED_IN` (`A019`, HTTP 409) dengan pesan: *"Akun Anda saat ini sudah dalam keadaan masuk (login). Silakan keluar (logout) terlebih dahulu."*
+- **Deteksi Perangkat (Khusus Pelanggan)**:
   - Jika login pertama kali (`!user.lastDeviceId` / `!user.lastLoginAt`) ATAU terdeteksi perangkat berbeda (`user.lastDeviceId !== deviceId`):
     - Sistem mengirim OTP ke email terdaftar.
     - Mengembalikan respon `{ requiresOtp: true, deviceId, message: "..." }`.
-  - Jika perangkat sama (perangkat yang telah terverifikasi):
-    - Langsung membuat sesi baru.
-    - Mencabut seluruh sesi lama user (menegakkan single active session).
+  - Jika perangkat sama dan belum ada sesi aktif pada perangkat tersebut:
+    - Membuat sesi baru dan mencabut sesi lama (menegakkan single active session).
 
 ### 4. Batasan Rate Limit Terpusat (`RateLimitConfig`)
 Dikelola terpusat di `packages/core/src/config/rate-limit.config.ts`:

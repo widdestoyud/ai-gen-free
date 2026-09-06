@@ -5,4 +5,4 @@ method: POST
 headers:
   Content-Type: application/json
   Cookie: sid_admin={{adminSessionToken}}
-order: 4000
+order: 6000

@@ -70,11 +70,44 @@ export async function findUserOrThrow(email: string) {
 
 /**
  * Memastikan user atau request belum dalam keadaan login (active session).
- * Melempar AuthError ALREADY_LOGGED_IN (A019, HTTP 409) jika user sudah login / memiliki sesi aktif.
+ * Melempar AuthError ALREADY_LOGGED_IN (A019, HTTP 409) jika user/admin sudah login / memiliki sesi aktif.
  */
-export async function ensureNotLoggedIn(userId: string, currentSessionToken?: string) {
-  if (currentSessionToken) {
-    const session = await userFromCookie(currentSessionToken, "user");
+export async function ensureNotLoggedIn(
+  optsOrUserId?:
+    | string
+    | {
+        userId?: string;
+        currentSessionToken?: string;
+        kind?: SessionKind;
+        deviceId?: string;
+        lastDeviceId?: string;
+      },
+  currentSessionToken?: string,
+  kindParam: SessionKind = "user",
+  deviceIdParam?: string,
+) {
+  let userId: string | undefined;
+  let token: string | undefined;
+  let kind: SessionKind = kindParam;
+  let deviceId: string | undefined;
+  let lastDeviceId: string | undefined;
+
+  if (typeof optsOrUserId === "object" && optsOrUserId !== null) {
+    userId = optsOrUserId.userId;
+    token = optsOrUserId.currentSessionToken;
+    kind = optsOrUserId.kind ?? "user";
+    deviceId = optsOrUserId.deviceId;
+    lastDeviceId = optsOrUserId.lastDeviceId;
+  } else {
+    userId = optsOrUserId;
+    token = currentSessionToken;
+    kind = kindParam;
+    deviceId = deviceIdParam;
+  }
+
+  // 1. Jika request membawa session token aktif (cookie / header / body) yang valid
+  if (token) {
+    const session = await userFromCookie(token, kind);
     if (session) {
       throw new AuthError(
         AuthResponses.errors.ALREADY_LOGGED_IN.code,
@@ -84,20 +117,26 @@ export async function ensureNotLoggedIn(userId: string, currentSessionToken?: st
     }
   }
 
-  const activeSession = await prisma.session.findFirst({
-    where: {
-      userId,
-      kind: "user",
-      expiresAt: { gt: new Date() },
-    },
-  });
+  // 2. Jika userId diketahui dan user sudah memiliki sesi aktif pada perangkat yang sama (atau deviceId sesuai)
+  if (userId) {
+    const isSameDevice = !deviceId || !lastDeviceId || deviceId === lastDeviceId;
+    if (isSameDevice) {
+      const activeSession = await prisma.session.findFirst({
+        where: {
+          userId,
+          kind,
+          expiresAt: { gt: new Date() },
+        },
+      });
 
-  if (activeSession) {
-    throw new AuthError(
-      AuthResponses.errors.ALREADY_LOGGED_IN.code,
-      AuthResponses.errors.ALREADY_LOGGED_IN.message,
-      AuthResponses.errors.ALREADY_LOGGED_IN.status,
-    );
+      if (activeSession) {
+        throw new AuthError(
+          AuthResponses.errors.ALREADY_LOGGED_IN.code,
+          AuthResponses.errors.ALREADY_LOGGED_IN.message,
+          AuthResponses.errors.ALREADY_LOGGED_IN.status,
+        );
+      }
+    }
   }
 }
 
@@ -279,10 +318,10 @@ export async function loginUser(opts: {
     throw new AuthError(AuthResponses.errors.INVALID_CREDENTIALS.code, AuthResponses.errors.INVALID_CREDENTIALS.message, 401);
   }
 
-  const user = await findUserOrThrow(email);
+  // Mencegah login jika request membawa session token aktif
+  await ensureNotLoggedIn({ currentSessionToken: opts.sessionTokenRaw, kind: "user" });
 
-  // Mencegah login jika akun sudah dalam posisi login
-  await ensureNotLoggedIn(user.id, opts.sessionTokenRaw);
+  const user = await findUserOrThrow(email);
 
   // Rate limit login attempt per email + IP
   const rl = await enforceRateLimit(opts.redis, `ratelimit:login:${email}:${opts.ip}`, RateLimitConfig.login);
@@ -320,6 +359,15 @@ export async function loginUser(opts: {
     typeof opts.deviceIdRaw === "string" && opts.deviceIdRaw.trim().length > 0
       ? opts.deviceIdRaw.trim()
       : hashSecret(appSecret(), `${opts.userAgent ?? "default-agent"}:${opts.ip}`);
+
+  // Mencegah login jika user sudah dalam posisi login pada perangkat ini
+  await ensureNotLoggedIn({
+    userId: user.id,
+    currentSessionToken: opts.sessionTokenRaw,
+    kind: "user",
+    deviceId,
+    lastDeviceId: user.lastDeviceId ?? undefined,
+  });
 
   const isFirstLogin = !user.lastDeviceId || !user.lastLoginAt;
   const isDeviceChanged = user.lastDeviceId !== deviceId;
@@ -863,10 +911,15 @@ export async function loginAdmin(opts: {
   usernameRaw?: unknown;
   emailRaw?: unknown;
   passwordRaw: unknown;
+  deviceIdRaw?: unknown;
+  sessionTokenRaw?: string;
   ip: string;
   userAgent?: string;
   redis: IORedis;
 }): Promise<{ token: string; user: { id: string; username: string; role: "admin" }; message: string }> {
+  // Mencegah login jika request membawa session token admin aktif
+  await ensureNotLoggedIn({ currentSessionToken: opts.sessionTokenRaw, kind: "admin" });
+
   const { identifier, internalEmail } = parseAdminIdentifier(opts.usernameRaw ?? opts.emailRaw);
   if (typeof opts.passwordRaw !== "string" || !opts.passwordRaw) {
     throw new AuthError(AuthResponses.errors.INVALID_CREDENTIALS.code, AuthResponses.errors.INVALID_CREDENTIALS.message, 401);
@@ -904,6 +957,20 @@ export async function loginAdmin(opts: {
   if (!validPassword) {
     throw new AuthError(AuthResponses.errors.INVALID_CREDENTIALS.code, AuthResponses.errors.INVALID_CREDENTIALS.message, 401);
   }
+
+  const deviceId =
+    typeof opts.deviceIdRaw === "string" && opts.deviceIdRaw.trim().length > 0
+      ? opts.deviceIdRaw.trim()
+      : hashSecret(appSecret(), `${opts.userAgent ?? "default-agent"}:${opts.ip}`);
+
+  // Mencegah login jika admin sudah dalam posisi login pada perangkat ini
+  await ensureNotLoggedIn({
+    userId: user.id,
+    currentSessionToken: opts.sessionTokenRaw,
+    kind: "admin",
+    deviceId,
+    lastDeviceId: user.lastDeviceId ?? undefined,
+  });
 
   const token = randomToken();
   const tokenHash = hashSecret(appSecret(), token);
