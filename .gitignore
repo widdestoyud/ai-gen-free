@@ -11,3 +11,10 @@ dist
 coverage
 prisma/generated
 tools/archify-src/
+
+# Scratch & Local Dumps
+scratch/
+*.dump
+*.sql
+*.tmp
+.turbo
