@@ -11,4 +11,4 @@ body:
     {
       "email": "{{adminEmail}}"
     }
-order: 1000
+order: 4000

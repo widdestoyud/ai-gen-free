@@ -323,7 +323,30 @@
       "name": "3. Admin Management",
       "item": [
         {
-          "name": "3.1 Login Admin (Password)",
+          "name": "3.1 Register Admin Baru (Direct)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin.baru@gmail.com\",\n  \"password\": \"AdminPassword123!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "register"]
+            },
+            "description": "Mendaftar akun admin baru secara langsung dengan role admin dan email terverifikasi otomatis (tanpa perlu OTP atau verifikasi email)."
+          },
+          "response": []
+        },
+        {
+          "name": "3.2 Login Admin (Password)",
           "request": {
             "method": "POST",
             "header": [

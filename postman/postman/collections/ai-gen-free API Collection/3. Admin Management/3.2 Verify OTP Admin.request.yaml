@@ -12,4 +12,4 @@ body:
       "email": "{{adminEmail}}",
       "code": "123456"
     }
-order: 2000
+order: 5000

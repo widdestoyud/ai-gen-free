@@ -1,7 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import "@fastify/cookie";
 import { AuthResponses, ErrorCodes, type ObjectStorage } from "@ai-gen-free/core";
-import { AuthError, loginAdmin, logout, userFromCookie } from "../auth/service.js";
+import { AuthError, loginAdmin, logout, registerAdmin, userFromCookie } from "../auth/service.js";
 import { requestIp, sendError } from "../http.js";
 import {
   parseAdjustBody,
@@ -56,6 +56,33 @@ async function requireAdmin(
 }
 
 export async function registerAdminRoutes(app: FastifyInstance, deps: { storage: ObjectStorage; redis: IORedis }) {
+  // -------------------------------------------------------------
+  // 0. ADMIN REGISTER (POST /admin/register & POST /api/admin/register)
+  // Mendaftar akun admin baru tanpa memerlukan OTP / verifikasi email.
+  // -------------------------------------------------------------
+  const handleAdminRegister = async (req: any, reply: any) => {
+    try {
+      const body = (req.body ?? {}) as { email?: unknown; password?: unknown };
+      const result = await registerAdmin({
+        emailRaw: body.email,
+        passwordRaw: body.password,
+        ip: requestIp(req),
+        redis: deps.redis,
+      });
+
+      return reply.status(201).send({
+        ok: true,
+        user: result.user,
+        message: result.message,
+      });
+    } catch (err) {
+      return sendError(reply, err);
+    }
+  };
+
+  app.post("/admin/register", handleAdminRegister);
+  app.post("/api/admin/register", handleAdminRegister);
+
   // -------------------------------------------------------------
   // 1. ADMIN LOGIN (POST /admin/login & POST /api/admin/login)
   // Tidak membutuhkan OTP atau verifikasi email. Wajib role="admin".

@@ -902,3 +902,74 @@ export async function loginAdmin(opts: {
     message: AuthResponses.success.ADMIN_LOGIN_SUCCESS.message,
   };
 }
+
+/**
+ * Registrasi admin baru:
+ * - Email wajib domain resmi (@gmail, @yahoo, @ymail)
+ * - Password minimal 8 karakter, 1 huruf kapital, 1 angka
+ * - role: "admin", emailVerifiedAt: new Date() (tanpa OTP/verifikasi email)
+ */
+export async function registerAdmin(opts: {
+  emailRaw: unknown;
+  passwordRaw: unknown;
+  ip: string;
+  redis: IORedis;
+}): Promise<{ message: string; user: { id: string; email: string; role: string } }> {
+  const email = parseEmailOrThrow(opts.emailRaw);
+
+  // Validasi domain whitelist
+  if (!isAllowedEmailDomain(email)) {
+    throw new AuthError(
+      AuthResponses.errors.INVALID_EMAIL_DOMAIN.code,
+      AuthResponses.errors.INVALID_EMAIL_DOMAIN.message,
+      AuthResponses.errors.INVALID_EMAIL_DOMAIN.status,
+    );
+  }
+
+  // Validasi kekuatan password
+  const passCheck = validatePassword(opts.passwordRaw);
+  if (!passCheck.valid) {
+    throw new AuthError(
+      AuthResponses.errors.WEAK_PASSWORD.code,
+      passCheck.message ?? AuthResponses.errors.WEAK_PASSWORD.message,
+      AuthResponses.errors.WEAK_PASSWORD.status,
+    );
+  }
+
+  // Rate limit registrasi per IP
+  const rl = await enforceRateLimit(opts.redis, `ratelimit:register:ip:${opts.ip}`, RateLimitConfig.register);
+  if (!rl.allowed) {
+    throw new AuthError(AuthResponses.errors.RATE_LIMITED.code, RateLimitConfig.register.message, 429);
+  }
+
+  const existing = await prisma.user.findUnique({ where: { email } });
+  if (existing) {
+    throw new AuthError(
+      AuthResponses.errors.EMAIL_ALREADY_REGISTERED.code,
+      AuthResponses.errors.EMAIL_ALREADY_REGISTERED.message,
+      AuthResponses.errors.EMAIL_ALREADY_REGISTERED.status,
+    );
+  }
+
+  const passwordHash = await hashPassword(opts.passwordRaw as string);
+
+  const created = await prisma.user.create({
+    data: {
+      email,
+      passwordHash,
+      role: "admin",
+      emailVerifiedAt: new Date(), // Langsung terverifikasi tanpa OTP/email verification
+      wallet: { create: {} },
+    },
+  });
+
+  return {
+    message: AuthResponses.success.ADMIN_REGISTER_SUCCESS.message,
+    user: {
+      id: created.id,
+      email: created.email,
+      role: created.role,
+    },
+  };
+}
+

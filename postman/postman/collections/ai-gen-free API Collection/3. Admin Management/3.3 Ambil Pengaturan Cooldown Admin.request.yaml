@@ -4,4 +4,4 @@ url: "{{baseUrl}}/api/admin/settings/generate_cooldown_seconds"
 method: GET
 headers:
   Authorization: Basic {{adminBasicAuthBase64}}
-order: 3000
+order: 6000

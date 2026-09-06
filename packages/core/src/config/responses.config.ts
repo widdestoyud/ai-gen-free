@@ -140,6 +140,10 @@ export const AuthResponses = {
       status: 200,
       message: "Berhasil masuk sebagai admin.",
     },
+    ADMIN_REGISTER_SUCCESS: {
+      status: 201,
+      message: "Pendaftaran admin berhasil.",
+    },
     ADMIN_LOGOUT_SUCCESS: {
       status: 200,
       message: "Berhasil keluar dari sesi admin.",

@@ -1,0 +1,8 @@
+$kind: http-request
+description: Menghapus/mencabut sesi login admin yang sedang aktif dan membersihkan cookie sid_admin.
+url: "{{baseUrl}}/admin/logout"
+method: POST
+headers:
+  Content-Type: application/json
+  Cookie: sid_admin={{adminSessionToken}}
+order: 3000
