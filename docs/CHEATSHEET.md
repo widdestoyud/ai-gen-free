@@ -104,14 +104,18 @@ Dokumen ini berisi perintah langsung dan skrip bantu untuk menjalankan service s
 
 ## 4. Script Melihat Seluruh Tabel & Data Database Postgres
 
-### **A. Menggunakan Script Helper (Ringkasan Jumlah Data)**
-- **PowerShell:**
+### **A. Menggunakan Script Helper (Ringkasan Jumlah Data & User Aktif)**
+- **PowerShell (Ringkasan Jumlah Data Tabel):**
   ```powershell
   powershell -ExecutionPolicy Bypass -File .\scripts\view-db-tables.ps1
   ```
-- **Git Bash / Linux:**
+- **PowerShell (Lihat User yang Sedang Aktif Login):**
+  ```powershell
+  powershell -ExecutionPolicy Bypass -File .\scripts\view-db-tables.ps1 -ActiveUsers
+  ```
+- **Git Bash / Linux (User Aktif Login):**
   ```bash
-  ./scripts/view-db-tables.sh
+  ./scripts/view-db-tables.sh --active
   ```
 
 ### **B. Prisma Studio (GUI Visual Browser Database)**
@@ -124,20 +128,23 @@ pnpm db:studio
 powershell -ExecutionPolicy Bypass -File .\scripts\view-db-tables.ps1 -Studio
 ```
 
-### **C. Menggunakan psql langsung di Container Postgres**
-- **Masuk ke psql CLI:**
+### **C. Menggunakan SQL Query / psql CLI**
+- **Query SQL User Aktif Login:**
+  ```sql
+  SELECT u.id, u.email, u.role, s.ip, s.created_at, s.expires_at
+  FROM sessions s
+  JOIN users u ON s.user_id = u.id
+  WHERE s.kind = 'user' AND s.expires_at > NOW()
+  ORDER BY s.created_at DESC;
+  ```
+- **Masuk ke psql CLI di Container Postgres:**
   ```bash
   docker compose exec postgres psql -U app -d app
   ```
-- **Lihat daftar seluruh tabel:**
-  ```sql
-  \dt
-  ```
-- **Query data tabel `users` / `sessions` / `otp_challenges`:**
+- **Lihat data tabel `users` & `sessions`:**
   ```sql
   SELECT id, email, role, email_verified_at FROM users;
-  SELECT * FROM sessions;
-  SELECT * FROM otp_challenges ORDER BY created_at DESC LIMIT 5;
+  SELECT * FROM sessions WHERE expires_at > NOW();
   ```
 
 ---
