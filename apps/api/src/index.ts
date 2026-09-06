@@ -96,7 +96,7 @@ app.get("/api/ready", async (_req, reply) => {
 await registerAuthRoutes(app, { redis, mailer });
 await registerWalletRoutes(app, { storage });
 await registerJobRoutes(app, { storage, queue });
-await registerAdminRoutes(app, { storage });
+await registerAdminRoutes(app, { storage, redis });
 
 const shutdown = async () => {
   await app.close();

@@ -136,6 +136,14 @@ export const AuthResponses = {
       status: 200,
       message: "Berhasil keluar.",
     },
+    ADMIN_LOGIN_SUCCESS: {
+      status: 200,
+      message: "Berhasil masuk sebagai admin.",
+    },
+    ADMIN_LOGOUT_SUCCESS: {
+      status: 200,
+      message: "Berhasil keluar dari sesi admin.",
+    },
     PROFILE_UPDATED: {
       status: 200,
       message: "Profil berhasil diperbarui.",

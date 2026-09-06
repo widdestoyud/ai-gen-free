@@ -51,3 +51,9 @@ Port `4000` telah dipublish ke host di `docker-compose.yml`.
 
 ### 7. Logout User (`POST /user/logout` & `POST /auth/logout`)
 - Mencabut sesi user aktif di database dan menghapus cookie `sid`.
+
+### 8. Admin Management (`POST /admin/login`, `GET /admin/customer/list`, `POST /admin/logout`)
+- `POST /admin/login`: Login khusus admin via email + password tanpa OTP.
+- `GET /admin/customer/list`: Melihat seluruh daftar pengguna customer/user (khusus role admin).
+- `POST /admin/logout`: Mencabut sesi admin dan menghapus cookie `sid_admin`.
+

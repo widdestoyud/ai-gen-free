@@ -318,7 +318,7 @@ export async function registerAuthRoutes(
   // 8. ADMIN AUTH (Basic Auth + OTP)
   // -------------------------------------------------------------
   app.addHook("preHandler", async (req, reply) => {
-    if (!req.url.startsWith("/api/admin")) return;
+    if (!req.url.startsWith("/api/admin/auth/otp")) return;
     if (!basicAuthorized(req.headers.authorization)) {
       reply.header("WWW-Authenticate", 'Basic realm="admin"');
       return reply.status(401).send({

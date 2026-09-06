@@ -833,3 +833,72 @@ export async function logout(token: string | undefined, kind: SessionKind) {
   const tokenHash = hashSecret(appSecret(), token);
   await prisma.session.deleteMany({ where: { tokenHash, kind } });
 }
+
+/**
+ * Login admin menggunakan email dan password (tanpa OTP & tanpa verifikasi email):
+ * - Memastikan user.role === "admin"
+ * - Membuat sesi kind "admin" dan mengembalikan token
+ */
+export async function loginAdmin(opts: {
+  emailRaw: unknown;
+  passwordRaw: unknown;
+  ip: string;
+  userAgent?: string;
+  redis: IORedis;
+}): Promise<{ token: string; user: { id: string; email: string; role: "admin" }; message: string }> {
+  const email = parseEmailOrThrow(opts.emailRaw);
+  if (typeof opts.passwordRaw !== "string" || !opts.passwordRaw) {
+    throw new AuthError(AuthResponses.errors.INVALID_CREDENTIALS.code, AuthResponses.errors.INVALID_CREDENTIALS.message, 401);
+  }
+
+  // Rate limit admin login per IP + Email
+  const rl = await enforceRateLimit(opts.redis, `ratelimit:admin:login:${email}:${opts.ip}`, RateLimitConfig.login);
+  if (!rl.allowed) {
+    throw new AuthError(AuthResponses.errors.RATE_LIMITED.code, RateLimitConfig.login.message, 429);
+  }
+
+  const user = await findUserOrThrow(email);
+  if (user.role !== "admin") {
+    throw new AuthError(AuthResponses.errors.FORBIDDEN.code, "Akun Anda tidak memiliki hak akses sebagai admin.", 403);
+  }
+
+  if (user.bannedAt) {
+    throw new AuthError(AuthResponses.errors.FORBIDDEN.code, AuthResponses.errors.FORBIDDEN.message, 403);
+  }
+
+  if (!user.passwordHash) {
+    throw new AuthError(AuthResponses.errors.INVALID_CREDENTIALS.code, AuthResponses.errors.INVALID_CREDENTIALS.message, 401);
+  }
+
+  const validPassword = await verifyPassword(opts.passwordRaw, user.passwordHash);
+  if (!validPassword) {
+    throw new AuthError(AuthResponses.errors.INVALID_CREDENTIALS.code, AuthResponses.errors.INVALID_CREDENTIALS.message, 401);
+  }
+
+  const token = randomToken();
+  const tokenHash = hashSecret(appSecret(), token);
+
+  await prisma.$transaction([
+    prisma.session.deleteMany({ where: { userId: user.id, kind: "admin" } }),
+    prisma.session.create({
+      data: {
+        userId: user.id,
+        kind: "admin",
+        tokenHash,
+        expiresAt: new Date(Date.now() + SESSION_TTL_MS),
+        ip: opts.ip,
+        userAgent: opts.userAgent,
+      },
+    }),
+    prisma.user.update({
+      where: { id: user.id },
+      data: { lastLoginAt: new Date() },
+    }),
+  ]);
+
+  return {
+    token,
+    user: { id: user.id, email: user.email, role: "admin" },
+    message: AuthResponses.success.ADMIN_LOGIN_SUCCESS.message,
+  };
+}

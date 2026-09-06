@@ -323,7 +323,76 @@
       "name": "3. Admin Management",
       "item": [
         {
-          "name": "3.1 Request OTP Admin",
+          "name": "3.1 Login Admin (Password)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-device-id",
+                "value": "device-admin-chrome-v1"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@aigenfree.id\",\n  \"password\": \"AdminSecret123!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "login"]
+            },
+            "description": "Login khusus admin menggunakan email dan password tanpa memerlukan verifikasi OTP. Mengembalikan sessionToken dan menetapkan cookie sid_admin."
+          },
+          "response": []
+        },
+        {
+          "name": "3.2 Daftar Customer / User (Admin)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "sid_admin={{adminSessionToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/customer/list",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "customer", "list"]
+            },
+            "description": "Melihat seluruh daftar pengguna customer/user yang terdaftar di platform beserta detail status akun dan saldo poin."
+          },
+          "response": []
+        },
+        {
+          "name": "3.3 Logout Admin",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Cookie",
+                "value": "sid_admin={{adminSessionToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/logout",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "logout"]
+            },
+            "description": "Menghapus/mencabut sesi login admin yang sedang aktif dan membersihkan cookie sid_admin."
+          },
+          "response": []
+        },
+        {
+          "name": "3.4 Request OTP Admin (Legacy)",
           "request": {
             "method": "POST",
             "header": [
