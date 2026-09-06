@@ -8,7 +8,7 @@ param(
 
 if ($Studio) {
   Write-Host "=== Membuka Prisma Studio (GUI Browser Database) ===" -ForegroundColor Cyan
-  pnpm db:studio
+  pnpm exec prisma studio --schema prisma/schema.prisma
 } elseif ($ActiveUsers) {
   Write-Host "=== User yang Sedang Aktif Login ===" -ForegroundColor Cyan
   pnpm exec tsx -e "import { prisma } from '@ai-gen-free/db'; async function run() { const s = await prisma.session.findMany({ where: { kind: 'user', expiresAt: { gt: new Date() } }, include: { user: true }, orderBy: { createdAt: 'desc' } }); console.log('=== USER AKTIF LOGIN (' + s.length + ' user) ==='); console.table(s.map(x => ({ email: x.user.email, role: x.user.role, ip: x.ip, createdAt: x.createdAt.toISOString(), expiresAt: x.expiresAt.toISOString() }))); }; run().then(() => process.exit(0));"
