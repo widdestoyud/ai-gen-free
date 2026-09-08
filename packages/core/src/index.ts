@@ -24,6 +24,6 @@ export type {
 export { normalizeEmail, isEmailFormat, isDisposableEmail, isAllowedEmailDomain } from "./auth/email.js";
 export { hashSecret, safeEqualHex, randomOtp, randomToken } from "./auth/crypto.js";
 export { validatePassword, hashPassword, verifyPassword } from "./auth/password.js";
-export { RateLimitConfig, type RateLimitRule } from "./config/rate-limit.config.js";
+export { RateLimitConfig, getOtpTtlMs, type RateLimitRule } from "./config/rate-limit.config.js";
 export { AuthResponses, type ErrorDefinition, type SuccessDefinition } from "./config/responses.config.js";
 

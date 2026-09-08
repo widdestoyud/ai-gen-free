@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   AuthResponses,
   RateLimitConfig,
+  getOtpTtlMs,
   isAllowedEmailDomain,
   validatePassword,
   hashPassword,
@@ -107,9 +108,24 @@ test("Centralized Response Configuration Integrity", () => {
   assert.equal(AuthResponses.errors.VERIFICATION_TOKEN_INVALID.code, "A015");
   assert.equal(AuthResponses.errors.EMAIL_NOT_FOUND.code, "A018");
   assert.equal(AuthResponses.errors.ALREADY_LOGGED_IN.code, "A019");
+  assert.equal(AuthResponses.errors.OTP_ACTIVE_EXISTING.code, "A020");
+  assert.equal(AuthResponses.errors.OTP_ACTIVE_EXISTING.status, 429);
   assert.equal(AuthResponses.errors.OTP_LOCKED.code, "A004");
   assert.ok(AuthResponses.success.REGISTER.message.length > 0);
   assert.ok(AuthResponses.success.EMAIL_VERIFIED.message.length > 0);
   assert.ok(AuthResponses.success.LOGIN_SUCCESS.message.length > 0);
   assert.ok(AuthResponses.success.PROFILE_UPDATED.message.length > 0);
+});
+
+test("OTP TTL Configuration & Fallback", () => {
+  // Configured default (10 min = 600,000 ms)
+  assert.equal(RateLimitConfig.otpTtlSeconds, 600);
+  assert.equal(getOtpTtlMs(), 600000);
+
+  // Custom configured value
+  assert.equal(getOtpTtlMs(300), 300000); // 5 min
+
+  // Fallback to 15 min (900,000 ms) if unconfigured/invalid
+  assert.equal(getOtpTtlMs(0), 900000);
+  assert.equal(getOtpTtlMs(-10), 900000);
 });

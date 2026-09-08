@@ -38,6 +38,11 @@ export const AuthResponses = {
       status: 429,
       message: "Kode OTP terkunci karena telah 3x salah input. Silakan minta kode baru.",
     },
+    OTP_ACTIVE_EXISTING: {
+      code: "A020",
+      status: 429,
+      message: "Kode OTP sebelumnya masih berlaku. Silakan periksa email Anda atau tunggu hingga kode kedaluwarsa sebelum meminta ulang.",
+    },
     EMAIL_UNAVAILABLE: {
       code: "A005",
       status: 503,

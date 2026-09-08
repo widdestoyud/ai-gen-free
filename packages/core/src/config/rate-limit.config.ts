@@ -17,6 +17,14 @@ export interface RateLimitRule {
 
 export const RateLimitConfig = {
   /**
+   * Durasi & Masa Aktif Kode OTP (TTL / Waktu Tunggu OTP).
+   * Nilai konfig awal: 10 menit (600 detik).
+   * Nilai fallback default jika tidak di-set/0: 15 menit (900 detik).
+   */
+  otpTtlSeconds: 10 * 60, // 10 menit (dapat diubah dengan mudah di file ini)
+  otpDefaultTtlSeconds: 15 * 60, // Fallback default 15 menit jika otpTtlSeconds tidak diset/0
+
+  /**
    * Request / Resend OTP:
    * Maksimal 3 kali dalam 30 menit. Jika sudah 3x, harus menunggu 30 menit.
    */
@@ -71,3 +79,12 @@ export const RateLimitConfig = {
     message: "Terlalu banyak percobaan validasi email. Silakan coba lagi nanti.",
   } satisfies RateLimitRule,
 } as const;
+
+/**
+ * Helper terpusat untuk mendapatkan durasi TTL OTP dalam milidetik.
+ * Jika `configuredSeconds` bernilai undefined/0/negatif, fallback ke default 15 menit (900.000 ms).
+ */
+export function getOtpTtlMs(configuredSeconds?: number): number {
+  const seconds = configuredSeconds ?? RateLimitConfig.otpTtlSeconds ?? RateLimitConfig.otpDefaultTtlSeconds;
+  return (typeof seconds === "number" && seconds > 0 ? seconds : 15 * 60) * 1000;
+}

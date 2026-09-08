@@ -14,6 +14,7 @@ import {
   hashPassword,
   verifyPassword,
   RateLimitConfig,
+  getOtpTtlMs,
 } from "@ai-gen-free/core";
 import { prisma } from "@ai-gen-free/db";
 import type IORedis from "ioredis";
@@ -29,7 +30,6 @@ export class AuthError extends Error {
   }
 }
 
-const OTP_TTL_MS = 10 * 60 * 1000;
 const EMAIL_VERIFICATION_TTL_MS = 24 * 60 * 60 * 1000; // 24 jam
 const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -374,6 +374,24 @@ export async function loginUser(opts: {
 
   // Jika login pertama kali ATAU ganti device -> kirim OTP untuk verifikasi perangkat
   if (isFirstLogin || isDeviceChanged) {
+    const activeChallenge = await prisma.otpChallenge.findFirst({
+      where: {
+        email,
+        consumedAt: null,
+        expiresAt: { gt: new Date() },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    if (activeChallenge) {
+      return {
+        requiresOtp: true,
+        deviceId,
+        email,
+        message: "Login dari perangkat baru terdeteksi. Kode OTP sebelumnya masih berlaku dan telah dikirim ke email Anda.",
+      };
+    }
+
     // Rate limit pengiriman OTP (maks 3x per 30 menit)
     const otpRl = await enforceRateLimit(opts.redis, `ratelimit:otp:request:${email}`, RateLimitConfig.otpRequest);
     if (!otpRl.allowed) {
@@ -392,7 +410,7 @@ export async function loginUser(opts: {
       data: {
         email,
         codeHash,
-        expiresAt: new Date(Date.now() + OTP_TTL_MS),
+        expiresAt: new Date(Date.now() + getOtpTtlMs()),
         ip: opts.ip,
         attempts: 0,
       },
@@ -469,6 +487,23 @@ export async function resendOtp(opts: {
   // Mencegah request OTP jika akun sudah dalam posisi login
   await ensureNotLoggedIn(user.id, opts.sessionTokenRaw);
 
+  const activeChallenge = await prisma.otpChallenge.findFirst({
+    where: {
+      email,
+      consumedAt: null,
+      expiresAt: { gt: new Date() },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  if (activeChallenge) {
+    throw new AuthError(
+      AuthResponses.errors.OTP_ACTIVE_EXISTING.code,
+      AuthResponses.errors.OTP_ACTIVE_EXISTING.message,
+      AuthResponses.errors.OTP_ACTIVE_EXISTING.status,
+    );
+  }
+
   // Rate limit: 3x per 30 menit
   const rl = await enforceRateLimit(opts.redis, `ratelimit:otp:request:${email}`, RateLimitConfig.otpRequest);
   if (!rl.allowed) {
@@ -487,7 +522,7 @@ export async function resendOtp(opts: {
     data: {
       email,
       codeHash,
-      expiresAt: new Date(Date.now() + OTP_TTL_MS),
+      expiresAt: new Date(Date.now() + getOtpTtlMs()),
       ip: opts.ip,
       attempts: 0,
     },
@@ -729,6 +764,23 @@ export async function requestOtp(opts: {
     }
   }
 
+  const activeChallenge = await prisma.otpChallenge.findFirst({
+    where: {
+      email,
+      consumedAt: null,
+      expiresAt: { gt: new Date() },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  if (activeChallenge) {
+    throw new AuthError(
+      AuthResponses.errors.OTP_ACTIVE_EXISTING.code,
+      AuthResponses.errors.OTP_ACTIVE_EXISTING.message,
+      AuthResponses.errors.OTP_ACTIVE_EXISTING.status,
+    );
+  }
+
   const code = randomOtp();
   const codeHash = hashSecret(appSecret(), `${email}:${code}`);
   await prisma.otpChallenge.updateMany({
@@ -739,7 +791,7 @@ export async function requestOtp(opts: {
     data: {
       email,
       codeHash,
-      expiresAt: new Date(Date.now() + OTP_TTL_MS),
+      expiresAt: new Date(Date.now() + getOtpTtlMs()),
       ip: opts.ip,
       attempts: 0,
     },
