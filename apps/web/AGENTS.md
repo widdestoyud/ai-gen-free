@@ -11,9 +11,14 @@ Baca root `AGENTS.md` dan ADR 0010, 0011, 0012, 0013.
   - Halaman di `app/` atau `components/` hanya bertanggung jawab me-render UI Mantine.
   - Tidak ada `fetch`, `requestJson`, atau mutasi state kompleks langsung di komponen presentasi.
 - **Login & OTP Flow**:
-  - OTP muncul sebagai **Modal** (`components/otp-modal.tsx`) langsung di halaman `/login` (atau `/admin/login`).
+  - Landing `/` menampilkan CTA Masuk/Daftar. Modal login **tidak** dibuka otomatis.
+  - OTP muncul sebagai **Modal** di landing setelah login perangkat baru (`requiresOtp`).
+  - Admin: HTTP Basic (bukan publik) + form username/password di `/admin`. **Tanpa OTP**.
   - Dilarang mengirim email lewat URL query params (`/otp?email=...`) atau menyimpan email/OTP di `sessionStorage` / `localStorage`.
-  - Seluruh payload dikirimkan sebagai JSON request body: `{ email }` untuk request dan `{ email, code }` untuk verify.
+  - Seluruh payload dikirimkan sebagai JSON request body.
+- **Payload hanya body (ADR 0016):**
+  - Browser/`requestJson` tidak boleh menaruh `email`, `token`, `code`, `password`, atau field aksi lain di query string.
+  - Verifikasi email dan reset password: halaman FE boleh baca `?token=` dari tautan email, lalu `POST` JSON `{ token }` (dan `{ token, password }` untuk konfirmasi) ke BFF. Jangan `GET /api/auth/...?token=`.
 - **Error Codes & Tracking**:
   - Tampilkan `code` ber-prefix (`AXXX`, `BXXX`, dll.) dan `transaction_id` pada `ErrorAlert` untuk memudahkan logging dan penelusuran masalah.
 
@@ -25,7 +30,7 @@ Baca root `AGENTS.md` dan ADR 0010, 0011, 0012, 0013.
 - Helper: `lib/api.ts`, `lib/format.ts`, `lib/server-api.ts`, `lib/job-status.ts`.
 - Sesi: halaman dan `components/` hanya `lib/auth-actions.ts` + `lib/server-api.ts`. **Jangan** `import from "next-auth"` di page/layout/komponen.
 - Adapter sesi (boleh diganti tanpa ubah flow): `auth.ts`, `auth-admin.ts`, `lib/create-auth.ts`, `app/api/session/**`, `app/api/admin/session/**`.
-- Request OTP: `POST /api/auth/otp/request` (BFF → Fastify). Verify lewat `verifyUserOtp` / `verifyAdminOtp`.
+- Alias BFF pelanggan: `/api/login`, `/api/register`, `/api/otp-request`, `/api/otp-validation`, `/api/customer-profile`, `/api/logout`, `/api/email-validation`, `/api/reset-password`, `/api/reset-password-validation`, `/api/reset-password-confirm`. Admin login: `/api/admin/login`.
 - Browser hanya `fetch('/api/...')` same-origin. BFF `app/api/[...path]` mem-proxy ke Fastify. Jangan `NEXT_PUBLIC_API_URL` ke host BE.
 - Ganti R2/SMTP/Siray **tidak** boleh mengubah komponen atau layout (ADR 0012).
 

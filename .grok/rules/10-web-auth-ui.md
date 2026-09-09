@@ -4,4 +4,5 @@
 - OTP identity stays in `apps/api`. UI must not set a third session cookie.
 - UI kit: Mantine. No `style={{ … }}`. Reuse `apps/web/components/*`. Helpers in `apps/web/lib/*`.
 - Browser only calls same-origin `/api/*`. Next BFF proxies to Fastify (`API_INTERNAL_URL`). Do not publish API ports to the host or use `NEXT_PUBLIC_API_URL`.
+- Action payloads (`email`, `token`, `code`, `password`, profile fields) go in JSON body only. Never query params. GET list filters (`limit`, `offset`, `q`, `status`) may stay on the query string.
 - Do not hardcode MinIO/Mailpit in Compose; `STORAGE_*` / `SMTP_*` / `SIRAY_*` come from `.env`.

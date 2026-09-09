@@ -1,5 +1,6 @@
 import { Text } from "@mantine/core";
-import { AdminPageShell, AdminUnauth } from "@/components/admin-page-shell";
+import { AdminLoginForm } from "@/components/admin-login-form";
+import { AdminPageShell } from "@/components/admin-page-shell";
 import { fetchAdminApi, loadAdminMe } from "@/lib/server-api";
 import { AdminInbox } from "./admin-inbox";
 
@@ -21,7 +22,7 @@ export type InboxItem = {
 
 export default async function AdminHomePage() {
   const me = await loadAdminMe();
-  if (!me) return <AdminUnauth />;
+  if (!me) return <AdminLoginForm />;
   const inbox = await notifications();
   return (
     <AdminPageShell title="Admin" home>

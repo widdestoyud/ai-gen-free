@@ -36,3 +36,18 @@ export async function loadAdminMe() {
   if (!res || !res.ok) return null;
   return (await res.json()) as { user: { id: string; email: string; role: string } };
 }
+
+export async function loadCustomerProfile() {
+  const res = await fetchUserApi("/api/user/profile");
+  if (!res || !res.ok) return null;
+  return (await res.json()) as {
+    user: {
+      id: string;
+      email: string;
+      displayName: string | null;
+      phoneNumber: string | null;
+      ktp: string | null;
+      address: string | null;
+    };
+  };
+}

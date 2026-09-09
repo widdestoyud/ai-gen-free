@@ -13,3 +13,4 @@ inclusion: always
 - Admin bukan lewat register publik. Role hanya seed/CLI.
 - Bucket hasil generate bukan public-read.
 - Next.js tidak import Prisma, BullMQ, atau SDK Siray.
+- Payload aksi (email, token, OTP, password, profil) hanya JSON body. Dilarang query param (`?token=`, `?email=`). Filter GET daftar (`limit`, `offset`, `q`) boleh tetap query.

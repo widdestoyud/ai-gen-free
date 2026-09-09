@@ -10,6 +10,7 @@ alwaysApply: false
 - No `style={{ … }}`. No new hex colors in JSX.
 - Pages never import `next-auth`. Use `lib/auth-actions.ts` / `lib/server-api.ts`.
 - Login: OTP request still Fastify via `/api/auth/otp/request`; verify via session helpers.
+- Action payloads (`email`, `token`, `code`, `password`) in JSON body only. Never query params (ADR 0016).
 - Swapping session/storage/email adapters must not change layout or flows (ADR 0012).
 - Helpers: `apps/web/lib/api.ts`, `format.ts`, `server-api.ts`.
 - Do not import Prisma, BullMQ, or Siray.

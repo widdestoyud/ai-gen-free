@@ -6,7 +6,9 @@ import { requestJson } from "@/lib/api";
 
 export function useLogin() {
   const router = useRouter();
+  const [loginOpened, setLoginOpened] = useState(false);
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [code, setCode] = useState("");
   const [otpModalOpened, setOtpModalOpened] = useState(false);
   const [error, setError] = useState("");
@@ -20,15 +22,29 @@ export function useLogin() {
     setTransactionId("");
   }
 
-  async function requestCode(e: FormEvent) {
+  function openLogin() {
+    resetErrors();
+    setLoginOpened(true);
+  }
+
+  function closeLogin() {
+    setLoginOpened(false);
+    setPassword("");
+    resetErrors();
+  }
+
+  async function submitLogin(e: FormEvent) {
     e.preventDefault();
     resetErrors();
     setPending(true);
 
-    const result = await requestJson("/api/auth/otp/request", {
-      method: "POST",
-      body: JSON.stringify({ email: email.trim().toLowerCase() }),
-    });
+    const result = await requestJson<{ ok?: boolean; requiresOtp?: boolean; message?: string }>(
+      "/api/login",
+      {
+        method: "POST",
+        body: JSON.stringify({ email: email.trim().toLowerCase(), password }),
+      },
+    );
 
     setPending(false);
 
@@ -39,7 +55,15 @@ export function useLogin() {
       return;
     }
 
-    setOtpModalOpened(true);
+    if (result.data.requiresOtp) {
+      setLoginOpened(false);
+      setOtpModalOpened(true);
+      return;
+    }
+
+    setLoginOpened(false);
+    router.push("/app/customer");
+    router.refresh();
   }
 
   async function verifyCode(e: FormEvent) {
@@ -47,7 +71,7 @@ export function useLogin() {
     resetErrors();
     setPending(true);
 
-    const result = await requestJson<{ ok: boolean }>("/api/auth/otp/verify", {
+    const result = await requestJson<{ ok: boolean }>("/api/otp-validation", {
       method: "POST",
       body: JSON.stringify({ email: email.trim().toLowerCase(), code: code.trim() }),
     });
@@ -62,7 +86,8 @@ export function useLogin() {
     }
 
     setOtpModalOpened(false);
-    router.push("/");
+    setPassword("");
+    router.push("/app/customer");
     router.refresh();
   }
 
@@ -73,8 +98,13 @@ export function useLogin() {
   }
 
   return {
+    loginOpened,
+    openLogin,
+    closeLogin,
     email,
     setEmail,
+    password,
+    setPassword,
     code,
     setCode,
     otpModalOpened,
@@ -83,7 +113,7 @@ export function useLogin() {
     errorCode,
     transactionId,
     pending,
-    requestCode,
+    submitLogin,
     verifyCode,
   };
 }

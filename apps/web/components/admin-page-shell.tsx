@@ -19,7 +19,7 @@ export function AdminUnauth() {
   return (
     <PageShell title="Admin">
       <Text>Sesi admin belum ada.</Text>
-      <AppLink href="/admin/login">Masuk dengan OTP</AppLink>
+      <AppLink href="/admin">Masuk sebagai admin</AppLink>
     </PageShell>
   );
 }
@@ -50,7 +50,7 @@ export function AdminPageShell({
           size="xs"
           onClick={async () => {
             await logoutAdmin();
-            router.push("/admin/login");
+            router.push("/admin");
             router.refresh();
           }}
         >

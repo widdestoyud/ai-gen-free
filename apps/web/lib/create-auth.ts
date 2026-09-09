@@ -48,10 +48,67 @@ export function createAuth(kind: AppKind) {
       },
     },
     pages: {
-      signIn: isAdmin ? "/admin/login" : "/login",
-      error: isAdmin ? "/admin/login" : "/login",
+      signIn: isAdmin ? "/admin" : "/",
+      error: isAdmin ? "/admin" : "/",
     },
     providers: [
+      Credentials({
+        id: "password",
+        name: "Password",
+        credentials: {
+          email: { label: "Email", type: "email" },
+          username: { label: "Username", type: "text" },
+          password: { label: "Password", type: "password" },
+        },
+        authorize: async (credentials) => {
+          const password = typeof credentials?.password === "string" ? credentials.password : "";
+          const email = typeof credentials?.email === "string" ? credentials.email.trim().toLowerCase() : "";
+          const username = typeof credentials?.username === "string" ? credentials.username.trim() : "";
+          const path = isAdmin ? "/api/admin/login" : "/api/user/login";
+          const payload = isAdmin ? { username: username || email, password } : { email, password };
+          const res = await fetch(`${apiBase()}${path}`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              ...(isAdmin ? adminBasicHeaders() : {}),
+            },
+            body: JSON.stringify(payload),
+          });
+          const body = (await res.json()) as {
+            ok?: boolean;
+            requiresOtp?: boolean;
+            message?: string;
+            user?: { id: string; email?: string; username?: string; role: "user" | "admin" };
+            sessionToken?: string;
+            error?: { code?: string; message: string };
+            transaction_id?: string;
+          };
+          if (body.requiresOtp) {
+            const txid = body.transaction_id ?? res.headers.get("x-transaction-id") ?? "";
+            class OtpRequiredError extends CredentialsSignin {
+              code = `A016||${body.message ?? "Kode OTP diperlukan"}||${txid}||OTP_REQUIRED`;
+            }
+            throw new OtpRequiredError();
+          }
+          if (!res.ok || !body.user) {
+            const errCode = body.error?.code ?? "A012";
+            const errMsg = body.error?.message ?? "Kata sandi yang Anda masukkan salah.";
+            const txid = body.transaction_id ?? res.headers.get("x-transaction-id") ?? "";
+            class AuthVerifyError extends CredentialsSignin {
+              code = `${errCode}||${errMsg}||${txid}`;
+            }
+            throw new AuthVerifyError();
+          }
+          const sid = parseSid(kind, res, body);
+          if (!sid) return null;
+          return {
+            id: body.user.id,
+            email: body.user.email ?? body.user.username ?? email ?? username,
+            role: body.user.role,
+            sid,
+          };
+        },
+      }),
       Credentials({
         id: "otp",
         name: "OTP",

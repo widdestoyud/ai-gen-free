@@ -1,4 +1,4 @@
-# Domain: auth (ADR 0006 & ADR 0014)
+# Domain: auth (ADR 0006, ADR 0014, ADR 0016)
 
 ## 1. Siklus Pendaftaran & Kredensial Pengguna
 
@@ -8,7 +8,7 @@
   - **Kebijakan Kata Sandi**: Minimal 8 karakter, setidaknya mengandung 1 huruf kapital dan 1 angka (`A011`).
   - **Penyimpanan Kata Sandi**: Di-hash secara kriptografis menggunakan `scrypt` dengan 16-byte random salt (`salt:hash`).
   - **Status Awal**: Akun dibuat dengan `emailVerifiedAt: null`. Tautan verifikasi email dibuat dan dikirim ke pengguna via `EmailPort.sendVerificationEmail()`.
-- **Validasi Email (`POST /auth/email-validation`)**:
+- **Validasi Email (`POST /auth/email-validation` body `{ token }`)**:
   - Input: `token` (berlaku 24 jam).
   - Jika token valid dan belum kedaluwarsa, `emailVerifiedAt` diisi timestamp saat ini.
 

@@ -4,6 +4,7 @@ import {
   AuthResponses,
   RateLimitConfig,
   getOtpTtlMs,
+  getPasswordResetTokenTtlMs,
   isAllowedEmailDomain,
   validatePassword,
   hashPassword,
@@ -107,14 +108,21 @@ test("Centralized Response Configuration Integrity", () => {
   assert.equal(AuthResponses.errors.EMAIL_ALREADY_REGISTERED.code, "A014");
   assert.equal(AuthResponses.errors.VERIFICATION_TOKEN_INVALID.code, "A015");
   assert.equal(AuthResponses.errors.EMAIL_NOT_FOUND.code, "A018");
+  assert.equal(AuthResponses.errors.EMAIL_NOT_FOUND.message, "Email belum terdaftar.");
   assert.equal(AuthResponses.errors.ALREADY_LOGGED_IN.code, "A019");
+  assert.equal(AuthResponses.errors.ALREADY_LOGGED_IN.status, 409);
   assert.equal(AuthResponses.errors.OTP_ACTIVE_EXISTING.code, "A020");
   assert.equal(AuthResponses.errors.OTP_ACTIVE_EXISTING.status, 429);
   assert.equal(AuthResponses.errors.OTP_LOCKED.code, "A004");
+  assert.equal(AuthResponses.errors.PASSWORD_RESET_PENDING.code, "A021");
+  assert.equal(AuthResponses.errors.PASSWORD_RESET_COOLDOWN.code, "A022");
+  assert.equal(AuthResponses.errors.PASSWORD_RESET_TOKEN_INVALID.code, "A023");
   assert.ok(AuthResponses.success.REGISTER.message.length > 0);
   assert.ok(AuthResponses.success.EMAIL_VERIFIED.message.length > 0);
   assert.ok(AuthResponses.success.LOGIN_SUCCESS.message.length > 0);
   assert.ok(AuthResponses.success.PROFILE_UPDATED.message.length > 0);
+  assert.ok(AuthResponses.success.PASSWORD_RESET_SENT.message.length > 0);
+  assert.ok(AuthResponses.success.PASSWORD_RESET_SUCCESS.message.length > 0);
 });
 
 test("OTP TTL Configuration & Fallback", () => {
@@ -128,4 +136,35 @@ test("OTP TTL Configuration & Fallback", () => {
   // Fallback to 15 min (900,000 ms) if unconfigured/invalid
   assert.equal(getOtpTtlMs(0), 900000);
   assert.equal(getOtpTtlMs(-10), 900000);
+});
+
+test("Rate Limit password reset per IP: max 3 emails, 4th blocked", async () => {
+  const redis = new MockRedis();
+  const key = "ratelimit:password-reset:ip:203.0.113.10";
+  const rule = RateLimitConfig.passwordResetIp;
+
+  assert.equal(rule.maxAttempts, 3);
+  assert.equal(rule.windowSeconds, RateLimitConfig.passwordResetPendingSeconds);
+
+  const r1 = await enforceRateLimit(redis as any, key, rule);
+  assert.equal(r1.allowed, true);
+  const r2 = await enforceRateLimit(redis as any, key, rule);
+  assert.equal(r2.allowed, true);
+  const r3 = await enforceRateLimit(redis as any, key, rule);
+  assert.equal(r3.allowed, true);
+  assert.equal(r3.remainingAttempts, 0);
+
+  const r4 = await enforceRateLimit(redis as any, key, rule);
+  assert.equal(r4.allowed, false);
+  assert.equal(r4.currentAttempts, 4);
+  assert.ok(r4.retryAfterSeconds > 0);
+});
+
+test("Password reset durations are read from RateLimitConfig not literals in tests", () => {
+  assert.equal(RateLimitConfig.passwordResetTokenTtlSeconds, 3600);
+  assert.equal(RateLimitConfig.passwordResetPendingSeconds, 3600);
+  assert.equal(RateLimitConfig.passwordResetCompletedSeconds, 86400);
+  assert.equal(getPasswordResetTokenTtlMs(), RateLimitConfig.passwordResetTokenTtlSeconds * 1000);
+  assert.equal(validatePassword("weak").valid, false);
+  assert.equal(validatePassword("ValidPass123").valid, true);
 });

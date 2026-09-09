@@ -25,12 +25,12 @@ Port `4000` telah dipublish ke host di `docker-compose.yml`.
 - Password: Min 8 karakter, min 1 kapital, min 1 angka (`A011`).
 
 ### 2. Verifikasi Email (`POST /auth/email-validation`)
-- Body: `{ "token": "<token-dari-database-atau-email>" }`
+- Body: `{ "token": "<token-dari-database-atau-email>" }`. Token **wajib di body**, bukan query.
 
 ### 3. Login User (`POST /user/login`)
 - Body: `{ "email": "user@gmail.com", "password": "Password123!" }`
 - Password salah untuk email terdaftar: HTTP 401 (`A012` — "Kata sandi yang Anda masukkan salah.").
-- Email tidak ditemukan di database: HTTP 404 (`A018` — "Email tidak ditemukan atau belum terdaftar.").
+- Email tidak ditemukan di database: HTTP 404 (`A018` — "Email belum terdaftar.").
 - Sudah dalam posisi login: HTTP 409 (`A019` — "Akun Anda saat ini sudah dalam keadaan masuk (login). Silakan keluar (logout) terlebih dahulu.").
 - Triggers OTP jika login pertama kali / ganti perangkat (`requiresOtp: true`).
 
@@ -51,6 +51,11 @@ Port `4000` telah dipublish ke host di `docker-compose.yml`.
 
 ### 7. Logout User (`POST /user/logout` & `POST /auth/logout`)
 - Mencabut sesi user aktif di database dan menghapus cookie `sid`.
+
+### 7b. Reset Kata Sandi
+- `POST /auth/password-reset` body `{ "email": "user@gmail.com" }`. Email belum terdaftar: `A018`. Request ulang sebelum 1 jam / sebelum konfirmasi: `A021`. Setelah password berhasil diganti: `A022` (24 jam). Maks 3 request per IP: `A008`.
+- `POST /auth/password-reset-validation` body `{ "token": "..." }`. Token invalid: `A023`. Tidak consume token. Jangan `?token=`.
+- `POST /auth/password-reset-confirm` body `{ "token": "...", "password": "NewValidPass123" }`. Password lemah: `A011`. Sukses mencabut seluruh sesi.
 
 ### 8. Admin Management (`POST /admin/register`, `POST /admin/login`, `GET /admin/customer/list`, `PUT /admin/settings/generate_cooldown_seconds`, `POST /admin/logout`)
 - `POST /admin/register`: Body `{ "username": "admin123", "password": "AdminPassword123!" }`. Mendaftar akun admin baru langsung dengan `role: "admin"` (tanpa OTP/verifikasi email).

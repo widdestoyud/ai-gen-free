@@ -66,5 +66,5 @@ export async function logoutAdmin() {
       },
     });
   }
-  await adminSignOut({ redirectTo: "/admin/login" });
+  await adminSignOut({ redirectTo: "/admin" });
 }

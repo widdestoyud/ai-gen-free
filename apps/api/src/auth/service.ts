@@ -15,6 +15,9 @@ import {
   verifyPassword,
   RateLimitConfig,
   getOtpTtlMs,
+  getPasswordResetTokenTtlMs,
+  evaluatePasswordResetRequest,
+  type PasswordResetDenial,
 } from "@ai-gen-free/core";
 import { prisma } from "@ai-gen-free/db";
 import type IORedis from "ioredis";
@@ -69,8 +72,10 @@ export async function findUserOrThrow(email: string) {
 }
 
 /**
- * Memastikan user atau request belum dalam keadaan login (active session).
- * Melempar AuthError ALREADY_LOGGED_IN (A019, HTTP 409) jika user/admin sudah login / memiliki sesi aktif.
+ * A019 hanya jika request ini sudah membawa token/cookie sesi yang masih hidup.
+ * Sesi lama di DB tanpa token pada request bukan "sudah login" — login baru akan
+ * mengganti sesi itu (satu sesi). lastDeviceId kosong tidak boleh dianggap perangkat sama:
+ * itu yang membuat login admin pertama gagal setelah percobaan Fastify sebelumnya.
  */
 export async function ensureNotLoggedIn(
   optsOrUserId?:
@@ -86,26 +91,17 @@ export async function ensureNotLoggedIn(
   kindParam: SessionKind = "user",
   deviceIdParam?: string,
 ) {
-  let userId: string | undefined;
   let token: string | undefined;
   let kind: SessionKind = kindParam;
-  let deviceId: string | undefined;
-  let lastDeviceId: string | undefined;
 
   if (typeof optsOrUserId === "object" && optsOrUserId !== null) {
-    userId = optsOrUserId.userId;
     token = optsOrUserId.currentSessionToken;
     kind = optsOrUserId.kind ?? "user";
-    deviceId = optsOrUserId.deviceId;
-    lastDeviceId = optsOrUserId.lastDeviceId;
   } else {
-    userId = optsOrUserId;
     token = currentSessionToken;
     kind = kindParam;
-    deviceId = deviceIdParam;
   }
 
-  // 1. Jika request membawa session token aktif (cookie / header / body) yang valid
   if (token) {
     const session = await userFromCookie(token, kind);
     if (session) {
@@ -114,28 +110,6 @@ export async function ensureNotLoggedIn(
         AuthResponses.errors.ALREADY_LOGGED_IN.message,
         AuthResponses.errors.ALREADY_LOGGED_IN.status,
       );
-    }
-  }
-
-  // 2. Jika userId diketahui dan user sudah memiliki sesi aktif pada perangkat yang sama (atau deviceId sesuai)
-  if (userId) {
-    const isSameDevice = !deviceId || !lastDeviceId || deviceId === lastDeviceId;
-    if (isSameDevice) {
-      const activeSession = await prisma.session.findFirst({
-        where: {
-          userId,
-          kind,
-          expiresAt: { gt: new Date() },
-        },
-      });
-
-      if (activeSession) {
-        throw new AuthError(
-          AuthResponses.errors.ALREADY_LOGGED_IN.code,
-          AuthResponses.errors.ALREADY_LOGGED_IN.message,
-          AuthResponses.errors.ALREADY_LOGGED_IN.status,
-        );
-      }
     }
   }
 }
@@ -1041,7 +1015,7 @@ export async function loginAdmin(opts: {
     }),
     prisma.user.update({
       where: { id: user.id },
-      data: { lastLoginAt: new Date() },
+      data: { lastLoginAt: new Date(), lastDeviceId: deviceId },
     }),
   ]);
 
@@ -1122,6 +1096,209 @@ export async function registerAdmin(opts: {
       role: created.role,
     },
   };
+}
+
+function throwPasswordResetDenied(reason: PasswordResetDenial): never {
+  if (reason === "EMAIL_NOT_FOUND") {
+    throw new AuthError(
+      AuthResponses.errors.EMAIL_NOT_FOUND.code,
+      AuthResponses.errors.EMAIL_NOT_FOUND.message,
+      AuthResponses.errors.EMAIL_NOT_FOUND.status,
+    );
+  }
+  if (reason === "FORBIDDEN") {
+    throw new AuthError(
+      AuthResponses.errors.FORBIDDEN.code,
+      AuthResponses.errors.FORBIDDEN.message,
+      AuthResponses.errors.FORBIDDEN.status,
+    );
+  }
+  if (reason === "PASSWORD_RESET_COOLDOWN") {
+    throw new AuthError(
+      AuthResponses.errors.PASSWORD_RESET_COOLDOWN.code,
+      AuthResponses.errors.PASSWORD_RESET_COOLDOWN.message,
+      AuthResponses.errors.PASSWORD_RESET_COOLDOWN.status,
+    );
+  }
+  throw new AuthError(
+    AuthResponses.errors.PASSWORD_RESET_PENDING.code,
+    AuthResponses.errors.PASSWORD_RESET_PENDING.message,
+    AuthResponses.errors.PASSWORD_RESET_PENDING.status,
+  );
+}
+
+function parseResetTokenOrThrow(tokenRaw: unknown): string {
+  if (typeof tokenRaw !== "string" || !tokenRaw.trim()) {
+    throw new AuthError(
+      AuthResponses.errors.PASSWORD_RESET_TOKEN_INVALID.code,
+      AuthResponses.errors.PASSWORD_RESET_TOKEN_INVALID.message,
+      AuthResponses.errors.PASSWORD_RESET_TOKEN_INVALID.status,
+    );
+  }
+  return tokenRaw.trim();
+}
+
+async function findLivePasswordResetToken(token: string) {
+  const tokenHash = hashSecret(appSecret(), token);
+  const record = await prisma.passwordResetToken.findFirst({
+    where: {
+      tokenHash,
+      consumedAt: null,
+      expiresAt: { gt: new Date() },
+    },
+  });
+  if (!record) {
+    throw new AuthError(
+      AuthResponses.errors.PASSWORD_RESET_TOKEN_INVALID.code,
+      AuthResponses.errors.PASSWORD_RESET_TOKEN_INVALID.message,
+      AuthResponses.errors.PASSWORD_RESET_TOKEN_INVALID.status,
+    );
+  }
+  return record;
+}
+
+/**
+ * Permintaan reset kata sandi:
+ * - Email belum terdaftar / belum verifikasi / tanpa password → A018
+ * - Rate limit per IP (default 3x / jam) dari RateLimitConfig.passwordResetIp
+ * - Token pending belum dikonfirmasi → A021 (1 jam, config)
+ * - Password baru saja diganti → A022 (24 jam, config)
+ */
+export async function requestPasswordReset(opts: {
+  emailRaw: unknown;
+  ip: string;
+  redis: IORedis;
+  mailer: import("@ai-gen-free/core").EmailPort;
+}): Promise<{ message: string; email: string }> {
+  const email = parseEmailOrThrow(opts.emailRaw);
+
+  const rl = await enforceRateLimit(
+    opts.redis,
+    `ratelimit:password-reset:ip:${opts.ip}`,
+    RateLimitConfig.passwordResetIp,
+  );
+  if (!rl.allowed) {
+    throw new AuthError(
+      AuthResponses.errors.RATE_LIMITED.code,
+      RateLimitConfig.passwordResetIp.message,
+      AuthResponses.errors.RATE_LIMITED.status,
+    );
+  }
+
+  const user = await prisma.user.findUnique({ where: { email } });
+  const pending = user
+    ? await prisma.passwordResetToken.findFirst({
+        where: { userId: user.id, consumedAt: null },
+        orderBy: { createdAt: "desc" },
+      })
+    : null;
+
+  const gate = evaluatePasswordResetRequest({
+    user: user
+      ? {
+          emailVerifiedAt: user.emailVerifiedAt,
+          passwordHash: user.passwordHash,
+          bannedAt: user.bannedAt,
+          passwordChangedAt: user.passwordChangedAt,
+        }
+      : null,
+    pendingTokenCreatedAt: pending?.createdAt ?? null,
+    pendingSeconds: RateLimitConfig.passwordResetPendingSeconds,
+    completedSeconds: RateLimitConfig.passwordResetCompletedSeconds,
+  });
+  if (!gate.allowed) {
+    throwPasswordResetDenied(gate.reason);
+  }
+  if (!user) {
+    throwPasswordResetDenied("EMAIL_NOT_FOUND");
+  }
+
+  const token = randomToken();
+  const tokenHash = hashSecret(appSecret(), token);
+  const created = await prisma.$transaction(async (tx) => {
+    await tx.passwordResetToken.updateMany({
+      where: { userId: user.id, consumedAt: null },
+      data: { consumedAt: new Date() },
+    });
+    return tx.passwordResetToken.create({
+      data: {
+        userId: user.id,
+        tokenHash,
+        expiresAt: new Date(Date.now() + getPasswordResetTokenTtlMs(RateLimitConfig.passwordResetTokenTtlSeconds)),
+        ip: opts.ip,
+      },
+    });
+  });
+
+  try {
+    await opts.mailer.sendPasswordResetEmail(email, token);
+  } catch (err) {
+    const raw = err instanceof Error ? err.message : "";
+    console.error("password reset mail failed", raw);
+    await prisma.passwordResetToken.update({
+      where: { id: created.id },
+      data: { consumedAt: new Date() },
+    });
+    throw new AuthError(
+      AuthResponses.errors.EMAIL_UNAVAILABLE.code,
+      AuthResponses.errors.EMAIL_UNAVAILABLE.message,
+      AuthResponses.errors.EMAIL_UNAVAILABLE.status,
+    );
+  }
+
+  return {
+    message: AuthResponses.success.PASSWORD_RESET_SENT.message,
+    email,
+  };
+}
+
+/**
+ * Validasi tautan reset (tidak consume token). Dipakai setelah klik email.
+ */
+export async function validatePasswordResetToken(tokenRaw: unknown): Promise<{ message: string }> {
+  const token = parseResetTokenOrThrow(tokenRaw);
+  await findLivePasswordResetToken(token);
+  return { message: AuthResponses.success.PASSWORD_RESET_VALID.message };
+}
+
+/**
+ * Konfirmasi password baru. Token sekali pakai. Mencabut seluruh sesi.
+ */
+export async function confirmPasswordReset(opts: {
+  tokenRaw: unknown;
+  passwordRaw: unknown;
+}): Promise<{ message: string }> {
+  const passCheck = validatePassword(opts.passwordRaw);
+  if (!passCheck.valid) {
+    throw new AuthError(
+      AuthResponses.errors.WEAK_PASSWORD.code,
+      passCheck.message ?? AuthResponses.errors.WEAK_PASSWORD.message,
+      AuthResponses.errors.WEAK_PASSWORD.status,
+    );
+  }
+
+  const token = parseResetTokenOrThrow(opts.tokenRaw);
+  const record = await findLivePasswordResetToken(token);
+  const passwordHash = await hashPassword(opts.passwordRaw as string);
+  const now = new Date();
+
+  await prisma.$transaction([
+    prisma.passwordResetToken.update({
+      where: { id: record.id },
+      data: { consumedAt: now },
+    }),
+    prisma.passwordResetToken.updateMany({
+      where: { userId: record.userId, consumedAt: null, id: { not: record.id } },
+      data: { consumedAt: now },
+    }),
+    prisma.user.update({
+      where: { id: record.userId },
+      data: { passwordHash, passwordChangedAt: now },
+    }),
+    prisma.session.deleteMany({ where: { userId: record.userId } }),
+  ]);
+
+  return { message: AuthResponses.success.PASSWORD_RESET_SUCCESS.message };
 }
 
 

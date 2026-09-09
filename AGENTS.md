@@ -42,10 +42,12 @@ Jangan mengarang ulang arsitektur. Jika ingin mengubah keputusan di `docs/adr/`,
   - Request/resend OTP via `POST /auth/otp`: dibatasi maksimal 3x per 30 menit (lockout 30 menit jika terlampaui).
   - Validasi OTP via `POST /auth/otp-validation`: maksimal 3x salah input OTP sebelum kode dikunci permanen.
   - Profil user via `GET/PATCH /user/profile`: input nama alias, telepon, KTP, alamat. **Bebas celah IDOR**: identitas user diambil mutlak dari cookie sesi server (`session.userId`), tidak boleh mempercayai ID dari body/query.
+  - Reset kata sandi (ADR 0015): `POST /auth/password-reset` `{ email }` (email belum terdaftar → `A018`); tautan dicek `POST /auth/password-reset-validation`; password baru `POST /auth/password-reset-confirm` `{ token, password }`. Request ulang diblokir 1 jam atau sampai konfirmasi (`A021`); setelah sukses ganti password diblokir 24 jam (`A022`); rate limit 3x per IP (`A008`). Token hash, bukan plaintext. Durasi/kuota hanya di `rate-limit.config.ts`.
   - Konfigurasi terpusat: Rate limit di `packages/core/src/config/rate-limit.config.ts` dan respon di `packages/core/src/config/responses.config.ts`. Terikat error reusable `ALREADY_LOGGED_IN` (`A019`, 409) untuk seluruh pencegahan aktivitas saat sesi masih aktif.
 - Cookie/sesi **browser**: adapter v1 NextAuth (ADR 0010) di belakang `lib/auth-actions.ts` + `lib/server-api.ts`. Halaman/komponen **tidak** mengimpor `next-auth`. Identity/OTP/satu-sesi tetap di `apps/api`.
 - UI: **Mantine**. Dilarang style inline `style={{ … }}`. Item berulang = komponen di `apps/web/components/` (ADR 0011).
-- SoC Web (ADR 0013): Controller = custom hooks di `apps/web/hooks/`, presentation = komponen di `components/` & `app/`. OTP login via Modal di 1 halaman, body JSON `{ email, code }` tanpa query param. Kode error ber-prefix (`AXXX`, `BXXX`, dll.) dan `transaction_id` di seluruh endpoint.
+- SoC Web (ADR 0013): Controller = custom hooks di `apps/web/hooks/`, presentation = komponen di `components/` & `app/`. Landing `/` memakai CTA untuk modal masuk (tidak auto-buka); OTP modal hanya jika perangkat baru. Setelah login → `/app/customer`. Admin `/admin` = Basic Auth (bukan publik) + username/password, tanpa OTP. Kode error ber-prefix (`AXXX`, `BXXX`, dll.) dan `transaction_id` di seluruh endpoint.
+- Payload HTTP (ADR 0016): **dilarang** mengirim payload aksi sebagai query string. Email, token, OTP, password, profil, dan field aksi lain **wajib** JSON body pada `POST`/`PATCH`/`PUT`. Bukan `?token=`, `?email=`, `?code=`. Pengecualian: filter/pagination GET daftar (`limit`, `offset`, `q`, `status`) — itu bukan payload. Tautan di email boleh membawa token di URL halaman FE; request ke API tetap body.
 - Seluruh stack jalan lewat Docker Compose.
 
 
@@ -86,6 +88,7 @@ UI dan Route Handler Next.js **dilarang** memanggil SDK Siray, Prisma wallet mut
 - `POST /jobs` yang menunggu sampai gambar jadi (harus 202 + job_id).
 - Membuat admin lewat register publik.
 - Menyimpan OTP atau session token dalam bentuk plaintext.
+- Mengirim email, token, OTP, password, atau payload aksi lain lewat query param.
 - Public-read bucket untuk hasil generate.
 - Face swap orang nyata sebagai fitur default tanpa keputusan produk baru + ADR.
 - Memakai Firebase Auth sebagai identity utama tanpa ADR yang mencabut `0006`.

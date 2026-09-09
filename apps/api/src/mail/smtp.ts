@@ -29,12 +29,23 @@ export function createSmtpMailer(): EmailPort {
       });
     },
     async sendVerificationEmail(email, token, verifyUrl) {
-      const link = verifyUrl ?? `${process.env.APP_URL ?? "http://localhost:3000"}/verify-email?token=${token}`;
+      const base = process.env.APP_PUBLIC_URL ?? process.env.APP_URL ?? "http://localhost:3000";
+      const link = verifyUrl ?? `${base}/auth/email?token=${token}`;
       await transporter.sendMail({
         from,
         to: email,
         subject: "Verifikasi Akun ai-gen-free",
         text: `Terima kasih telah mendaftar di ai-gen-free.\n\nSilakan verifikasi email Anda dengan mengeklik tautan berikut:\n${link}\n\nAtau gunakan kode/token verifikasi: ${token}\n\nTautan ini berlaku 24 jam. Jangan bagikan kepada siapa pun.`,
+      });
+    },
+    async sendPasswordResetEmail(email, token, resetUrl) {
+      const base = process.env.APP_PUBLIC_URL ?? process.env.APP_URL ?? "http://localhost:3000";
+      const link = resetUrl ?? `${base}/auth/password?token=${token}`;
+      await transporter.sendMail({
+        from,
+        to: email,
+        subject: "Reset kata sandi ai-gen-free",
+        text: `Anda meminta reset kata sandi.\n\nKlik tautan berikut untuk membuat kata sandi baru:\n${link}\n\nTautan ini berlaku terbatas. Jika Anda tidak meminta reset, abaikan email ini.`,
       });
     },
   };

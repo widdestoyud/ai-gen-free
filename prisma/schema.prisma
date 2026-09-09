@@ -75,21 +75,23 @@ model User {
   phoneNumber     String?
   ktp             String?
   address         String?
-  lastDeviceId    String?
-  lastLoginAt     DateTime?
-  role            UserRole  @default(user)
-  bannedAt        DateTime?
-  nextGenerateAt  DateTime?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  lastDeviceId        String?
+  lastLoginAt         DateTime?
+  passwordChangedAt   DateTime?
+  role                UserRole  @default(user)
+  bannedAt            DateTime?
+  nextGenerateAt      DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
 
-  wallet             Wallet?
-  sessions           Session[]
-  jobs               Job[]
-  ledgerEntries      LedgerEntry[]
-  invoices           Invoice[]
-  auditLogs          AuditLog[]               @relation("AuditActor")
-  verificationTokens EmailVerificationToken[]
+  wallet              Wallet?
+  sessions            Session[]
+  jobs                Job[]
+  ledgerEntries       LedgerEntry[]
+  invoices            Invoice[]
+  auditLogs           AuditLog[]               @relation("AuditActor")
+  verificationTokens  EmailVerificationToken[]
+  passwordResetTokens PasswordResetToken[]
 }
 
 model EmailVerificationToken {
@@ -99,6 +101,19 @@ model EmailVerificationToken {
   tokenHash  String    @unique
   expiresAt  DateTime
   consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([userId, consumedAt])
+}
+
+model PasswordResetToken {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash  String    @unique
+  expiresAt  DateTime
+  consumedAt DateTime?
+  ip         String?
   createdAt  DateTime  @default(now())
 
   @@index([userId, consumedAt])

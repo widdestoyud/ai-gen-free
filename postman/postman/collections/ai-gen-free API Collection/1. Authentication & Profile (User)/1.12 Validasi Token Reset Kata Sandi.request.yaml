@@ -1,0 +1,13 @@
+$kind: http-request
+description: Memeriksa tautan reset masih hidup. Wajib POST JSON body { token }. Jangan ?token=. Tidak consume token. Token invalid/kedaluwarsa → A023.
+url: "{{baseUrl}}/auth/password-reset-validation"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "token": "{{passwordResetToken}}"
+    }
+order: 12000

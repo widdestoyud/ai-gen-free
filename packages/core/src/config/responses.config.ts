@@ -106,12 +106,28 @@ export const AuthResponses = {
     EMAIL_NOT_FOUND: {
       code: "A018",
       status: 404,
-      message: "Email tidak ditemukan atau belum terdaftar.",
+      message: "Email belum terdaftar.",
     },
     ALREADY_LOGGED_IN: {
       code: "A019",
       status: 409,
       message: "Akun Anda saat ini sudah dalam keadaan masuk (login). Silakan keluar (logout) terlebih dahulu.",
+    },
+    PASSWORD_RESET_PENDING: {
+      code: "A021",
+      status: 429,
+      message:
+        "Permintaan reset kata sandi masih berlaku. Periksa email Anda atau tunggu hingga jeda berakhir sebelum meminta ulang.",
+    },
+    PASSWORD_RESET_COOLDOWN: {
+      code: "A022",
+      status: 429,
+      message: "Reset kata sandi baru saja berhasil. Silakan coba lagi setelah 24 jam.",
+    },
+    PASSWORD_RESET_TOKEN_INVALID: {
+      code: "A023",
+      status: 400,
+      message: "Tautan reset tidak valid atau sudah kedaluwarsa.",
     },
   } satisfies Record<string, ErrorDefinition>,
 
@@ -156,6 +172,18 @@ export const AuthResponses = {
     PROFILE_UPDATED: {
       status: 200,
       message: "Profil berhasil diperbarui.",
+    },
+    PASSWORD_RESET_SENT: {
+      status: 200,
+      message: "Tautan reset kata sandi telah dikirim ke email Anda.",
+    },
+    PASSWORD_RESET_VALID: {
+      status: 200,
+      message: "Tautan valid. Silakan masukkan kata sandi baru.",
+    },
+    PASSWORD_RESET_SUCCESS: {
+      status: 200,
+      message: "Kata sandi berhasil diubah. Silakan masuk dengan kata sandi baru.",
     },
   } satisfies Record<string, SuccessDefinition>,
 } as const;

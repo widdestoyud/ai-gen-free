@@ -1,5 +1,5 @@
 $kind: http-request
-description: Memverifikasi token email yang dikirim setelah pendaftaran agar status akun menjadi terverifikasi.
+description: Memverifikasi token email. Wajib POST JSON body { token }. Jangan kirim token sebagai query param.
 url: "{{baseUrl}}/auth/email-validation"
 method: POST
 headers:

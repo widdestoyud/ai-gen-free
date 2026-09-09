@@ -6,28 +6,23 @@ import { requestJson } from "@/lib/api";
 
 export function useAdminLogin() {
   const router = useRouter();
-  const [email, setEmail] = useState("");
-  const [code, setCode] = useState("");
-  const [otpModalOpened, setOtpModalOpened] = useState(false);
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [errorCode, setErrorCode] = useState("");
   const [transactionId, setTransactionId] = useState("");
   const [pending, setPending] = useState(false);
 
-  function resetErrors() {
+  async function submitLogin(e: FormEvent) {
+    e.preventDefault();
     setError("");
     setErrorCode("");
     setTransactionId("");
-  }
-
-  async function requestCode(e: FormEvent) {
-    e.preventDefault();
-    resetErrors();
     setPending(true);
 
-    const result = await requestJson("/api/admin/auth/otp/request", {
+    const result = await requestJson<{ ok?: boolean }>("/api/admin/login", {
       method: "POST",
-      body: JSON.stringify({ email: email.trim().toLowerCase() }),
+      body: JSON.stringify({ username: username.trim(), password }),
     });
 
     setPending(false);
@@ -39,51 +34,19 @@ export function useAdminLogin() {
       return;
     }
 
-    setOtpModalOpened(true);
-  }
-
-  async function verifyCode(e: FormEvent) {
-    e.preventDefault();
-    resetErrors();
-    setPending(true);
-
-    const result = await requestJson<{ ok: boolean }>("/api/admin/auth/otp/verify", {
-      method: "POST",
-      body: JSON.stringify({ email: email.trim().toLowerCase(), code: code.trim() }),
-    });
-
-    setPending(false);
-
-    if (!result.ok) {
-      setError(result.message);
-      setErrorCode(result.code ?? "A002");
-      setTransactionId(result.transaction_id ?? "");
-      return;
-    }
-
-    setOtpModalOpened(false);
     router.push("/admin");
     router.refresh();
   }
 
-  function closeOtpModal() {
-    setOtpModalOpened(false);
-    setCode("");
-    resetErrors();
-  }
-
   return {
-    email,
-    setEmail,
-    code,
-    setCode,
-    otpModalOpened,
-    closeOtpModal,
+    username,
+    setUsername,
+    password,
+    setPassword,
     error,
     errorCode,
     transactionId,
     pending,
-    requestCode,
-    verifyCode,
+    submitLogin,
   };
 }

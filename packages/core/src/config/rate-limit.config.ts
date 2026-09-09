@@ -78,6 +78,36 @@ export const RateLimitConfig = {
     lockoutSeconds: 15 * 60,
     message: "Terlalu banyak percobaan validasi email. Silakan coba lagi nanti.",
   } satisfies RateLimitRule,
+
+  /**
+   * Masa hidup tautan reset kata sandi (TTL token).
+   * Default: 1 jam.
+   */
+  passwordResetTokenTtlSeconds: 60 * 60,
+
+  /**
+   * Jeda request ulang reset kata sandi selama token pending belum dikonfirmasi.
+   * Default: 1 jam, atau sampai konfirmasi berhasil (yang lebih dulu).
+   */
+  passwordResetPendingSeconds: 60 * 60,
+
+  /**
+   * Jeda request reset kata sandi setelah password berhasil diganti.
+   * Default: 24 jam, dihitung dari passwordChangedAt.
+   */
+  passwordResetCompletedSeconds: 24 * 60 * 60,
+
+  /**
+   * Reset kata sandi per IP:
+   * Maksimal 3 request (email A, B, C). Request ke-4 dari IP yang sama ditolak.
+   */
+  passwordResetIp: {
+    maxAttempts: 3,
+    windowSeconds: 60 * 60,
+    lockoutSeconds: 60 * 60,
+    message:
+      "Terlalu banyak permintaan reset kata sandi dari IP ini (maksimal 3x). Silakan coba lagi nanti.",
+  } satisfies RateLimitRule,
 } as const;
 
 /**
@@ -87,4 +117,13 @@ export const RateLimitConfig = {
 export function getOtpTtlMs(configuredSeconds?: number): number {
   const seconds = configuredSeconds ?? RateLimitConfig.otpTtlSeconds ?? RateLimitConfig.otpDefaultTtlSeconds;
   return (typeof seconds === "number" && seconds > 0 ? seconds : 15 * 60) * 1000;
+}
+
+/**
+ * TTL tautan reset kata sandi dalam milidetik.
+ * Jika `configuredSeconds` undefined/0/negatif, fallback ke 1 jam.
+ */
+export function getPasswordResetTokenTtlMs(configuredSeconds?: number): number {
+  const seconds = configuredSeconds ?? RateLimitConfig.passwordResetTokenTtlSeconds;
+  return (typeof seconds === "number" && seconds > 0 ? seconds : 60 * 60) * 1000;
 }

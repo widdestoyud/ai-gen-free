@@ -97,7 +97,7 @@
               "host": ["{{baseUrl}}"],
               "path": ["auth", "email-validation"]
             },
-            "description": "Memverifikasi token email yang dikirim setelah pendaftaran agar status akun menjadi terverifikasi."
+            "description": "Memverifikasi token email. Wajib POST JSON body { token }. Jangan kirim token sebagai query param."
           },
           "response": []
         },
@@ -226,6 +226,75 @@
               "path": ["user", "logout"]
             },
             "description": "Keluar dari sistem, menghapus cookie sid, dan mencabut sesi di database."
+          },
+          "response": []
+        },
+        {
+          "name": "1.11 Request Reset Kata Sandi",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user.test123@gmail.com\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/password-reset",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "password-reset"]
+            },
+            "description": "Mengirim tautan reset ke email terdaftar. Email belum terdaftar → A018. Request ulang < 1 jam → A021. Setelah ganti password < 24 jam → A022. Maks 3 request per IP → A008."
+          },
+          "response": []
+        },
+        {
+          "name": "1.12 Validasi Token Reset Kata Sandi",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"{{passwordResetToken}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/password-reset-validation",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "password-reset-validation"]
+            },
+            "description": "Memeriksa tautan reset masih hidup. Wajib POST JSON body { token }. Jangan ?token=. Tidak consume token. Token invalid/kedaluwarsa → A023."
+          },
+          "response": []
+        },
+        {
+          "name": "1.13 Konfirmasi Password Baru",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"{{passwordResetToken}}\",\n  \"password\": \"NewValidPass123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/password-reset-confirm",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "password-reset-confirm"]
+            },
+            "description": "Mengganti password, consume token, mencabut seluruh sesi. Password lemah → A011."
           },
           "response": []
         }

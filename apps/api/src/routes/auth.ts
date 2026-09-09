@@ -2,16 +2,19 @@ import type { FastifyInstance } from "fastify";
 import { AuthResponses, ErrorCodes } from "@ai-gen-free/core";
 import {
   AuthError,
+  confirmPasswordReset,
   getUserProfile,
   loginUser,
   logout,
   registerUser,
   requestOtp,
+  requestPasswordReset,
   resendOtp,
   updateUserProfile,
   userFromCookie,
   validateEmailToken,
   validateOtp,
+  validatePasswordResetToken,
   verifyOtp,
 } from "../auth/service.js";
 import { basicAuthorized } from "../auth/basic.js";
@@ -87,9 +90,7 @@ export async function registerAuthRoutes(
   const handleEmailValidation = async (req: any, reply: any) => {
     try {
       const body = (req.body ?? {}) as { token?: unknown };
-      const query = (req.query ?? {}) as { token?: unknown };
-      const token = body.token ?? query.token;
-      const result = await validateEmailToken(token);
+      const result = await validateEmailToken(body.token);
       return { ok: true, message: result.message };
     } catch (err) {
       return sendAuthError(reply, err, req);
@@ -97,8 +98,6 @@ export async function registerAuthRoutes(
   };
   app.post("/auth/email-validation", handleEmailValidation);
   app.post("/api/auth/email-validation", handleEmailValidation);
-  app.get("/auth/email-validation", handleEmailValidation);
-  app.get("/api/auth/email-validation", handleEmailValidation);
 
   // -------------------------------------------------------------
   // 3. LOGIN USER (/user/login & /api/user/login)
@@ -302,6 +301,63 @@ export async function registerAuthRoutes(
   app.post("/api/user/logout", handleLogout);
   app.post("/auth/logout", handleLogout);
   app.post("/api/auth/logout", handleLogout);
+
+  // -------------------------------------------------------------
+  // 7b. RESET KATA SANDI
+  // POST /auth/password-reset { email }
+  // POST /auth/password-reset-validation { token }
+  // POST /auth/password-reset-confirm { token, password }
+  // -------------------------------------------------------------
+  const handlePasswordReset = async (req: any, reply: any) => {
+    try {
+      const body = (req.body ?? {}) as { email?: unknown };
+      const result = await requestPasswordReset({
+        emailRaw: body.email,
+        ip: clientIp(req),
+        redis: deps.redis,
+        mailer: deps.mailer,
+      });
+      return reply.status(200).send({
+        ok: true,
+        message: result.message,
+        email: result.email,
+      });
+    } catch (err) {
+      return sendAuthError(reply, err, req);
+    }
+  };
+  app.post("/auth/password-reset", handlePasswordReset);
+  app.post("/api/auth/password-reset", handlePasswordReset);
+
+  const handlePasswordResetValidation = async (req: any, reply: any) => {
+    try {
+      const body = (req.body ?? {}) as { token?: unknown };
+      const result = await validatePasswordResetToken(body.token);
+      return { ok: true, message: result.message };
+    } catch (err) {
+      return sendAuthError(reply, err, req);
+    }
+  };
+  app.post("/auth/password-reset-validation", handlePasswordResetValidation);
+  app.post("/api/auth/password-reset-validation", handlePasswordResetValidation);
+
+  const handlePasswordResetConfirm = async (req: any, reply: any) => {
+    try {
+      const body = (req.body ?? {}) as { token?: unknown; password?: unknown };
+      const result = await confirmPasswordReset({
+        tokenRaw: body.token,
+        passwordRaw: body.password,
+      });
+      return reply.status(200).send({
+        ok: true,
+        message: result.message,
+      });
+    } catch (err) {
+      return sendAuthError(reply, err, req);
+    }
+  };
+  app.post("/auth/password-reset-confirm", handlePasswordResetConfirm);
+  app.post("/api/auth/password-reset-confirm", handlePasswordResetConfirm);
 
   app.get("/api/me", async (req, reply) => {
     const session = await userFromCookie(req.cookies.sid, "user");
