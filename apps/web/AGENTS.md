@@ -12,6 +12,8 @@ Baca root `AGENTS.md` dan ADR 0010, 0011, 0012, 0013.
   - Tidak ada `fetch`, `requestJson`, atau mutasi state kompleks langsung di komponen presentasi.
 - **Login & OTP Flow**:
   - Landing `/` menampilkan CTA Masuk/Daftar. Modal login **tidak** dibuka otomatis.
+  - Setelah login sukses → `/app/generate`. Area pelanggan memakai AppShell sidebar: Generate, Profile, Usage, Billing, Logout.
+  - `/app/generate`: hasil di atas, kotak prompt di bawah; rasio dari chip; tombol + membuka library (generations / uploads).
   - OTP muncul sebagai **Modal** di landing setelah login perangkat baru (`requiresOtp`).
   - Admin: HTTP Basic (bukan publik) + form username/password di `/admin`. **Tanpa OTP**.
   - Dilarang mengirim email lewat URL query params (`/otp?email=...`) atau menyimpan email/OTP di `sessionStorage` / `localStorage`.

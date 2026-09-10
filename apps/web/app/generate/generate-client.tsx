@@ -20,7 +20,13 @@ import {
   type JobsListView,
   type JobView,
 } from "@/lib/job-status";
-import type { Model } from "./page";
+export type Model = {
+  mode: string;
+  modelId: string;
+  displayName: string;
+  providerId: string;
+  costPoints: number;
+};
 
 const ASPECT_RATIOS = [
   { value: "1:1", label: "1:1 Persegi" },

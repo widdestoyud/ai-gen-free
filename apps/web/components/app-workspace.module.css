@@ -1,0 +1,21 @@
+.header {
+  border-bottom: 1px solid var(--mantine-color-dark-6);
+  background: var(--mantine-color-dark-8);
+}
+
+.navbar {
+  border-right: 1px solid var(--mantine-color-dark-6);
+  background: var(--mantine-color-dark-8);
+}
+
+.brand {
+  letter-spacing: 0.04em;
+}
+
+.nav {
+  border-radius: 999px;
+}
+
+.logout {
+  margin-top: auto;
+}

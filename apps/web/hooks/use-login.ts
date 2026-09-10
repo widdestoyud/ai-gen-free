@@ -62,7 +62,7 @@ export function useLogin() {
     }
 
     setLoginOpened(false);
-    router.push("/app/customer");
+    router.push("/app/generate");
     router.refresh();
   }
 
@@ -87,7 +87,7 @@ export function useLogin() {
 
     setOtpModalOpened(false);
     setPassword("");
-    router.push("/app/customer");
+    router.push("/app/generate");
     router.refresh();
   }
 

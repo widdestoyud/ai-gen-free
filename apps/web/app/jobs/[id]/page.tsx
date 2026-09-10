@@ -20,14 +20,14 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
   if (job === "unauth") redirect("/login");
   if (!job) {
     return (
-      <PageShell title="Job" backHref="/generate" backLabel="Kembali" size="md">
+      <PageShell title="Job" backHref="/app/generate" backLabel="Kembali" size="md">
         <Text>Job tidak ditemukan.</Text>
-        <AppLink href="/generate">Kembali</AppLink>
+        <AppLink href="/app/generate">Kembali</AppLink>
       </PageShell>
     );
   }
   return (
-    <PageShell title="Job" backHref="/generate" backLabel="← Generate" size="md">
+    <PageShell title="Job" backHref="/app/generate" backLabel="← Generate" size="md">
       <JobClient initial={job} />
     </PageShell>
   );

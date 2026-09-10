@@ -11,13 +11,26 @@ export function parseGenerateParams(raw: unknown, providerId: string): Prisma.In
     throw new AppError(ErrorCodes.VALIDATION_ERROR, "params harus objek");
   }
   const input = raw as Record<string, unknown>;
-  const aspectRatio = input.aspectRatio === undefined ? "1:1" : input.aspectRatio;
-  if (typeof aspectRatio !== "string" || !ASPECT_RATIOS.has(aspectRatio)) {
-    throw new AppError(ErrorCodes.VALIDATION_ERROR, "aspectRatio tidak didukung");
+  const params: Record<string, unknown> = {};
+
+  if (input.aspectRatio !== undefined) {
+    if (typeof input.aspectRatio !== "string" || !ASPECT_RATIOS.has(input.aspectRatio)) {
+      throw new AppError(ErrorCodes.VALIDATION_ERROR, "aspectRatio tidak didukung");
+    }
+    params.aspectRatio = input.aspectRatio;
+  } else if (!input.size) {
+    params.aspectRatio = "1:1";
   }
-  const params: { aspectRatio: string; fail?: boolean } = { aspectRatio };
+
+  if (typeof input.size === "string") params.size = input.size;
+  if (typeof input.quality === "string") params.quality = input.quality;
+  if (typeof input.output_format === "string") params.output_format = input.output_format;
+  if (typeof input.outputFormat === "string") params.outputFormat = input.outputFormat;
+  if (typeof input.moderation === "string") params.moderation = input.moderation;
+  if (typeof input.n === "number") params.n = input.n;
+
   if (providerId === "dummy" && input.fail === true) {
     params.fail = true;
   }
-  return params;
+  return params as Prisma.InputJsonValue;
 }

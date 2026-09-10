@@ -108,7 +108,7 @@ export function JobClient({ initial }: { initial: JobView }) {
         <>
           <ErrorAlert message={jobErrorMessage(job.errorCode)} />
           <Text mt="sm">Kamu boleh generate lagi.</Text>
-          <AppLink href="/generate">Generate lagi</AppLink>
+          <AppLink href="/app/generate">Generate lagi</AppLink>
         </>
       ) : null}
     </div>

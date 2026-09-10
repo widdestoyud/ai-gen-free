@@ -1,6 +1,0 @@
-$kind: http-request
-name: 2.2 Ambil Saldo Wallet (GET /api/wallet)
-description: Melihat poin tersedia (available) dan poin tertahan (held).
-url: "{{baseUrl}}/api/wallet"
-method: GET
-order: 2000

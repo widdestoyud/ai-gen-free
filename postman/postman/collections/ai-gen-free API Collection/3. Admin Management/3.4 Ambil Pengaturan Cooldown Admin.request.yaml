@@ -1,7 +1,0 @@
-$kind: http-request
-description: Melihat durasi cooldown generator dalam detik (default 43200 = 12 jam).
-url: "{{baseUrl}}/admin/settings/generate_cooldown_seconds"
-method: GET
-headers:
-  Cookie: sid_admin={{adminSessionToken}}
-order: 4000

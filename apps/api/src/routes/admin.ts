@@ -15,10 +15,12 @@ import {
   adjustUserWallet,
   getAdminUser,
   getGenerateCooldownSetting,
+  listAdminModels,
   listAdminUsers,
   listAuditLogs,
   putGenerateCooldownSetting,
   resetUserCooldown,
+  updateAdminModel,
 } from "../admin/service.js";
 import { getAdminJob, getAdminJobOutputFile, listAdminJobs } from "../jobs/service.js";
 import type IORedis from "ioredis";
@@ -37,9 +39,14 @@ async function requireAdmin(
   reply: { status: (n: number) => { send: (b: unknown) => unknown } },
 ) {
   const token =
-    req.cookies?.sid_admin ??
-    req.cookies?.sid ??
-    (typeof req.headers["x-session-token"] === "string" ? req.headers["x-session-token"] : undefined);
+    (typeof req.cookies?.sid_admin === "string" && req.cookies.sid_admin.trim().length > 0 ? req.cookies.sid_admin.trim() : undefined) ??
+    (typeof req.cookies?.sid === "string" && req.cookies.sid.trim().length > 0 ? req.cookies.sid.trim() : undefined) ??
+    (typeof req.headers["x-session-token"] === "string" && (req.headers["x-session-token"] as string).trim().length > 0
+      ? (req.headers["x-session-token"] as string).trim()
+      : undefined) ??
+    (typeof req.headers["authorization"] === "string" && (req.headers["authorization"] as string).toLowerCase().startsWith("bearer ")
+      ? (req.headers["authorization"] as string).slice(7).trim()
+      : undefined);
 
   let session = await userFromCookie(token, "admin");
   if (!session) {
@@ -340,4 +347,45 @@ export async function registerAdminRoutes(app: FastifyInstance, deps: { storage:
   };
   app.get("/admin/audit", handleListAudit);
   app.get("/api/admin/audit", handleListAudit);
+
+  // -------------------------------------------------------------
+  // 5. ADMIN MODEL MANAGEMENT (Pengaturan Model & Poin)
+  // -------------------------------------------------------------
+  const handleListModels = async (req: any, reply: any) => {
+    const session = await requireAdmin(req, reply);
+    if (!session) return;
+    try {
+      return await listAdminModels();
+    } catch (err) {
+      return sendError(reply, err);
+    }
+  };
+  app.get("/admin/models", handleListModels);
+  app.get("/api/admin/models", handleListModels);
+
+  const handleUpdateModel = async (req: any, reply: any) => {
+    const session = await requireAdmin(req, reply);
+    if (!session) return;
+    try {
+      const { id } = req.params as { id: string };
+      const body = (req.body ?? {}) as { costPoints?: unknown; displayName?: unknown; enabled?: unknown };
+      const costPoints = typeof body.costPoints === "number" ? body.costPoints : undefined;
+      const displayName = typeof body.displayName === "string" ? body.displayName : undefined;
+      const enabled = typeof body.enabled === "boolean" ? body.enabled : undefined;
+      return await updateAdminModel({
+        id,
+        costPoints,
+        displayName,
+        enabled,
+        actorId: session.userId,
+        ip: requestIp(req),
+      });
+    } catch (err) {
+      return sendError(reply, err);
+    }
+  };
+  app.patch("/admin/models/:id", handleUpdateModel);
+  app.patch("/api/admin/models/:id", handleUpdateModel);
+  app.put("/admin/models/:id", handleUpdateModel);
+  app.put("/api/admin/models/:id", handleUpdateModel);
 }

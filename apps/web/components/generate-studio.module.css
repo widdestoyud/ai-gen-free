@@ -1,0 +1,87 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100dvh - 56px - 2 * var(--mantine-spacing-md));
+  margin-inline: calc(-1 * var(--mantine-spacing-md));
+  margin-bottom: calc(-1 * var(--mantine-spacing-md));
+}
+
+.stage {
+  flex: 1 1 auto;
+  overflow: auto;
+  padding: var(--mantine-spacing-md);
+}
+
+.dock {
+  flex: 0 0 auto;
+  padding: var(--mantine-spacing-md);
+}
+
+.composer {
+  background: var(--mantine-color-dark-6);
+}
+
+.textarea {
+  background: transparent;
+  border: none;
+}
+
+.thumb {
+  width: 44px;
+  height: 44px;
+  object-fit: cover;
+  border-radius: var(--mantine-radius-sm);
+}
+
+.previewWide,
+.previewSquare,
+.previewTall {
+  border: 1px solid var(--mantine-color-dark-3);
+  border-radius: var(--mantine-radius-sm);
+  background: var(--mantine-color-dark-7);
+}
+
+.previewWide {
+  width: 88px;
+  height: 58px;
+}
+
+.previewSquare {
+  width: 64px;
+  height: 64px;
+}
+
+.previewTall {
+  width: 48px;
+  height: 72px;
+}
+
+.libraryNav {
+  min-width: 160px;
+}
+
+.libraryMain {
+  flex: 1;
+  min-width: 0;
+}
+
+.libraryGrid img,
+.tile img {
+  width: 100%;
+  height: 120px;
+  object-fit: cover;
+  border-radius: var(--mantine-radius-sm);
+}
+
+.tileSelected {
+  outline: 2px solid var(--mantine-color-blue-5);
+  border-radius: var(--mantine-radius-sm);
+}
+
+.hiddenInput {
+  display: none;
+}
+
+.ratioChip {
+  min-width: 3.5rem;
+}

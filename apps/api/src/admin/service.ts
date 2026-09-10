@@ -199,3 +199,71 @@ export async function listAuditLogs(opts: { limit: number; offset: number; actio
     })),
   };
 }
+
+export async function listAdminModels() {
+  const rows = await prisma.modelCatalog.findMany({
+    orderBy: { createdAt: "asc" },
+  });
+  return {
+    models: rows.map((row) => ({
+      id: row.id,
+      mode: row.mode,
+      modelId: row.modelId,
+      displayName: row.displayName,
+      providerId: row.providerId,
+      costPoints: Number(row.costPoints),
+      enabled: row.enabled,
+      createdAt: row.createdAt.toISOString(),
+    })),
+  };
+}
+
+export async function updateAdminModel(opts: {
+  id: string;
+  costPoints?: number;
+  displayName?: string;
+  enabled?: boolean;
+  actorId: string;
+  ip: string;
+}) {
+  const model = await prisma.modelCatalog.findUnique({ where: { id: opts.id } });
+  if (!model) throw new AppError(ErrorCodes.NOT_FOUND, "Model catalog tidak ditemukan", 404);
+
+  const updated = await prisma.$transaction(async (tx) => {
+    const res = await tx.modelCatalog.update({
+      where: { id: opts.id },
+      data: {
+        ...(typeof opts.costPoints === "number" ? { costPoints: opts.costPoints } : {}),
+        ...(typeof opts.displayName === "string" ? { displayName: opts.displayName.trim() } : {}),
+        ...(typeof opts.enabled === "boolean" ? { enabled: opts.enabled } : {}),
+      },
+    });
+    await tx.auditLog.create({
+      data: {
+        actorId: opts.actorId,
+        action: "model_catalog.updated",
+        target: model.id,
+        ip: opts.ip,
+        meta: {
+          modelId: model.modelId,
+          from: { costPoints: Number(model.costPoints), enabled: model.enabled, displayName: model.displayName },
+          to: { costPoints: Number(res.costPoints), enabled: res.enabled, displayName: res.displayName },
+        },
+      },
+    });
+    return res;
+  });
+
+  logEvent("admin.model_catalog.updated", { actorId: opts.actorId, id: model.id, modelId: model.modelId });
+
+  return {
+    id: updated.id,
+    mode: updated.mode,
+    modelId: updated.modelId,
+    displayName: updated.displayName,
+    providerId: updated.providerId,
+    costPoints: Number(updated.costPoints),
+    enabled: updated.enabled,
+    createdAt: updated.createdAt.toISOString(),
+  };
+}

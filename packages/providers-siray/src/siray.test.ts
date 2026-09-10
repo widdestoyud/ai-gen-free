@@ -64,6 +64,42 @@ test("submit POSTs async body and returns task_id", async () => {
   });
 });
 
+test("submit supports openai/gpt-image-2-t2i parameters (n, size, quality, output_format, moderation)", async () => {
+  const calls: { url: string; init?: RequestInit }[] = [];
+  const provider = new SirayProvider({
+    token: "secret",
+    apiBase: "https://api.siray.ai",
+    fetch: async (url, init) => {
+      calls.push({ url: String(url), init });
+      return jsonResponse(200, { code: "success", data: { task_id: "image_gpt2" } });
+    },
+  });
+  const gptInput: CanonicalGenerateInput = {
+    mode: "t2i",
+    modelId: "openai/gpt-image-2-t2i",
+    prompt: "pemandangan indah",
+    params: {
+      n: 1,
+      output_format: "png",
+      quality: "low",
+      size: "1024x768",
+      moderation: "auto",
+    },
+    inputFiles: [],
+  };
+  const handle = await provider.submit(gptInput);
+  assert.equal(handle.providerJobId, "image_gpt2");
+  assert.deepEqual(JSON.parse(String(calls[0]?.init?.body)), {
+    model: "openai/gpt-image-2-t2i",
+    prompt: "pemandangan indah",
+    size: "1024x768",
+    quality: "low",
+    output_format: "png",
+    moderation: "auto",
+    n: 1,
+  });
+});
+
 test("getStatus maps SUCCESS outputs", async () => {
   const provider = new SirayProvider({
     token: "secret",

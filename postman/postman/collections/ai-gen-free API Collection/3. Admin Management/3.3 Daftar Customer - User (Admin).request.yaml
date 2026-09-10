@@ -1,8 +1,0 @@
-$kind: http-request
-name: 3.3 Daftar Customer / User (Admin)
-description: Melihat seluruh daftar pengguna customer/user yang terdaftar di platform beserta detail status akun dan saldo poin.
-url: "{{baseUrl}}/admin/customer/list"
-method: GET
-headers:
-  Cookie: sid_admin={{adminSessionToken}}
-order: 3000

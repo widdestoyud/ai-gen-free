@@ -46,8 +46,9 @@ Jangan mengarang ulang arsitektur. Jika ingin mengubah keputusan di `docs/adr/`,
   - Konfigurasi terpusat: Rate limit di `packages/core/src/config/rate-limit.config.ts` dan respon di `packages/core/src/config/responses.config.ts`. Terikat error reusable `ALREADY_LOGGED_IN` (`A019`, 409) untuk seluruh pencegahan aktivitas saat sesi masih aktif.
 - Cookie/sesi **browser**: adapter v1 NextAuth (ADR 0010) di belakang `lib/auth-actions.ts` + `lib/server-api.ts`. Halaman/komponen **tidak** mengimpor `next-auth`. Identity/OTP/satu-sesi tetap di `apps/api`.
 - UI: **Mantine**. Dilarang style inline `style={{ … }}`. Item berulang = komponen di `apps/web/components/` (ADR 0011).
-- SoC Web (ADR 0013): Controller = custom hooks di `apps/web/hooks/`, presentation = komponen di `components/` & `app/`. Landing `/` memakai CTA untuk modal masuk (tidak auto-buka); OTP modal hanya jika perangkat baru. Setelah login → `/app/customer`. Admin `/admin` = Basic Auth (bukan publik) + username/password, tanpa OTP. Kode error ber-prefix (`AXXX`, `BXXX`, dll.) dan `transaction_id` di seluruh endpoint.
+- SoC Web (ADR 0013): Controller = custom hooks di `apps/web/hooks/`, presentation = komponen di `components/` & `app/`. Landing `/` memakai CTA untuk modal masuk (tidak auto-buka); OTP modal hanya jika perangkat baru. Setelah login → `/app/generate`. Admin `/admin` = Basic Auth (bukan publik) + username/password, tanpa OTP. Kode error ber-prefix (`AXXX`, `BXXX`, dll.) dan `transaction_id` di seluruh endpoint.
 - Payload HTTP (ADR 0016): **dilarang** mengirim payload aksi sebagai query string. Email, token, OTP, password, profil, dan field aksi lain **wajib** JSON body pada `POST`/`PATCH`/`PUT`. Bukan `?token=`, `?email=`, `?code=`. Pengecualian: filter/pagination GET daftar (`limit`, `offset`, `q`, `status`) — itu bukan payload. Tautan di email boleh membawa token di URL halaman FE; request ke API tetap body.
+- Koleksi & Environment Postman: hanya **1 file koleksi** (`postman/ai-gen-free.postman_collection.json`) dan **1 file environment** (`postman/local.postman_environment.json`). Update Postman wajib menjaga tepat 1 koleksi dan 1 environment tanpa file ganda/duplikat.
 - Seluruh stack jalan lewat Docker Compose.
 
 
@@ -92,6 +93,7 @@ UI dan Route Handler Next.js **dilarang** memanggil SDK Siray, Prisma wallet mut
 - Public-read bucket untuk hasil generate.
 - Face swap orang nyata sebagai fitur default tanpa keputusan produk baru + ADR.
 - Memakai Firebase Auth sebagai identity utama tanpa ADR yang mencabut `0006`.
+- Membuat atau menyimpan file koleksi/environment Postman ganda (harus tepat 1 file `.postman_collection.json` dan 1 file `.postman_environment.json`).
 
 ## Cara menambah fitur
 
