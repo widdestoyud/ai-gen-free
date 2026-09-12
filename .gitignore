@@ -12,6 +12,8 @@ coverage
 prisma/generated
 tools/archify-src/
 
+logs/siray/*.txt
+
 # Scratch & Local Dumps
 scratch/
 *.dump
@@ -19,3 +21,4 @@ scratch/
 *.tmp
 .turbo
 referensi
+logs

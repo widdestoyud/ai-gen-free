@@ -62,6 +62,19 @@ export function createPrismaGenerateStore(): GenerateJobStore {
       await prisma.job.update({ where: { id: jobId }, data: { providerJobId } });
     },
 
+    async saveProviderOutputUrls(jobId, urls) {
+      const current = await prisma.job.findUnique({ where: { id: jobId } });
+      if (!current) return;
+      const params =
+        current.params && typeof current.params === "object" && !Array.isArray(current.params)
+          ? { ...(current.params as Record<string, unknown>), providerOutputUrls: urls }
+          : { providerOutputUrls: urls };
+      await prisma.job.update({
+        where: { id: jobId },
+        data: { params, progressPct: 100 },
+      });
+    },
+
     async updateProgress(jobId, progressPct) {
       await prisma.job.update({
         where: { id: jobId },
@@ -130,6 +143,21 @@ export function createPrismaGenerateStore(): GenerateJobStore {
       const setting = await prisma.appSetting.findUnique({ where: { key: "generate_cooldown_seconds" } });
       const raw = setting?.value;
       return typeof raw === "number" && Number.isFinite(raw) ? raw : DEFAULT_COOLDOWN_SECONDS;
+    },
+
+    async listCopyPendingJobIds(olderThan) {
+      const rows = await prisma.job.findMany({
+        where: {
+          status: JobStatus.running,
+          providerJobId: { not: null },
+          startedAt: { lte: olderThan },
+          assets: { none: {} },
+        },
+        select: { id: true },
+        take: 25,
+        orderBy: { startedAt: "asc" },
+      });
+      return rows.map((row) => row.id);
     },
   };
 }

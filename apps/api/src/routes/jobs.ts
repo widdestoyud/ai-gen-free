@@ -1,10 +1,17 @@
 import type { FastifyInstance } from "fastify";
 import type { Queue } from "bullmq";
 import { ErrorCodes, type ObjectStorage } from "@ai-gen-free/core";
+import { prisma } from "@ai-gen-free/db";
+import { assertStorageReady } from "@ai-gen-free/storage";
 import { userFromCookie } from "../auth/service.js";
 import { sendError } from "../http.js";
 import { listEnabledModels } from "../jobs/catalog.js";
-import { getJobForUser, listJobsForUser, submitJob } from "../jobs/service.js";
+import { getJobForUser, getJobOutputFileForUser, listJobsForUser, submitJob } from "../jobs/service.js";
+
+async function assertGenerateReady(storage: ObjectStorage): Promise<void> {
+  await prisma.$queryRaw`SELECT 1`;
+  await assertStorageReady(storage);
+}
 
 async function requireUser(
   req: { cookies: Record<string, string | undefined>; headers: Record<string, unknown> },
@@ -31,12 +38,6 @@ export async function registerJobRoutes(
   app: FastifyInstance,
   deps: { storage: ObjectStorage; queue: Queue },
 ) {
-  app.get("/api/catalog/generate", async (req, reply) => {
-    const session = await requireUser(req, reply);
-    if (!session) return;
-    return { models: await listEnabledModels() };
-  });
-
   const handleSirayGptImage2 = async (req: any, reply: any) => {
     const session = await requireUser(req, reply);
     if (!session) return;
@@ -66,11 +67,12 @@ export async function registerJobRoutes(
             { jobId },
             {
               jobId,
-              attempts: 5,
+              attempts: 10,
               backoff: { type: "custom" },
             },
           );
         },
+        assertReady: () => assertGenerateReady(deps.storage),
       });
       return reply.code(202).send(accepted);
     } catch (err) {
@@ -79,9 +81,14 @@ export async function registerJobRoutes(
   };
 
   app.post("/generate/siray/gpt-image-2-t2i", handleSirayGptImage2);
-  app.post("/api/generate/siray/gpt-image-2-t2i", handleSirayGptImage2);
 
-  app.post("/api/jobs", async (req, reply) => {
+  app.get("/customer/models", async (req, reply) => {
+    const session = await requireUser(req, reply);
+    if (!session) return;
+    return { models: await listEnabledModels() };
+  });
+
+  app.post("/jobs", async (req, reply) => {
     const session = await requireUser(req, reply);
     if (!session) return;
     try {
@@ -102,11 +109,12 @@ export async function registerJobRoutes(
             { jobId },
             {
               jobId,
-              attempts: 5,
+              attempts: 10,
               backoff: { type: "custom" },
             },
           );
         },
+        assertReady: () => assertGenerateReady(deps.storage),
       });
       return reply.code(202).send(accepted);
     } catch (err) {
@@ -114,18 +122,37 @@ export async function registerJobRoutes(
     }
   });
 
-  app.get("/api/jobs", async (req, reply) => {
+  app.get("/customer/generated-lists", async (req, reply) => {
     const session = await requireUser(req, reply);
     if (!session) return;
     return await listJobsForUser({ userId: session.userId, storage: deps.storage });
   });
 
-  app.get("/api/jobs/:id", async (req, reply) => {
+  app.get("/customer/generated/:jobId", async (req, reply) => {
     const session = await requireUser(req, reply);
     if (!session) return;
     try {
-      const { id } = req.params as { id: string };
-      return await getJobForUser({ userId: session.userId, id, storage: deps.storage });
+      const { jobId } = req.params as { jobId: string };
+      return await getJobForUser({ userId: session.userId, id: jobId, storage: deps.storage });
+    } catch (err) {
+      return sendError(reply, err);
+    }
+  });
+
+  app.get("/customer/generated/:jobId/file", async (req, reply) => {
+    const session = await requireUser(req, reply);
+    if (!session) return;
+    try {
+      const { jobId } = req.params as { jobId: string };
+      const file = await getJobOutputFileForUser({
+        userId: session.userId,
+        id: jobId,
+        storage: deps.storage,
+      });
+      reply.header("Content-Type", file.contentType);
+      reply.header("Cache-Control", "private, max-age=60");
+      reply.header("Content-Disposition", "inline");
+      return reply.send(Buffer.from(file.bytes));
     } catch (err) {
       return sendError(reply, err);
     }

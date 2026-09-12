@@ -33,10 +33,19 @@ function isFileTooLarge(err: unknown): boolean {
 }
 
 async function requireUser(
-  req: { cookies: { sid?: string } },
+  req: { cookies: Record<string, string | undefined>; headers: Record<string, unknown> },
   reply: { status: (n: number) => { send: (b: unknown) => unknown } },
 ) {
-  const session = await userFromCookie(req.cookies.sid, "user");
+  const token =
+    (typeof req.cookies?.sid === "string" && req.cookies.sid.trim().length > 0 ? req.cookies.sid.trim() : undefined) ??
+    (typeof req.headers["x-session-token"] === "string" && (req.headers["x-session-token"] as string).trim().length > 0
+      ? (req.headers["x-session-token"] as string).trim()
+      : undefined) ??
+    (typeof req.headers["authorization"] === "string" && (req.headers["authorization"] as string).toLowerCase().startsWith("bearer ")
+      ? (req.headers["authorization"] as string).slice(7).trim()
+      : undefined);
+
+  const session = await userFromCookie(token, "user");
   if (!session) {
     reply.status(401).send({ error: { code: ErrorCodes.UNAUTHENTICATED, message: "Silakan masuk" } });
     return null;
@@ -45,10 +54,23 @@ async function requireUser(
 }
 
 async function requireAdmin(
-  req: { cookies: { sid_admin?: string } },
+  req: { cookies: Record<string, string | undefined>; headers: Record<string, unknown> },
   reply: { status: (n: number) => { send: (b: unknown) => unknown } },
 ) {
-  const session = await userFromCookie(req.cookies.sid_admin, "admin");
+  const token =
+    (typeof req.cookies?.sid_admin === "string" && req.cookies.sid_admin.trim().length > 0 ? req.cookies.sid_admin.trim() : undefined) ??
+    (typeof req.cookies?.sid === "string" && req.cookies.sid.trim().length > 0 ? req.cookies.sid.trim() : undefined) ??
+    (typeof req.headers["x-session-token"] === "string" && (req.headers["x-session-token"] as string).trim().length > 0
+      ? (req.headers["x-session-token"] as string).trim()
+      : undefined) ??
+    (typeof req.headers["authorization"] === "string" && (req.headers["authorization"] as string).toLowerCase().startsWith("bearer ")
+      ? (req.headers["authorization"] as string).slice(7).trim()
+      : undefined);
+
+  let session = await userFromCookie(token, "admin");
+  if (!session) {
+    session = await userFromCookie(token, "user");
+  }
   if (!session || session.user.role !== "admin") {
     reply.status(401).send({
       error: { code: ErrorCodes.UNAUTHENTICATED, message: "Silakan masuk sebagai admin" },
@@ -59,26 +81,26 @@ async function requireAdmin(
 }
 
 export async function registerWalletRoutes(app: FastifyInstance, deps: { storage: ObjectStorage }) {
-  app.get("/api/wallet", async (req, reply) => {
+  app.get("/customer/coin", async (req, reply) => {
     const session = await requireUser(req, reply);
     if (!session) return;
     const bal = await computeBalance(session.userId);
     return { available: bal.available, held: bal.held, currency: "points" };
   });
 
-  app.get("/api/wallet/ledger", async (req, reply) => {
+  app.get("/customer/coin/ledger", async (req, reply) => {
     const session = await requireUser(req, reply);
     if (!session) return;
     return { entries: await listLedger(session.userId) };
   });
 
-  app.get("/api/catalog/topup", async (req, reply) => {
+  app.get("/customer/packages", async (req, reply) => {
     const session = await requireUser(req, reply);
     if (!session) return;
     return { packages: listPackages() };
   });
 
-  app.post("/api/invoices", async (req, reply) => {
+  app.post("/invoices", async (req, reply) => {
     const session = await requireUser(req, reply);
     if (!session) return;
     try {
@@ -89,13 +111,13 @@ export async function registerWalletRoutes(app: FastifyInstance, deps: { storage
     }
   });
 
-  app.get("/api/invoices", async (req, reply) => {
+  app.get("/invoices", async (req, reply) => {
     const session = await requireUser(req, reply);
     if (!session) return;
     return { invoices: await listInvoicesForUser(session.userId) };
   });
 
-  app.get("/api/invoices/:id", async (req, reply) => {
+  app.get("/invoices/:id", async (req, reply) => {
     const session = await requireUser(req, reply);
     if (!session) return;
     try {
@@ -106,7 +128,7 @@ export async function registerWalletRoutes(app: FastifyInstance, deps: { storage
     }
   });
 
-  app.post("/api/invoices/:id/proof", async (req, reply) => {
+  app.post("/invoices/:id/proof", async (req, reply) => {
     const session = await requireUser(req, reply);
     if (!session) return;
     try {
@@ -137,19 +159,19 @@ export async function registerWalletRoutes(app: FastifyInstance, deps: { storage
     }
   });
 
-  app.get("/api/admin/notifications", async (req, reply) => {
+  app.get("/admin/notifications", async (req, reply) => {
     const session = await requireAdmin(req, reply);
     if (!session) return;
     return await listNotifications();
   });
 
-  app.get("/api/admin/invoices", async (req, reply) => {
+  app.get("/admin/invoices", async (req, reply) => {
     const session = await requireAdmin(req, reply);
     if (!session) return;
     return { invoices: await listAdminInvoices() };
   });
 
-  app.get("/api/admin/invoices/:id/proof", async (req, reply) => {
+  app.get("/admin/invoices/:id/proof", async (req, reply) => {
     const session = await requireAdmin(req, reply);
     if (!session) return;
     try {
@@ -160,7 +182,7 @@ export async function registerWalletRoutes(app: FastifyInstance, deps: { storage
     }
   });
 
-  app.get("/api/admin/invoices/:id/file", async (req, reply) => {
+  app.get("/admin/invoices/:id/file", async (req, reply) => {
     const session = await requireAdmin(req, reply);
     if (!session) return;
     try {
@@ -175,7 +197,7 @@ export async function registerWalletRoutes(app: FastifyInstance, deps: { storage
     }
   });
 
-  app.post("/api/admin/invoices/:id/approve", async (req, reply) => {
+  app.post("/admin/invoices/:id/approve", async (req, reply) => {
     const session = await requireAdmin(req, reply);
     if (!session) return;
     try {
@@ -186,7 +208,7 @@ export async function registerWalletRoutes(app: FastifyInstance, deps: { storage
     }
   });
 
-  app.post("/api/admin/invoices/:id/reject", async (req, reply) => {
+  app.post("/admin/invoices/:id/reject", async (req, reply) => {
     const session = await requireAdmin(req, reply);
     if (!session) return;
     try {

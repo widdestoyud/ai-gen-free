@@ -8,15 +8,18 @@ const LABELS: Record<string, string> = {
 
 const ERROR_COPY: Record<string, string> = {
   W001: "Layanan generate belum siap. Poin dikembalikan, tidak ada jeda.",
-  W002: "Prompt ditolak kebijakan konten. Poin dikembalikan, tidak ada jeda.",
+  W002: "Prompt ditolak kebijakan konten penyedia. Ubah prompt lalu coba lagi. Poin dikembalikan, tidak ada jeda.",
   W003: "Generate terlalu lama. Poin dikembalikan, tidak ada jeda.",
   W004: "Generate gagal. Poin dikembalikan, tidak ada jeda.",
   W005: "Penyedia sedang gangguan. Poin dikembalikan, tidak ada jeda.",
+  W006: "Gambar jadi di Siray, gagal disimpan ke R2 (kredensial/bucket). Poin dikembalikan, tidak ada jeda.",
   PROVIDER_NOT_CONFIGURED: "Layanan generate belum siap. Poin dikembalikan, tidak ada jeda.",
-  PROVIDER_POLICY: "Prompt ditolak kebijakan konten. Poin dikembalikan, tidak ada jeda.",
+  PROVIDER_POLICY:
+    "Prompt ditolak kebijakan konten penyedia. Ubah prompt lalu coba lagi. Poin dikembalikan, tidak ada jeda.",
   PROVIDER_TIMEOUT: "Generate terlalu lama. Poin dikembalikan, tidak ada jeda.",
   PROVIDER_ERROR: "Generate gagal. Poin dikembalikan, tidak ada jeda.",
   PROVIDER_UNAVAILABLE: "Penyedia sedang gangguan. Poin dikembalikan, tidak ada jeda.",
+  OUTPUT_COPY_FAILED: "Gambar jadi di penyedia, gagal disimpan. Poin dikembalikan, tidak ada jeda.",
 };
 
 export type JobOutputView = {
@@ -35,6 +38,7 @@ export type JobView = {
   cost: number;
   progressPct: number;
   errorCode: string | null;
+  errorMessage?: string | null;
   queuePosition?: number | null;
   createdAt?: string;
   finishedAt?: string | null;
@@ -54,7 +58,11 @@ export function isJobTerminal(status: string): boolean {
   return status === "succeeded" || status === "failed" || status === "canceled";
 }
 
-export function jobErrorMessage(errorCode: string | null | undefined): string {
+export function jobErrorMessage(
+  errorCode: string | null | undefined,
+  apiMessage?: string | null,
+): string {
+  if (apiMessage) return apiMessage;
   if (!errorCode) return "Gagal. Poin dikembalikan, tidak ada jeda.";
   return ERROR_COPY[errorCode] ?? `Gagal (${errorCode}). Poin dikembalikan, tidak ada jeda.`;
 }

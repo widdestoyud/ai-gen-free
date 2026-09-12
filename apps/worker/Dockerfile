@@ -1,4 +1,5 @@
 FROM node:22-alpine
+RUN apk add --no-cache libc6-compat
 RUN corepack enable
 WORKDIR /app
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./

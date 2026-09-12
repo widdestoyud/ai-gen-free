@@ -31,19 +31,32 @@ export function promptPreview(prompt: string, max = 120): string {
   return trimmed.length <= max ? trimmed : trimmed.slice(0, max);
 }
 
+export function customerOutputPath(jobId: string): string {
+  return `/api/jobs/${jobId}/file`;
+}
+
 export async function resolveJobOutput(
   status: string,
   asset: OutputAsset | undefined,
   storage: ObjectStorage,
-  opts?: { now?: Date; signedSeconds?: number },
+  opts?: { now?: Date; signedSeconds?: number; jobId?: string },
 ): Promise<JobOutputDto | null> {
   if (status !== "succeeded" || !asset) return null;
   const now = opts?.now ?? new Date();
-  const signedSeconds = opts?.signedSeconds ?? SIGNED_SECONDS;
   const availableUntil = asset.expiresAt.toISOString();
   if (!isOutputAssetLive(asset, now)) {
     return { url: null, contentType: asset.contentType, availableUntil, signedExpiresAt: null };
   }
+  const jobId = opts?.jobId;
+  if (jobId) {
+    return {
+      url: customerOutputPath(jobId),
+      contentType: asset.contentType,
+      availableUntil,
+      signedExpiresAt: null,
+    };
+  }
+  const signedSeconds = opts?.signedSeconds ?? SIGNED_SECONDS;
   try {
     const url = await storage.signGetUrl(asset.storageKey, signedSeconds);
     return {

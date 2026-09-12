@@ -6,12 +6,13 @@ import { Queue } from "bullmq";
 import IORedis from "ioredis";
 import { ErrorCodes } from "@ai-gen-free/core";
 import { prisma } from "@ai-gen-free/db";
-import { createObjectStorageFromEnv } from "@ai-gen-free/storage";
+import { createObjectStorageFromEnv, objectStorageParamsFromEnv } from "@ai-gen-free/storage";
 import { createSmtpMailer } from "./mail/smtp.js";
 import { registerAuthRoutes } from "./routes/auth.js";
 import { registerAdminRoutes } from "./routes/admin.js";
 import { registerJobRoutes } from "./routes/jobs.js";
 import { registerWalletRoutes } from "./routes/wallet.js";
+import { rewriteRequestUrl } from "./http-rewrite.js";
 
 import { randomBytes } from "node:crypto";
 
@@ -21,6 +22,7 @@ const redisUrl = process.env.REDIS_URL ?? "redis://127.0.0.1:6379";
 
 const app = Fastify({
   logger: true,
+  rewriteUrl: (req) => rewriteRequestUrl(req.url ?? "/", req.method ?? "GET"),
   genReqId: (req) => {
     const existing = req.headers["x-transaction-id"];
     if (typeof existing === "string" && existing.length >= 8 && existing.length <= 128) {
@@ -45,7 +47,23 @@ app.addContentTypeParser("application/json", { parseAs: "string" }, (_req, body:
   }
 });
 
+function notFoundBody(transactionId: string) {
+  return {
+    transaction_id: transactionId,
+    error: { code: ErrorCodes.NOT_FOUND, message: "Rute tidak ditemukan" },
+  };
+}
+
+function isFastifyDefault404(payload: unknown): payload is { message: string; error: string; statusCode: number } {
+  if (payload === null || typeof payload !== "object" || Array.isArray(payload)) return false;
+  const rec = payload as Record<string, unknown>;
+  return rec.statusCode === 404 && rec.error === "Not Found" && typeof rec.message === "string" && rec.message.startsWith("Route ");
+}
+
 app.addHook("preSerialization", async (req, _reply, payload) => {
+  if (isFastifyDefault404(payload)) {
+    return notFoundBody(req.id);
+  }
   if (
     payload !== null &&
     typeof payload === "object" &&
@@ -64,6 +82,9 @@ app.addHook("preSerialization", async (req, _reply, payload) => {
 app.setErrorHandler((error, req, reply) => {
   req.log.error(error);
   if (reply.sent) return;
+  if (error.code === "FST_ERR_NOT_FOUND") {
+    return reply.status(404).send(notFoundBody(req.id));
+  }
   const status =
     typeof error.statusCode === "number" && error.statusCode >= 400 && error.statusCode < 600
       ? error.statusCode
@@ -76,11 +97,32 @@ app.setErrorHandler((error, req, reply) => {
     },
   });
 });
+
+app.setNotFoundHandler((req, reply) => {
+  reply.status(404).send(notFoundBody(req.id));
+});
+
 const redis = new IORedis(redisUrl);
 const queueConnection = new IORedis(redisUrl, { maxRetriesPerRequest: null });
 const queue = new Queue("generate", { connection: queueConnection });
 const mailer = createSmtpMailer();
+const storageParams = objectStorageParamsFromEnv();
 const storage = createObjectStorageFromEnv();
+app.log.info({
+  event: "api.storage",
+  driver: storage.driver,
+  endpointHost: (() => {
+    const raw = storageParams.endpoint;
+    if (!raw) return null;
+    try {
+      return new URL(raw).host;
+    } catch {
+      return raw;
+    }
+  })(),
+  bucket: storageParams.bucket ?? null,
+  hasCredentials: Boolean(storageParams.accessKeyId && storageParams.secretAccessKey),
+});
 
 await app.register(cors, {
   origin,
@@ -91,21 +133,7 @@ await app.register(multipart, {
   limits: { fileSize: 5 * 1024 * 1024, files: 1 },
 });
 
-app.get("/health", async () => ({ ok: true, service: "api" }));
 app.get("/api/health", async () => ({ ok: true, service: "api" }));
-
-app.get("/api/ready", async (_req, reply) => {
-  try {
-    await prisma.$queryRaw`SELECT 1`;
-    await redis.ping();
-    return { ok: true, service: "api" };
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "dependency unavailable";
-    return reply.status(503).send({
-      error: { code: ErrorCodes.NOT_READY, message },
-    });
-  }
-});
 
 await registerAuthRoutes(app, { redis, mailer });
 await registerWalletRoutes(app, { storage });

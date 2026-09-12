@@ -131,6 +131,9 @@ importers:
       ioredis:
         specifier: ^5.7.0
         version: 5.11.1
+      sharp:
+        specifier: ^0.35.4
+        version: 0.35.4(@types/node@22.20.1)
 
   packages/core: {}
 
@@ -1800,8 +1803,7 @@ snapshots:
 
   '@floating-ui/utils@0.2.12': {}
 
-  '@img/colour@1.1.0':
-    optional: true
+  '@img/colour@1.1.0': {}
 
   '@img/sharp-darwin-arm64@0.35.4':
     optionalDependencies:
@@ -2165,8 +2167,7 @@ snapshots:
 
   destr@2.0.5: {}
 
-  detect-libc@2.1.2:
-    optional: true
+  detect-libc@2.1.2: {}
 
   detect-node-es@1.1.0: {}
 
@@ -2609,7 +2610,6 @@ snapshots:
       '@img/sharp-win32-ia32': 0.35.4
       '@img/sharp-win32-x64': 0.35.4
       '@types/node': 22.20.1
-    optional: true
 
   sonic-boom@4.2.1:
     dependencies:

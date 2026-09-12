@@ -36,12 +36,12 @@ Jangan mengarang ulang arsitektur. Jika ingin mengubah keputusan di `docs/adr/`,
 - Provider generate: port + adapter. Adapter pertama: **Siray**. Adapter lain = paket baru + register, tanpa mengubah job/wallet/UI.
 - Ganti storage / email / sesi browser / generate: **hanya adapter + env** (ADR 0012). Presentation (flow, komponen, layout) dan use case tidak berubah.
 - Auth & User Security (ADR 0014):
-  - Signup via `POST /user/register`: input `email` + `password`. Whitelist domain email resmi: `@gmail.com`, `@yahoo.com`, `@ymail.com` (menolak email test/palsu). Password minimal 8 karakter, setidaknya 1 huruf kapital dan 1 angka.
+  - Signup via `POST /customer/register`: input `email` + `password`. Whitelist domain email resmi: `@gmail.com`, `@yahoo.com`, `@ymail.com` (menolak email test/palsu). Password minimal 8 karakter, setidaknya 1 huruf kapital dan 1 angka.
   - Verifikasi email wajib via `POST /auth/email-validation` sebelum user diizinkan masuk.
-  - Login via `POST /user/login` (pelanggan) dan `POST /admin/login` (admin): input `email`/`username` + `password`. Login pertama kali atau ganti perangkat pada pelanggan memicu OTP verifikasi ke email. Jika user/admin **sudah dalam posisi login** (membawa cookie/token sesi aktif atau login ulang di perangkat yang sama), request login **dilarang mengembalikan HTTP 200** dan wajib melempar error reusable `ALREADY_LOGGED_IN` (`A019`, HTTP 409).
+  - Login via `POST /customer/login` (pelanggan) dan `POST /admin/login` (admin): input `email`/`username` + `password`. Login pertama kali atau ganti perangkat pada pelanggan memicu OTP verifikasi ke email. Jika user/admin **sudah dalam posisi login** (membawa cookie/token sesi aktif atau login ulang di perangkat yang sama), request login **dilarang mengembalikan HTTP 200** dan wajib melempar error reusable `ALREADY_LOGGED_IN` (`A019`, HTTP 409).
   - Request/resend OTP via `POST /auth/otp`: dibatasi maksimal 3x per 30 menit (lockout 30 menit jika terlampaui).
   - Validasi OTP via `POST /auth/otp-validation`: maksimal 3x salah input OTP sebelum kode dikunci permanen.
-  - Profil user via `GET/PATCH /user/profile`: input nama alias, telepon, KTP, alamat. **Bebas celah IDOR**: identitas user diambil mutlak dari cookie sesi server (`session.userId`), tidak boleh mempercayai ID dari body/query.
+  - Profil pelanggan via `GET/PATCH /customer/profile`: input nama alias, telepon, KTP, alamat. **Bebas celah IDOR**: identitas user diambil mutlak dari cookie sesi server (`session.userId`), tidak boleh mempercayai ID dari body/query. Fastify tidak memakai prefix `/api` kecuali `GET /api/health`.
   - Reset kata sandi (ADR 0015): `POST /auth/password-reset` `{ email }` (email belum terdaftar → `A018`); tautan dicek `POST /auth/password-reset-validation`; password baru `POST /auth/password-reset-confirm` `{ token, password }`. Request ulang diblokir 1 jam atau sampai konfirmasi (`A021`); setelah sukses ganti password diblokir 24 jam (`A022`); rate limit 3x per IP (`A008`). Token hash, bukan plaintext. Durasi/kuota hanya di `rate-limit.config.ts`.
   - Konfigurasi terpusat: Rate limit di `packages/core/src/config/rate-limit.config.ts` dan respon di `packages/core/src/config/responses.config.ts`. Terikat error reusable `ALREADY_LOGGED_IN` (`A019`, 409) untuk seluruh pencegahan aktivitas saat sesi masih aktif.
 - Cookie/sesi **browser**: adapter v1 NextAuth (ADR 0010) di belakang `lib/auth-actions.ts` + `lib/server-api.ts`. Halaman/komponen **tidak** mengimpor `next-auth`. Identity/OTP/satu-sesi tetap di `apps/api`.
@@ -86,7 +86,7 @@ UI dan Route Handler Next.js **dilarang** memanggil SDK Siray, Prisma wallet mut
 - `style={{ … }}` di `apps/web` (pakai Mantine / komponen).
 - Percaya `cost` / `balance` / `role` dari body klien.
 - `UPDATE users SET points = points - n`.
-- `POST /jobs` yang menunggu sampai gambar jadi (harus 202 + job_id).
+- `POST` generate yang menunggu sampai gambar jadi (harus 202 + job_id).
 - Membuat admin lewat register publik.
 - Menyimpan OTP atau session token dalam bentuk plaintext.
 - Mengirim email, token, OTP, password, atau payload aksi lain lewat query param.

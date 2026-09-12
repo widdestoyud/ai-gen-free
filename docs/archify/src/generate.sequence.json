@@ -2,53 +2,64 @@
   "schema_version": 1,
   "diagram_type": "sequence",
   "meta": {
-    "title": "Generate job roundtrip",
+    "title": "Generate: prompt sampai gambar di pelanggan",
+    "subtitle": "202 dulu, Siray di worker, file lewat /api/jobs/:id/file",
     "output": "docs/archify/html/generate.sequence.html",
-    "viewBox": [820, 920],
+    "viewBox": [960, 1080],
+    "column_fit": "spread",
     "quality_profile": "showcase",
     "views": [
-      { "id": "accept", "label": "Accept without blocking", "focus": ["browser", "api", "redis"], "note": "Hold points and enqueue, then return 202." },
-      { "id": "work", "label": "Background work", "focus": ["redis", "worker", "siray", "minio"], "note": "The worker owns Siray and object storage." },
-      { "id": "observe", "label": "Observe after refresh", "focus": ["browser", "api", "postgres"], "note": "A page refresh only reads job status." }
+      { "id": "kirim", "label": "Kirim prompt", "focus": ["browser", "api", "postgres", "redis"], "note": "Cek DB+R2, hold poin, antrian, 202. Browser tidak menunggu Siray." },
+      { "id": "siray", "label": "Siray generate", "focus": ["worker", "siray", "postgres"], "note": "Submit+poll. task_id dan URL disimpan di DB sebelum put R2." },
+      { "id": "simpan", "label": "Simpan + tampil", "focus": ["worker", "r2", "postgres", "browser", "api"], "note": "WebP ke R2, capture poin, GET file same-origin." },
+      { "id": "pulih", "label": "Pulih infra", "focus": ["worker", "postgres", "r2", "siray"], "note": "R2/DB down setelah SUCCESS: hold tetap, sweeper salin ulang tanpa submit Siray baru." }
     ]
   },
   "participants": [
-    { "id": "browser", "type": "external", "label": "Browser", "sublabel": "Next.js UI" },
-    { "id": "api", "type": "backend", "label": "apps/api", "sublabel": "HTTP" },
-    { "id": "postgres", "type": "database", "label": "PostgreSQL", "sublabel": "jobs + ledger" },
+    { "id": "browser", "type": "external", "label": "Pelanggan", "sublabel": "Next.js" },
+    { "id": "api", "type": "backend", "label": "apps/api", "sublabel": "Fastify" },
+    { "id": "postgres", "type": "database", "label": "PostgreSQL", "sublabel": "job + ledger" },
     { "id": "redis", "type": "messagebus", "label": "Redis", "sublabel": "BullMQ" },
-    { "id": "worker", "type": "backend", "label": "apps/worker", "sublabel": "background" },
-    { "id": "siray", "type": "cloud", "label": "Siray", "sublabel": "adapter" },
-    { "id": "minio", "type": "cloud", "label": "MinIO", "sublabel": "private objects" }
+    { "id": "worker", "type": "backend", "label": "apps/worker", "sublabel": "generate" },
+    { "id": "siray", "type": "cloud", "label": "Siray", "sublabel": "t2i adapter" },
+    { "id": "r2", "type": "cloud", "label": "Cloudflare R2", "sublabel": "objek privat" }
   ],
   "segments": [
-    { "from": 150, "to": 288, "label": "Accept" },
-    { "from": 306, "to": 538, "label": "Background" },
-    { "from": 554, "to": 800, "label": "Observe" }
+    { "from": 150, "to": 318, "label": "1. Terima" },
+    { "from": 330, "to": 618, "label": "2. Generate + simpan" },
+    { "from": 632, "to": 900, "label": "3. Tampilkan" }
   ],
   "messages": [
-    { "from": "browser", "to": "api", "y": 180, "label": "POST /api/jobs", "variant": "emphasis" },
-    { "from": "api", "to": "postgres", "y": 222, "label": "lock wallet + hold", "variant": "emphasis" },
-    { "from": "api", "to": "redis", "y": 264, "label": "enqueue jobId" },
-    { "from": "api", "to": "browser", "y": 280, "label": "202 + job_id", "variant": "return" },
-    { "from": "redis", "to": "worker", "y": 348, "label": "deliver", "variant": "emphasis" },
-    { "from": "worker", "to": "siray", "y": 390, "label": "submit via port" },
-    { "from": "siray", "to": "worker", "y": 432, "label": "task result", "variant": "return" },
-    { "from": "worker", "to": "minio", "y": 474, "label": "put object" },
-    { "from": "worker", "to": "postgres", "y": 516, "label": "capture + cooldown", "variant": "emphasis" },
-    { "from": "browser", "to": "api", "y": 580, "label": "GET /api/jobs/:id" },
-    { "from": "api", "to": "postgres", "y": 622, "label": "read status" },
-    { "from": "postgres", "to": "api", "y": 664, "label": "succeeded", "variant": "return" },
-    { "from": "api", "to": "browser", "y": 706, "label": "signed URL", "variant": "return" }
+    { "from": "browser", "to": "api", "y": 176, "label": "POST /generate/siray/gpt-image-2-t2i", "variant": "emphasis" },
+    { "from": "api", "to": "postgres", "y": 210, "label": "SELECT 1" },
+    { "from": "api", "to": "r2", "y": 244, "label": "ping put healthcheck" },
+    { "from": "api", "to": "postgres", "y": 278, "label": "hold poin + job queued", "variant": "emphasis" },
+    { "from": "api", "to": "redis", "y": 312, "label": "enqueue jobId" },
+    { "from": "api", "to": "browser", "y": 338, "label": "202 + job_id", "variant": "return" },
+    { "from": "redis", "to": "worker", "y": 372, "label": "ambil job", "variant": "emphasis" },
+    { "from": "worker", "to": "siray", "y": 410, "label": "POST async generate" },
+    { "from": "siray", "to": "worker", "y": 448, "label": "task_id", "variant": "return" },
+    { "from": "worker", "to": "postgres", "y": 486, "label": "simpan providerJobId" },
+    { "from": "worker", "to": "siray", "y": 524, "label": "GET poll status" },
+    { "from": "siray", "to": "worker", "y": 562, "label": "SUCCESS + URL output", "variant": "return" },
+    { "from": "worker", "to": "postgres", "y": 600, "label": "simpan URL (bukti SUCCESS)" },
+    { "from": "worker", "to": "r2", "y": 638, "label": "put WebP", "variant": "emphasis" },
+    { "from": "worker", "to": "postgres", "y": 676, "label": "JobAsset + capture poin", "variant": "emphasis" },
+    { "from": "browser", "to": "api", "y": 720, "label": "GET /customer/generated/:id" },
+    { "from": "api", "to": "postgres", "y": 758, "label": "baca status + aset" },
+    { "from": "api", "to": "browser", "y": 796, "label": "200 status=succeeded output.url=/api/jobs/:id/file", "variant": "return" },
+    { "from": "browser", "to": "api", "y": 834, "label": "GET /api/jobs/:id/file", "variant": "emphasis" },
+    { "from": "api", "to": "r2", "y": 872, "label": "get objek privat" },
+    { "from": "api", "to": "browser", "y": 910, "label": "stream image/webp", "variant": "return" }
   ],
   "activations": [
-    { "participant": "api", "from": 174, "to": 314, "type": "backend" },
-    { "participant": "worker", "from": 342, "to": 528, "type": "backend" },
-    { "participant": "siray", "from": 384, "to": 440, "type": "cloud" },
-    { "participant": "api", "from": 574, "to": 714, "type": "backend" }
+    { "participant": "api", "from": 170, "to": 348, "type": "backend" },
+    { "participant": "worker", "from": 366, "to": 690, "type": "backend" },
+    { "participant": "siray", "from": 404, "to": 572, "type": "cloud" },
+    { "participant": "api", "from": 714, "to": 920, "type": "backend" }
   ],
   "cards": [
-    { "dot": "cyan", "title": "Non-blocking HTTP", "items": ["The browser never waits for Siray", "Refresh cannot cancel a queued or running job"] },
-    { "dot": "emerald", "title": "Money and files", "items": ["Capture runs only after the object is stored", "Failure releases the hold and skips cooldown"] }
+    { "dot": "cyan", "title": "Tidak blocking", "items": ["POST selalu 202 jika gerbang lolos", "Gambar tidak lewat URL api.siray.ai"] },
+    { "dot": "emerald", "title": "Uang dan file", "items": ["Capture hanya setelah WebP di R2", "Gagal copy setelah SUCCESS: hold tetap, sweeper salin ulang"] }
   ]
 }

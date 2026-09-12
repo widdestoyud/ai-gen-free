@@ -32,6 +32,14 @@ export class S3CompatibleStorage implements ObjectStorage {
     this.driver = config.driver;
     this.bucket = config.bucket;
     this.autoCreateBucket = config.driver === "minio";
+    if (
+      (config.driver === "r2" || config.driver === "s3") &&
+      (!config.accessKeyId?.trim() || !config.secretAccessKey?.trim())
+    ) {
+      throw new Error(
+        `STORAGE_ACCESS_KEY dan STORAGE_SECRET_KEY wajib untuk driver "${config.driver}". Buat di Cloudflare Dashboard → R2 → API Tokens → Create Account API token (Object Read & Write). Secret hanya tampil sekali. Isi .env lalu recreate worker/api. Docs: https://developers.cloudflare.com/r2/api/tokens/`,
+      );
+    }
     this.internal = makeClient(config, config.endpoint);
     this.signing = makeClient(config, config.publicEndpoint ?? config.endpoint);
   }
@@ -91,5 +99,9 @@ function makeClient(config: S3CompatibleConfig, endpoint?: string): S3Client {
     endpoint,
     forcePathStyle: config.forcePathStyle,
     credentials,
+    // AWS SDK v3 default CRC32 checksum ditolak R2.
+    ...(config.driver === "r2"
+      ? { requestChecksumCalculation: "WHEN_REQUIRED", responseChecksumValidation: "WHEN_REQUIRED" }
+      : {}),
   });
 }

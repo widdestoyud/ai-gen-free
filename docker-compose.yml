@@ -79,8 +79,14 @@ services:
     env_file: .env
     environment:
       REDIS_URL: redis://redis:6379
+      DATABASE_URL: ${WORKER_DATABASE_URL:-${DATABASE_URL}}
+      STORAGE_ENDPOINT: ${WORKER_STORAGE_ENDPOINT:-${STORAGE_ENDPOINT}}
       WORKER_HEALTH_PORT: "3002"
       WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-3}
+      SIRAY_LOG_DIR: /app/logs/siray
+      CHAOS_PAUSE_AFTER_SUCCESS_MS: ${CHAOS_PAUSE_AFTER_SUCCESS_MS:-0}
+    volumes:
+      - ./logs/siray:/app/logs/siray
     expose:
       - "3002"
     depends_on:

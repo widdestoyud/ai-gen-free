@@ -655,6 +655,7 @@ export async function getUserProfile(userId: string) {
       ktp: true,
       address: true,
       role: true,
+      nextGenerateAt: true,
       emailVerifiedAt: true,
       createdAt: true,
       updatedAt: true,
@@ -663,7 +664,13 @@ export async function getUserProfile(userId: string) {
   if (!user) {
     throw new AuthError(AuthResponses.errors.UNAUTHENTICATED.code, AuthResponses.errors.UNAUTHENTICATED.message, 401);
   }
-  return user;
+  return {
+    ...user,
+    nextGenerateAt: user.nextGenerateAt?.toISOString() ?? null,
+    emailVerifiedAt: user.emailVerifiedAt?.toISOString() ?? null,
+    createdAt: user.createdAt.toISOString(),
+    updatedAt: user.updatedAt.toISOString(),
+  };
 }
 
 /**

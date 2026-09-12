@@ -1,4 +1,10 @@
-export { SirayProvider, type SirayFetch, type SirayProviderOptions } from "./siray.js";
+export {
+  SirayProvider,
+  type SirayFetch,
+  type SirayProviderOptions,
+  type SirayTrace,
+  type SirayTraceEvent,
+} from "./siray.js";
 export { TokenBucket } from "./token-bucket.js";
 export {
   classifySirayFailure,

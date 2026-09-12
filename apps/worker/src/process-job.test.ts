@@ -55,6 +55,9 @@ function memoryStore(
     async saveProviderJobId(_id, providerJobId) {
       state.job.providerJobId = providerJobId;
     },
+    async saveProviderOutputUrls(_id, urls) {
+      state.job.params = { ...state.job.params, providerOutputUrls: urls };
+    },
     async updateProgress(_id, progressPct) {
       state.job.status = "running";
       void progressPct;
@@ -76,6 +79,9 @@ function memoryStore(
     },
     async cooldownSeconds() {
       return extras?.cooldownSeconds ?? 43200;
+    },
+    async listCopyPendingJobIds() {
+      return [];
     },
   };
 }
@@ -138,6 +144,7 @@ test("success: put output then capture then cooldown; no second submit", async (
     store,
     wallet,
     sleep: async () => {},
+    optimizeImage: async (input) => input,
   });
 
   assert.equal(provider.submits, 1);
@@ -152,6 +159,7 @@ test("success: put output then capture then cooldown; no second submit", async (
     store,
     wallet,
     sleep: async () => {},
+    optimizeImage: async (input) => input,
   });
   assert.equal(provider.submits, 1);
   assert.equal(store.assets, 1);
@@ -315,6 +323,153 @@ test("retry exhausted becomes PROVIDER_UNAVAILABLE + release", async () => {
   assert.equal(store.job.nextGenerateAt, null);
 });
 
+test("transient output copy failure then success stores the file", async () => {
+  const store = memoryStore(baseJob({ providerJobId: "task-1", status: "running", startedAt: new Date() }));
+  const storage = new MemoryObjectStorage();
+  const provider = new ScriptedProvider({
+    statuses: [{ state: "succeeded", outputUrls: ["https://api.siray.ai/redirect/out.png"] }],
+  });
+  let downloads = 0;
+  await processGenerateJob({
+    jobId: "job1",
+    providers: new Map([["siray", provider]]),
+    storage,
+    store,
+    lastAttempt: false,
+    fetchBytes: async () => {
+      downloads += 1;
+      if (downloads === 1) throw new Error("output download HTTP 503");
+      return { body: PNG_1X1, contentType: "image/png" };
+    },
+    wallet: {
+      async captureJob() {
+        return {};
+      },
+      async releaseJob() {
+        throw new Error("should not release");
+      },
+    },
+    sleep: async () => {},
+  });
+  assert.equal(downloads, 2);
+  assert.equal(store.job.status, "succeeded");
+  assert.equal(store.assets, 1);
+});
+
+test("storage failure after Siray SUCCESS keeps hold and does not fail the job", async () => {
+  const store = memoryStore(baseJob({ providerJobId: "task-1", status: "running", startedAt: new Date() }));
+  const provider = new ScriptedProvider({
+    statuses: [{ state: "succeeded", outputUrls: ["https://api.siray.ai/redirect/out.png"] }],
+  });
+  const inner = new MemoryObjectStorage();
+  const storage = {
+    driver: "r2",
+    async put() {
+      const err = new Error("Could not load credentials from any providers");
+      err.name = "CredentialsProviderError";
+      throw err;
+    },
+    get: inner.get.bind(inner),
+    delete: inner.delete.bind(inner),
+    signGetUrl: inner.signGetUrl.bind(inner),
+  };
+  const calls: string[] = [];
+  await processGenerateJob({
+    jobId: "job1",
+    providers: new Map([["siray", provider]]),
+    storage,
+    store,
+    lastAttempt: true,
+    fetchBytes: async () => ({ body: PNG_1X1, contentType: "image/png" }),
+    optimizeImage: async (input) => input,
+    wallet: {
+      async captureJob() {
+        calls.push("capture");
+        return {};
+      },
+      async releaseJob() {
+        calls.push("release");
+        return {};
+      },
+    },
+    sleep: async () => {},
+  });
+  assert.deepEqual(calls, []);
+  assert.equal(store.job.status, "running");
+  assert.equal(provider.polls, 1);
+  assert.deepEqual(store.job.params.providerOutputUrls, ["https://api.siray.ai/redirect/out.png"]);
+});
+
+test("cached provider output URLs skip getStatus and copy immediately", async () => {
+  const store = memoryStore(
+    baseJob({
+      providerJobId: "task-1",
+      status: "running",
+      startedAt: new Date(),
+      params: { providerOutputUrls: ["https://api.siray.ai/redirect/cached.png"] },
+    }),
+  );
+  const storage = new MemoryObjectStorage();
+  const provider = new ScriptedProvider({
+    statusError: new Error("should not poll"),
+    statuses: [],
+  });
+  await processGenerateJob({
+    jobId: "job1",
+    providers: new Map([["siray", provider]]),
+    storage,
+    store,
+    fetchBytes: async (url) => {
+      assert.equal(url, "https://api.siray.ai/redirect/cached.png");
+      return { body: PNG_1X1, contentType: "image/png" };
+    },
+    optimizeImage: async (input) => input,
+    wallet: {
+      async captureJob() {
+        return {};
+      },
+      async releaseJob() {
+        throw new Error("should not release");
+      },
+    },
+    sleep: async () => {},
+  });
+  assert.equal(provider.polls, 0);
+  assert.equal(store.job.status, "succeeded");
+  assert.equal(store.assets, 1);
+});
+
+test("output copy failure after Siray SUCCESS defers delivery, does not W006/release", async () => {
+  const store = memoryStore(baseJob({ providerJobId: "task-1", status: "running", startedAt: new Date() }));
+  const provider = new ScriptedProvider({
+    statuses: [{ state: "succeeded", outputUrls: ["https://api.siray.ai/redirect/out.png"] }],
+  });
+  const calls: string[] = [];
+  await processGenerateJob({
+    jobId: "job1",
+    providers: new Map([["siray", provider]]),
+    storage: new MemoryObjectStorage(),
+    store,
+    lastAttempt: true,
+    fetchBytes: async () => {
+      throw new Error("output download HTTP 403");
+    },
+    wallet: {
+      async captureJob() {
+        calls.push("capture");
+        return {};
+      },
+      async releaseJob() {
+        calls.push("release");
+        return {};
+      },
+    },
+    sleep: async () => {},
+  });
+  assert.deepEqual(calls, []);
+  assert.equal(store.job.status, "running");
+});
+
 test("timeout 5 minutes: release, no cooldown", async () => {
   const startedAt = new Date("2026-01-01T00:00:00Z");
   const store = memoryStore(baseJob({ startedAt, status: "running", providerJobId: "task-1" }));
@@ -370,10 +525,41 @@ test("cooldown 0 does not set nextGenerateAt after capture", async () => {
       },
     },
     sleep: async () => {},
+    optimizeImage: async (input) => input,
   });
   assert.deepEqual(calls, ["capture"]);
   assert.equal(store.job.status, "succeeded");
   assert.equal(store.job.nextGenerateAt, null);
+});
+
+test("optimized webp is stored under outputs/{userId}/{jobId}.webp, never a Siray URL", async () => {
+  const store = memoryStore(baseJob({ providerJobId: "task-1", status: "running", startedAt: new Date() }));
+  const storage = new MemoryObjectStorage();
+  const provider = new ScriptedProvider({
+    statuses: [{ state: "succeeded", outputUrls: ["https://api.siray.ai/redirect/secret.png"] }],
+  });
+  const webp = new Uint8Array([0x52, 0x49, 0x46, 0x46, 0, 0, 0, 0, 0x57, 0x45, 0x42, 0x50]);
+  await processGenerateJob({
+    jobId: "job1",
+    providers: new Map([["siray", provider]]),
+    storage,
+    store,
+    fetchBytes: async () => ({ body: PNG_1X1, contentType: "image/png" }),
+    optimizeImage: async () => ({ body: webp, contentType: "image/webp" }),
+    wallet: {
+      async captureJob() {
+        const obj = await storage.get("outputs/user1/job1.webp");
+        assert.equal(obj.contentType, "image/webp");
+        assert.deepEqual(obj.body, webp);
+        return {};
+      },
+      async releaseJob() {
+        throw new Error("should not release");
+      },
+    },
+    sleep: async () => {},
+  });
+  assert.equal(store.job.status, "succeeded");
 });
 
 test("dummy fail uses release without cooldown", async () => {

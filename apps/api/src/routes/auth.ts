@@ -7,7 +7,6 @@ import {
   loginUser,
   logout,
   registerUser,
-  requestOtp,
   requestPasswordReset,
   resendOtp,
   updateUserProfile,
@@ -15,9 +14,7 @@ import {
   validateEmailToken,
   validateOtp,
   validatePasswordResetToken,
-  verifyOtp,
 } from "../auth/service.js";
-import { basicAuthorized } from "../auth/basic.js";
 import type { EmailPort } from "@ai-gen-free/core";
 import type IORedis from "ioredis";
 
@@ -36,6 +33,23 @@ function clientIp(req: { ip: string; headers: Record<string, unknown> }): string
     return forwarded.split(",")[0]!.trim();
   }
   return req.ip;
+}
+
+function sessionTokenFromReq(req: {
+  body?: unknown;
+  cookies?: Record<string, string | undefined>;
+  headers: Record<string, unknown>;
+}): string | undefined {
+  const body = (req.body ?? {}) as { token?: unknown; sessionToken?: unknown };
+  const headerToken = req.headers["x-session-token"];
+  const bearer = req.headers["authorization"];
+  return (
+    (typeof body.token === "string" && body.token.trim().length > 0 ? body.token.trim() : undefined) ??
+    (typeof body.sessionToken === "string" && body.sessionToken.trim().length > 0 ? body.sessionToken.trim() : undefined) ??
+    (typeof req.cookies?.sid === "string" && req.cookies.sid.trim().length > 0 ? req.cookies.sid.trim() : undefined) ??
+    (typeof headerToken === "string" && headerToken.trim().length > 0 ? headerToken.trim() : undefined) ??
+    (typeof bearer === "string" && bearer.toLowerCase().startsWith("bearer ") ? bearer.slice(7).trim() : undefined)
+  );
 }
 
 function sendAuthError(
@@ -58,7 +72,7 @@ export async function registerAuthRoutes(
   deps: { redis: IORedis; mailer: EmailPort },
 ) {
   // -------------------------------------------------------------
-  // 1. REGISTRASI USER BARU (/user/register & /api/user/register)
+  // 1. REGISTRASI PELANGGAN (POST /customer/register)
   // Input: email, password
   // -------------------------------------------------------------
   const handleRegister = async (req: any, reply: any) => {
@@ -80,11 +94,10 @@ export async function registerAuthRoutes(
       return sendAuthError(reply, err, req);
     }
   };
-  app.post("/user/register", handleRegister);
-  app.post("/api/user/register", handleRegister);
+  app.post("/customer/register", handleRegister);
 
   // -------------------------------------------------------------
-  // 2. VALIDASI EMAIL TOKEN (/auth/email-validation & /api/auth/email-validation)
+  // 2. VALIDASI EMAIL TOKEN (POST /auth/email-validation)
   // Input: token
   // -------------------------------------------------------------
   const handleEmailValidation = async (req: any, reply: any) => {
@@ -97,10 +110,9 @@ export async function registerAuthRoutes(
     }
   };
   app.post("/auth/email-validation", handleEmailValidation);
-  app.post("/api/auth/email-validation", handleEmailValidation);
 
   // -------------------------------------------------------------
-  // 3. LOGIN USER (/user/login & /api/user/login)
+  // 3. LOGIN PELANGGAN (POST /customer/login)
   // Input: email, password, deviceId?
   // -------------------------------------------------------------
   const handleLogin = async (req: any, reply: any) => {
@@ -152,11 +164,10 @@ export async function registerAuthRoutes(
       return sendAuthError(reply, err, req);
     }
   };
-  app.post("/user/login", handleLogin);
-  app.post("/api/user/login", handleLogin);
+  app.post("/customer/login", handleLogin);
 
   // -------------------------------------------------------------
-  // 4. REQUEST / RESEND OTP (/auth/otp & /api/auth/otp)
+  // 4. REQUEST / RESEND OTP (POST /auth/otp)
   // Input: email
   // Maksimal 3x per 30 menit
   // -------------------------------------------------------------
@@ -177,12 +188,9 @@ export async function registerAuthRoutes(
     }
   };
   app.post("/auth/otp", handleResendOtp);
-  app.post("/api/auth/otp", handleResendOtp);
-  // Alias legacy endpoint
-  app.post("/api/auth/otp/request", handleResendOtp);
 
   // -------------------------------------------------------------
-  // 5. VALIDASI OTP (/auth/otp-validation & /api/auth/otp-validation)
+  // 5. VALIDASI OTP (POST /auth/otp-validation)
   // Input: email, code, deviceId?
   // 3x salah input -> OTP terkunci
   // -------------------------------------------------------------
@@ -215,17 +223,14 @@ export async function registerAuthRoutes(
     }
   };
   app.post("/auth/otp-validation", handleOtpValidation);
-  app.post("/api/auth/otp-validation", handleOtpValidation);
-  // Alias legacy endpoint
-  app.post("/api/auth/otp/verify", handleOtpValidation);
 
   // -------------------------------------------------------------
-  // 6. PROFIL USER (/user/profile & /api/user/profile)
+  // 6. PROFIL PELANGGAN (GET/PATCH /customer/profile)
   // IDOR SAFE: Identitas diambil secara mutlak dari cookie sesi sid
   // Input update: displayName, phoneNumber, ktp, address
   // -------------------------------------------------------------
   const handleGetProfile = async (req: any, reply: any) => {
-    const session = await userFromCookie(req.cookies.sid, "user");
+    const session = await userFromCookie(sessionTokenFromReq(req), "user");
     if (!session) {
       return reply.status(401).send({
         error: { code: ErrorCodes.UNAUTHENTICATED, message: AuthResponses.errors.UNAUTHENTICATED.message },
@@ -237,7 +242,7 @@ export async function registerAuthRoutes(
 
   const handlePatchProfile = async (req: any, reply: any) => {
     try {
-      const session = await userFromCookie(req.cookies.sid, "user");
+      const session = await userFromCookie(sessionTokenFromReq(req), "user");
       if (!session) {
         return reply.status(401).send({
           error: { code: ErrorCodes.UNAUTHENTICATED, message: AuthResponses.errors.UNAUTHENTICATED.message },
@@ -259,15 +264,12 @@ export async function registerAuthRoutes(
     }
   };
 
-  app.get("/user/profile", handleGetProfile);
-  app.get("/api/user/profile", handleGetProfile);
-  app.patch("/user/profile", handlePatchProfile);
-  app.patch("/api/user/profile", handlePatchProfile);
-  app.put("/user/profile", handlePatchProfile);
-  app.put("/api/user/profile", handlePatchProfile);
+  app.get("/customer/profile", handleGetProfile);
+  app.patch("/customer/profile", handlePatchProfile);
+  app.put("/customer/profile", handlePatchProfile);
 
   // -------------------------------------------------------------
-  // 7. LOGOUT USER (/user/logout, /auth/logout, /api/user/logout, /api/auth/logout)
+  // 7. LOGOUT PELANGGAN (POST /customer/logout)
   // -------------------------------------------------------------
   const handleLogout = async (req: any, reply: any) => {
     try {
@@ -297,10 +299,7 @@ export async function registerAuthRoutes(
     }
   };
 
-  app.post("/user/logout", handleLogout);
-  app.post("/api/user/logout", handleLogout);
-  app.post("/auth/logout", handleLogout);
-  app.post("/api/auth/logout", handleLogout);
+  app.post("/customer/logout", handleLogout);
 
   // -------------------------------------------------------------
   // 7b. RESET KATA SANDI
@@ -327,7 +326,6 @@ export async function registerAuthRoutes(
     }
   };
   app.post("/auth/password-reset", handlePasswordReset);
-  app.post("/api/auth/password-reset", handlePasswordReset);
 
   const handlePasswordResetValidation = async (req: any, reply: any) => {
     try {
@@ -339,7 +337,6 @@ export async function registerAuthRoutes(
     }
   };
   app.post("/auth/password-reset-validation", handlePasswordResetValidation);
-  app.post("/api/auth/password-reset-validation", handlePasswordResetValidation);
 
   const handlePasswordResetConfirm = async (req: any, reply: any) => {
     try {
@@ -357,45 +354,4 @@ export async function registerAuthRoutes(
     }
   };
   app.post("/auth/password-reset-confirm", handlePasswordResetConfirm);
-  app.post("/api/auth/password-reset-confirm", handlePasswordResetConfirm);
-
-  app.get("/api/me", async (req, reply) => {
-    const session = await userFromCookie(req.cookies.sid, "user");
-    if (!session) {
-      return reply.status(401).send({
-        error: { code: ErrorCodes.UNAUTHENTICATED, message: AuthResponses.errors.UNAUTHENTICATED.message },
-      });
-    }
-    return {
-      user: {
-        id: session.user.id,
-        email: session.user.email,
-        role: session.user.role,
-        displayName: session.user.displayName,
-        phoneNumber: session.user.phoneNumber,
-        ktp: session.user.ktp,
-        address: session.user.address,
-        nextGenerateAt: session.user.nextGenerateAt?.toISOString() ?? null,
-      },
-    };
-  });
-
-  // -------------------------------------------------------------
-  // 8. ADMIN AUTH (Session Cookie / Header)
-  // -------------------------------------------------------------
-  app.post("/api/admin/auth/logout", async (req, reply) => {
-    await logout(req.cookies.sid_admin, "admin");
-    reply.clearCookie("sid_admin", { path: "/" });
-    return { ok: true, message: AuthResponses.success.LOGOUT_SUCCESS.message };
-  });
-
-  app.get("/api/admin/me", async (req, reply) => {
-    const session = await userFromCookie(req.cookies.sid_admin, "admin");
-    if (!session || session.user.role !== "admin") {
-      return reply.status(401).send({
-        error: { code: ErrorCodes.UNAUTHENTICATED, message: "Silakan masuk sebagai admin" },
-      });
-    }
-    return { user: { id: session.user.id, email: session.user.email, role: session.user.role } };
-  });
 }

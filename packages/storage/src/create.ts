@@ -31,16 +31,25 @@ export function createObjectStorageFromEnv(env: NodeJS.ProcessEnv = process.env)
 }
 
 export function objectStorageParamsFromEnv(env: NodeJS.ProcessEnv = process.env): ObjectStorageParams {
-  const driver = (env.STORAGE_DRIVER ?? "r2").toLowerCase() as ObjectStorageDriver;
-  const forceRaw = first(env, "STORAGE_FORCE_PATH_STYLE", "S3_FORCE_PATH_STYLE");
+  const storageEndpoint = emptyToUndef(env.STORAGE_ENDPOINT);
+  const s3Endpoint = emptyToUndef(env.S3_ENDPOINT);
+  const explicitDriver = env.STORAGE_DRIVER?.trim().toLowerCase();
+  const driver = (explicitDriver || inferStorageDriver(storageEndpoint || s3Endpoint)) as ObjectStorageDriver;
+  // R2: jangan campur alias S3_* (sisa MinIO di .env).
+  const alias = driver !== "r2";
+  const endpoint = storageEndpoint || (alias ? s3Endpoint : undefined);
+  const r2 = driver === "r2" ? splitR2Endpoint(endpoint) : undefined;
+  const configuredBucket = emptyToUndef(env.STORAGE_BUCKET) || (alias ? emptyToUndef(env.S3_BUCKET) : undefined);
+  const forceRaw = emptyToUndef(env.STORAGE_FORCE_PATH_STYLE) || (alias ? emptyToUndef(env.S3_FORCE_PATH_STYLE) : undefined);
   return {
     driver,
-    endpoint: first(env, "STORAGE_ENDPOINT", "S3_ENDPOINT"),
-    publicEndpoint: first(env, "STORAGE_PUBLIC_ENDPOINT", "S3_PUBLIC_ENDPOINT"),
-    region: first(env, "STORAGE_REGION", "S3_REGION"),
-    accessKeyId: first(env, "STORAGE_ACCESS_KEY", "S3_ACCESS_KEY"),
-    secretAccessKey: first(env, "STORAGE_SECRET_KEY", "S3_SECRET_KEY"),
-    bucket: first(env, "STORAGE_BUCKET", "S3_BUCKET"),
+    endpoint: r2?.origin ?? endpoint,
+    publicEndpoint:
+      emptyToUndef(env.STORAGE_PUBLIC_ENDPOINT) || (alias ? emptyToUndef(env.S3_PUBLIC_ENDPOINT) : undefined),
+    region: emptyToUndef(env.STORAGE_REGION) || (alias ? emptyToUndef(env.S3_REGION) : undefined),
+    accessKeyId: emptyToUndef(env.STORAGE_ACCESS_KEY) || (alias ? emptyToUndef(env.S3_ACCESS_KEY) : undefined),
+    secretAccessKey: emptyToUndef(env.STORAGE_SECRET_KEY) || (alias ? emptyToUndef(env.S3_SECRET_KEY) : undefined),
+    bucket: resolveR2Bucket(configuredBucket, r2?.pathBucket) ?? configuredBucket,
     forcePathStyle: forceRaw === undefined ? undefined : forceRaw !== "false",
     signedUrlExpiresSeconds: env.STORAGE_SIGNED_URL_EXPIRES_SECONDS
       ? Number(env.STORAGE_SIGNED_URL_EXPIRES_SECONDS)
@@ -48,28 +57,90 @@ export function objectStorageParamsFromEnv(env: NodeJS.ProcessEnv = process.env)
   };
 }
 
-function first(env: NodeJS.ProcessEnv, ...keys: string[]): string | undefined {
-  for (const key of keys) {
-    const value = env[key];
-    if (value !== undefined && value !== "") return value;
+/** Jika STORAGE_DRIVER kosong: tebak dari endpoint (S3_* minio lokal vs R2). */
+export function inferStorageDriver(endpoint: string | undefined): ObjectStorageDriver {
+  const host = (endpoint ?? "").toLowerCase();
+  if (host.includes("r2.cloudflarestorage.com") || host.includes(".r2.dev")) return "r2";
+  if (host.includes("amazonaws.com")) return "s3";
+  if (
+    host.includes("minio") ||
+    host.includes("127.0.0.1:9000") ||
+    host.includes("localhost:9000")
+  ) {
+    return "minio";
   }
-  return undefined;
+  return "r2";
+}
+
+function emptyToUndef(value: string | undefined): string | undefined {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : undefined;
+}
+
+/** S3 API R2 = origin akun. Path di URL (mis. /ai-gen-free) = nama bucket, bukan path endpoint. */
+export function splitR2Endpoint(endpoint: string | undefined): { origin?: string; pathBucket?: string } {
+  if (!endpoint) return {};
+  try {
+    const url = new URL(endpoint);
+    if (!url.hostname.endsWith(".r2.cloudflarestorage.com")) {
+      return { origin: endpoint.replace(/\/+$/, "") };
+    }
+    const pathBucket = url.pathname.replace(/^\/+|\/+$/g, "").split("/")[0] || undefined;
+    return { origin: url.origin, pathBucket };
+  } catch {
+    return { origin: endpoint.replace(/\/+$/, "") };
+  }
+}
+
+export function resolveR2Bucket(configured: string | undefined, pathBucket: string | undefined): string | undefined {
+  if (configured && configured !== "generations") return configured;
+  return pathBucket || configured;
+}
+
+function isR2PublicDevHost(endpoint: string | undefined): boolean {
+  if (!endpoint) return false;
+  try {
+    return new URL(endpoint).hostname.endsWith(".r2.dev");
+  } catch {
+    return endpoint.includes(".r2.dev");
+  }
 }
 
 function normalizeS3(driver: "minio" | "s3" | "r2", params: ObjectStorageParams): S3CompatibleConfig {
   const defaults = driverDefaults(driver);
-  const bucket = params.bucket ?? defaults.bucket;
+  const split = driver === "r2" ? splitR2Endpoint(params.endpoint ?? defaults.endpoint) : undefined;
+  const endpoint = split?.origin ?? params.endpoint ?? defaults.endpoint;
+  const bucket = resolveR2Bucket(params.bucket ?? defaults.bucket, split?.pathBucket) ?? defaults.bucket;
   if (!bucket) throw new Error(`STORAGE_BUCKET is required for driver "${driver}"`);
+  // r2.dev = URL publik bucket, bukan S3 API. Presign harus ke origin R2.
+  const publicEndpoint =
+    driver === "r2" && isR2PublicDevHost(params.publicEndpoint)
+      ? endpoint
+      : (params.publicEndpoint ?? rewriteDockerPublicEndpoint(endpoint) ?? defaults.publicEndpoint);
   return {
     driver,
-    endpoint: params.endpoint ?? defaults.endpoint,
-    publicEndpoint: params.publicEndpoint ?? params.endpoint ?? defaults.publicEndpoint,
+    endpoint,
+    publicEndpoint,
     region: params.region ?? defaults.region,
     accessKeyId: params.accessKeyId ?? defaults.accessKeyId,
     secretAccessKey: params.secretAccessKey ?? defaults.secretAccessKey,
     bucket,
     forcePathStyle: params.forcePathStyle ?? defaults.forcePathStyle,
   };
+}
+
+/** Hostname Docker `minio` tidak bisa dibuka browser; signed URL memakai localhost. */
+export function rewriteDockerPublicEndpoint(endpoint: string | undefined): string | undefined {
+  if (!endpoint) return undefined;
+  try {
+    const url = new URL(endpoint);
+    if (url.hostname !== "minio") return endpoint;
+    url.hostname = "localhost";
+    if (!url.port) url.port = "9000";
+    return url.toString().replace(/\/$/, "");
+  } catch {
+    return endpoint;
+  }
 }
 
 function driverDefaults(driver: "minio" | "s3" | "r2"): {

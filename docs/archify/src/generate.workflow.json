@@ -1,0 +1,61 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "Perjalanan generate pelanggan",
+    "subtitle": "Dari prompt sampai gambar same-origin",
+    "output": "docs/archify/html/generate.workflow.html",
+    "quality_profile": "showcase",
+    "animation": "trace",
+    "views": [
+      { "id": "kirim", "label": "Kirim prompt", "focus": ["customer", "web", "api", "pg", "redis"], "note": "Gerbang DB+R2, hold poin, 202. Siray belum dipanggil." },
+      { "id": "kerja", "label": "Worker + Siray", "focus": ["redis", "worker", "siray", "pg"], "note": "Satu submit. task_id dan URL masuk DB saat SUCCESS." },
+      { "id": "lihat", "label": "Lihat hasil", "focus": ["customer", "web", "file", "r2", "api"], "note": "GET job 200 lalu GET /api/jobs/:id/file — bukan URL Siray." },
+      { "id": "pulih", "label": "Pulih setelah SUCCESS", "focus": ["worker", "pg", "r2", "siray", "redis"], "note": "R2/DB/Redis down: jangan release. Sweeper salin tanpa generate baru." }
+    ]
+  },
+  "lanes": [
+    { "id": "user", "label": "Pelanggan" },
+    { "id": "http", "label": "HTTP + antrian" },
+    { "id": "work", "label": "Generate" },
+    { "id": "data", "label": "Penyimpanan" }
+  ],
+  "phases": [
+    { "id": "p-kirim", "label": "Kirim", "fromCol": 0, "toCol": 2 },
+    { "id": "p-gen", "label": "Generate", "fromCol": 3, "toCol": 3, "variant": "emphasis" },
+    { "id": "p-lihat", "label": "Simpan + lihat", "fromCol": 4, "toCol": 5 }
+  ],
+  "groups": [
+    { "id": "gate", "label": "Gerbang sebelum Siray", "lane": "http", "fromCol": 2, "toCol": 2, "variant": "security" },
+    { "id": "deliver", "label": "File milik aplikasi", "lane": "data", "fromCol": 4, "toCol": 5, "variant": "emphasis" }
+  ],
+  "mainPath": ["customer", "web", "api", "redis", "worker", "r2", "file"],
+  "nodes": [
+    { "id": "customer", "lane": "user", "col": 0, "type": "external", "label": "Pelanggan", "sublabel": "ketik prompt", "width": 128 },
+    { "id": "web", "lane": "user", "col": 1, "type": "frontend", "label": "apps/web", "sublabel": "Mantine + poll", "width": 128 },
+    { "id": "api", "lane": "http", "col": 2, "type": "backend", "label": "apps/api", "sublabel": "POST 202", "tag": "DB+R2 ping", "width": 132 },
+    { "id": "redis", "lane": "http", "col": 3, "type": "messagebus", "label": "Redis", "sublabel": "BullMQ", "width": 116 },
+    { "id": "worker", "lane": "work", "col": 3, "type": "backend", "label": "apps/worker", "sublabel": "poll + WebP", "tag": "sweeper", "width": 132 },
+    { "id": "siray", "lane": "work", "col": 4, "type": "cloud", "label": "Siray", "sublabel": "kredit provider", "width": 120 },
+    { "id": "pg", "lane": "data", "col": 1, "type": "database", "label": "PostgreSQL", "sublabel": "job + hold", "width": 128 },
+    { "id": "r2", "lane": "data", "col": 4, "type": "cloud", "label": "Cloudflare R2", "sublabel": "objek privat", "width": 132 },
+    { "id": "file", "lane": "user", "col": 5, "type": "frontend", "label": "Gambar", "sublabel": "/api/jobs/:id/file", "tag": "same-origin", "width": 132 }
+  ],
+  "edges": [
+    { "id": "prompt", "from": "customer", "to": "web", "label": "prompt", "variant": "emphasis" },
+    { "id": "post", "from": "web", "to": "api", "label": "POST /generate/…" },
+    { "id": "hold", "from": "api", "to": "pg", "label": "hold poin", "variant": "emphasis" },
+    { "id": "enq", "from": "api", "to": "redis", "label": "enqueue" },
+    { "id": "pull", "from": "redis", "to": "worker", "label": "jobId", "variant": "emphasis" },
+    { "id": "submit", "from": "worker", "to": "siray", "label": "submit + poll" },
+    { "id": "task", "from": "worker", "to": "pg", "label": "task_id + URL", "variant": "dashed" },
+    { "id": "put", "from": "worker", "to": "r2", "label": "put WebP", "variant": "emphasis" },
+    { "id": "cap", "from": "worker", "to": "pg", "label": "capture", "role": "branch" },
+    { "id": "stream", "from": "r2", "to": "file", "label": "GET /api/jobs/:id/file" },
+    { "id": "retry", "from": "pg", "to": "worker", "label": "sweeper salin ulang", "variant": "dashed", "role": "branch" }
+  ],
+  "cards": [
+    { "dot": "cyan", "title": "Gerbang", "items": ["Tanpa ping DB+R2, Siray tidak dipanggil", "Salah STORAGE_ACCESS_KEY berhenti di 503"] },
+    { "dot": "emerald", "title": "Setelah SUCCESS", "items": ["Hold tidak dilepas jika R2/DB gagal menyalin", "Pelanggan melihat file aplikasi, bukan api.siray.ai"] }
+  ]
+}

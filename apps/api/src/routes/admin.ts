@@ -10,12 +10,14 @@ import {
   parseJobStatus,
   parseLimitOffset,
   parseOptionalQueryString,
+  parseProviderParam,
 } from "../admin/parse.js";
 import {
   adjustUserWallet,
   getAdminUser,
   getGenerateCooldownSetting,
   listAdminModels,
+  listAdminModelsByProvider,
   listAdminUsers,
   listAuditLogs,
   putGenerateCooldownSetting,
@@ -63,8 +65,15 @@ async function requireAdmin(
 }
 
 export async function registerAdminRoutes(app: FastifyInstance, deps: { storage: ObjectStorage; redis: IORedis }) {
+  const handleAdminMe = async (req: any, reply: any) => {
+    const session = await requireAdmin(req, reply);
+    if (!session) return;
+    return { user: { id: session.user.id, email: session.user.email, role: session.user.role } };
+  };
+  app.get("/admin/me", handleAdminMe);
+
   // -------------------------------------------------------------
-  // 0. ADMIN REGISTER (POST /admin/register & POST /api/admin/register)
+  // 0. ADMIN REGISTER (POST /admin/register)
   // Mendaftar akun admin baru tanpa memerlukan OTP / verifikasi email.
   // -------------------------------------------------------------
   const handleAdminRegister = async (req: any, reply: any) => {
@@ -89,10 +98,9 @@ export async function registerAdminRoutes(app: FastifyInstance, deps: { storage:
   };
 
   app.post("/admin/register", handleAdminRegister);
-  app.post("/api/admin/register", handleAdminRegister);
 
   // -------------------------------------------------------------
-  // 1. ADMIN LOGIN (POST /admin/login & POST /api/admin/login)
+  // 1. ADMIN LOGIN (POST /admin/login)
   // Tidak membutuhkan OTP atau verifikasi email. Wajib role="admin".
   // -------------------------------------------------------------
   const handleAdminLogin = async (req: any, reply: any) => {
@@ -138,10 +146,9 @@ export async function registerAdminRoutes(app: FastifyInstance, deps: { storage:
   };
 
   app.post("/admin/login", handleAdminLogin);
-  app.post("/api/admin/login", handleAdminLogin);
 
   // -------------------------------------------------------------
-  // 2. ADMIN LOGOUT (POST /admin/logout & POST /api/admin/logout)
+  // 2. ADMIN LOGOUT (POST /admin/logout)
   // -------------------------------------------------------------
   const handleAdminLogout = async (req: any, reply: any) => {
     try {
@@ -173,7 +180,6 @@ export async function registerAdminRoutes(app: FastifyInstance, deps: { storage:
   };
 
   app.post("/admin/logout", handleAdminLogout);
-  app.post("/api/admin/logout", handleAdminLogout);
 
   // -------------------------------------------------------------
   // 3. DAFTAR USER/PELANGGAN (GET /admin/customer/list & GET /admin/users)
@@ -192,9 +198,7 @@ export async function registerAdminRoutes(app: FastifyInstance, deps: { storage:
   };
 
   app.get("/admin/customer/list", handleListUsers);
-  app.get("/api/admin/customer/list", handleListUsers);
   app.get("/admin/users", handleListUsers);
-  app.get("/api/admin/users", handleListUsers);
 
   // -------------------------------------------------------------
   // 4. SETTINGS & USER MANAGEMENT
@@ -205,7 +209,6 @@ export async function registerAdminRoutes(app: FastifyInstance, deps: { storage:
     return await getGenerateCooldownSetting();
   };
   app.get("/admin/settings/generate_cooldown_seconds", handleGetCooldown);
-  app.get("/api/admin/settings/generate_cooldown_seconds", handleGetCooldown);
 
   const handlePutCooldown = async (req: any, reply: any) => {
     const session = await requireAdmin(req, reply);
@@ -223,7 +226,6 @@ export async function registerAdminRoutes(app: FastifyInstance, deps: { storage:
     }
   };
   app.put("/admin/settings/generate_cooldown_seconds", handlePutCooldown);
-  app.put("/api/admin/settings/generate_cooldown_seconds", handlePutCooldown);
 
   const handleGetUser = async (req: any, reply: any) => {
     const session = await requireAdmin(req, reply);
@@ -236,7 +238,6 @@ export async function registerAdminRoutes(app: FastifyInstance, deps: { storage:
     }
   };
   app.get("/admin/users/:id", handleGetUser);
-  app.get("/api/admin/users/:id", handleGetUser);
 
   const handleResetCooldown = async (req: any, reply: any) => {
     const session = await requireAdmin(req, reply);
@@ -249,18 +250,17 @@ export async function registerAdminRoutes(app: FastifyInstance, deps: { storage:
     }
   };
   app.post("/admin/users/:id/cooldown/reset", handleResetCooldown);
-  app.post("/api/admin/users/:id/cooldown/reset", handleResetCooldown);
 
   const handleAdjustWallet = async (req: any, reply: any) => {
     const session = await requireAdmin(req, reply);
     if (!session) return;
     try {
-      const { id } = req.params as { id: string };
+      const { userId } = req.params as { userId: string };
       const body = (req.body ?? {}) as { amount?: unknown; reason?: unknown };
       const parsed = parseAdjustBody(body);
       const clientKey = parseIdempotencyKey(req.headers["idempotency-key"]);
       return await adjustUserWallet({
-        userId: id,
+        userId,
         amount: parsed.amount,
         reason: parsed.reason,
         clientKey,
@@ -271,8 +271,7 @@ export async function registerAdminRoutes(app: FastifyInstance, deps: { storage:
       return sendError(reply, err);
     }
   };
-  app.post("/admin/users/:id/wallet/adjust", handleAdjustWallet);
-  app.post("/api/admin/users/:id/wallet/adjust", handleAdjustWallet);
+  app.post("/admin/topup/poin/:userId", handleAdjustWallet);
 
   const handleListJobs = async (req: any, reply: any) => {
     const session = await requireAdmin(req, reply);
@@ -299,7 +298,6 @@ export async function registerAdminRoutes(app: FastifyInstance, deps: { storage:
     }
   };
   app.get("/admin/jobs", handleListJobs);
-  app.get("/api/admin/jobs", handleListJobs);
 
   const handleGetJob = async (req: any, reply: any) => {
     const session = await requireAdmin(req, reply);
@@ -312,7 +310,6 @@ export async function registerAdminRoutes(app: FastifyInstance, deps: { storage:
     }
   };
   app.get("/admin/jobs/:id", handleGetJob);
-  app.get("/api/admin/jobs/:id", handleGetJob);
 
   const handleGetJobFile = async (req: any, reply: any) => {
     const session = await requireAdmin(req, reply);
@@ -329,7 +326,6 @@ export async function registerAdminRoutes(app: FastifyInstance, deps: { storage:
     }
   };
   app.get("/admin/jobs/:id/file", handleGetJobFile);
-  app.get("/api/admin/jobs/:id/file", handleGetJobFile);
 
   const handleListAudit = async (req: any, reply: any) => {
     const session = await requireAdmin(req, reply);
@@ -346,7 +342,6 @@ export async function registerAdminRoutes(app: FastifyInstance, deps: { storage:
     }
   };
   app.get("/admin/audit", handleListAudit);
-  app.get("/api/admin/audit", handleListAudit);
 
   // -------------------------------------------------------------
   // 5. ADMIN MODEL MANAGEMENT (Pengaturan Model & Poin)
@@ -361,19 +356,30 @@ export async function registerAdminRoutes(app: FastifyInstance, deps: { storage:
     }
   };
   app.get("/admin/models", handleListModels);
-  app.get("/api/admin/models", handleListModels);
+
+  const handleListModelsByProvider = async (req: any, reply: any) => {
+    const session = await requireAdmin(req, reply);
+    if (!session) return;
+    try {
+      const { provider } = req.params as { provider: string };
+      return await listAdminModelsByProvider(parseProviderParam(provider));
+    } catch (err) {
+      return sendError(reply, err);
+    }
+  };
+  app.get("/admin/model/:provider/list", handleListModelsByProvider);
 
   const handleUpdateModel = async (req: any, reply: any) => {
     const session = await requireAdmin(req, reply);
     if (!session) return;
     try {
-      const { id } = req.params as { id: string };
+      const { modelCatalogId } = req.params as { modelCatalogId: string };
       const body = (req.body ?? {}) as { costPoints?: unknown; displayName?: unknown; enabled?: unknown };
       const costPoints = typeof body.costPoints === "number" ? body.costPoints : undefined;
       const displayName = typeof body.displayName === "string" ? body.displayName : undefined;
       const enabled = typeof body.enabled === "boolean" ? body.enabled : undefined;
       return await updateAdminModel({
-        id,
+        id: modelCatalogId,
         costPoints,
         displayName,
         enabled,
@@ -384,8 +390,6 @@ export async function registerAdminRoutes(app: FastifyInstance, deps: { storage:
       return sendError(reply, err);
     }
   };
-  app.patch("/admin/models/:id", handleUpdateModel);
-  app.patch("/api/admin/models/:id", handleUpdateModel);
-  app.put("/admin/models/:id", handleUpdateModel);
-  app.put("/api/admin/models/:id", handleUpdateModel);
+  app.patch("/admin/model/:modelCatalogId", handleUpdateModel);
+  app.put("/admin/model/:modelCatalogId", handleUpdateModel);
 }

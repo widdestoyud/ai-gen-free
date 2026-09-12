@@ -15,6 +15,7 @@ import { remainingSeconds } from "@/lib/format";
 import {
   hasLiveOutput,
   isJobActive,
+  jobErrorMessage,
   jobStatusLabel,
   signedRefreshDelayMs,
   type JobsListView,
@@ -296,6 +297,12 @@ export function GenerateClient(props: {
               <Text size="sm" c="dimmed">
                 {job.status === "succeeded" ? "File sudah tidak tersedia." : jobStatusLabel(job.status)}
               </Text>
+              {job.status === "failed" ? (
+                <ErrorAlert
+                  message={jobErrorMessage(job.errorCode, job.errorMessage)}
+                  code={job.errorCode}
+                />
+              ) : null}
               <AppLink href={`/jobs/${job.id}`}>Detail</AppLink>
             </ItemCard>
           ))}

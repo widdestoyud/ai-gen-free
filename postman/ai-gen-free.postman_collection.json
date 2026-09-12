@@ -2,84 +2,39 @@
   "info": {
     "_postman_id": "ai-gen-free-collection-v2",
     "name": "ai-gen-free API Collection",
-    "description": "Collection Postman resmi untuk testing backend ai-gen-free.\nMencakup registrasi akun, verifikasi email, login password, verifikasi OTP 2FA, rate limiting, reset password, anti-IDOR profil pengguna, wallet customer, generator model Siray (openai/gpt-image-2-t2i), dan manajemen admin (termasuk kontrol poin model).",
+    "description": "Koleksi Postman Fastify (tanpa prefix /api, kecuali GET /api/health). Folder dikelompokkan menurut prefix path: /auth, /customer, /generate, /admin.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
     {
-      "name": "1. Authentication & Profile (User)",
+      "name": "health",
       "item": [
         {
-          "name": "1.1 Register User Baru (Valid)",
+          "name": "GET /api/health",
           "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"email\": \"user.test123@gmail.com\",\n  \"password\": \"ValidPassword123!\"\n}"
-            },
+            "method": "GET",
+            "header": [],
             "url": {
-              "raw": "{{baseUrl}}/user/register",
-              "host": ["{{baseUrl}}"],
-              "path": ["user", "register"]
+              "raw": "{{baseUrl}}/api/health",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "health"
+              ]
             },
-            "description": "Mendaftar akun baru dengan email whitelist (@gmail.com, @yahoo.com, @ymail.com) dan password minimal 8 karakter (>=1 huruf kapital, >=1 angka)."
+            "description": "Healthcheck kanonik Docker/Compose. Satu-satunya rute Fastify berprefix /api."
           },
           "response": []
-        },
+        }
+      ]
+    },
+    {
+      "name": "auth",
+      "item": [
         {
-          "name": "1.2 Register User (Tolak Domain Palsu/Test)",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"email\": \"user.hacker@test.com\",\n  \"password\": \"ValidPassword123!\"\n}"
-            },
-            "url": {
-              "raw": "{{baseUrl}}/user/register",
-              "host": ["{{baseUrl}}"],
-              "path": ["user", "register"]
-            },
-            "description": "Uji coba penolakan domain di luar whitelist (@test.com / @mailinator.com). Mengembalikan HTTP 400 dengan error code A010."
-          },
-          "response": []
-        },
-        {
-          "name": "1.3 Register User (Tolak Password Lemah)",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"email\": \"user.weak@gmail.com\",\n  \"password\": \"weak\"\n}"
-            },
-            "url": {
-              "raw": "{{baseUrl}}/user/register",
-              "host": ["{{baseUrl}}"],
-              "path": ["user", "register"]
-            },
-            "description": "Uji coba penolakan kata sandi di bawah 8 karakter tanpa huruf kapital/angka. Mengembalikan HTTP 400 dengan error code A011."
-          },
-          "response": []
-        },
-        {
-          "name": "1.4 Verifikasi Email Token",
+          "name": "POST /auth/email-validation",
           "request": {
             "method": "POST",
             "header": [
@@ -94,59 +49,20 @@
             },
             "url": {
               "raw": "{{baseUrl}}/auth/email-validation",
-              "host": ["{{baseUrl}}"],
-              "path": ["auth", "email-validation"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "email-validation"
+              ]
             },
             "description": "Memverifikasi token email. Wajib POST JSON body { token }."
           },
           "response": []
         },
         {
-          "name": "1.5 Login User (Email + Password)",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "if (pm.response.code === 200) {",
-                  "    var json = pm.response.json();",
-                  "    if (json.sessionToken) {",
-                  "        pm.environment.set(\"userSessionToken\", json.sessionToken);",
-                  "        console.log(\"Auto-saved userSessionToken:\", json.sessionToken);",
-                  "    }",
-                  "}"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              },
-              {
-                "key": "x-device-id",
-                "value": "device-browser-chrome-v1"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"email\": \"user.test123@gmail.com\",\n  \"password\": \"ValidPassword123!\"\n}"
-            },
-            "url": {
-              "raw": "{{baseUrl}}/user/login",
-              "host": ["{{baseUrl}}"],
-              "path": ["user", "login"]
-            },
-            "description": "Login pelanggan. Jika belum pernah login / ganti perangkat, mengembalikan requiresOtp: true. Mengeset otomatis variable userSessionToken."
-          },
-          "response": []
-        },
-        {
-          "name": "1.6 Request / Resend OTP (Baru / Ganti Perangkat)",
+          "name": "POST /auth/otp",
           "request": {
             "method": "POST",
             "header": [
@@ -161,15 +77,20 @@
             },
             "url": {
               "raw": "{{baseUrl}}/auth/otp",
-              "host": ["{{baseUrl}}"],
-              "path": ["auth", "otp"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "otp"
+              ]
             },
-            "description": "Meminta kode OTP ke email. Terikat rate limit maksimal 3 kali per 30 menit (lockout 30 menit jika dilanggar)."
+            "description": "Meminta kode OTP ke email. Maksimal 3 kali per 30 menit."
           },
           "response": []
         },
         {
-          "name": "1.7 Validasi OTP 2FA",
+          "name": "POST /auth/otp-validation",
           "event": [
             {
               "listen": "test",
@@ -180,7 +101,6 @@
                   "    var json = pm.response.json();",
                   "    if (json.sessionToken) {",
                   "        pm.environment.set(\"userSessionToken\", json.sessionToken);",
-                  "        console.log(\"Auto-saved userSessionToken:\", json.sessionToken);",
                   "    }",
                   "}"
                 ]
@@ -205,15 +125,241 @@
             },
             "url": {
               "raw": "{{baseUrl}}/auth/otp-validation",
-              "host": ["{{baseUrl}}"],
-              "path": ["auth", "otp-validation"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "otp-validation"
+              ]
             },
-            "description": "Memvalidasi OTP 6 digit. Mengeset otomatis variable userSessionToken."
+            "description": "Memvalidasi OTP 6 digit. Menyimpan userSessionToken."
           },
           "response": []
         },
         {
-          "name": "1.8 Ambil Profil Pengguna (Anti-IDOR)",
+          "name": "POST /auth/password-reset",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user.test123@gmail.com\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/password-reset",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "password-reset"
+              ]
+            },
+            "description": "Mengirim tautan reset password ke email terdaftar."
+          },
+          "response": []
+        },
+        {
+          "name": "POST /auth/password-reset-validation",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"{{passwordResetToken}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/password-reset-validation",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "password-reset-validation"
+              ]
+            },
+            "description": "Memeriksa token reset password valid dan belum kadaluarsa."
+          },
+          "response": []
+        },
+        {
+          "name": "POST /auth/password-reset-confirm",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"{{passwordResetToken}}\",\n  \"password\": \"NewPassword123!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/password-reset-confirm",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "password-reset-confirm"
+              ]
+            },
+            "description": "Mengubah kata sandi dengan token reset yang valid."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "customer",
+      "item": [
+        {
+          "name": "POST /customer/register (valid)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user.test123@gmail.com\",\n  \"password\": \"ValidPassword123!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/customer/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "customer",
+                "register"
+              ]
+            },
+            "description": "Mendaftar akun baru. Domain whitelist: @gmail.com, @yahoo.com, @ymail.com."
+          },
+          "response": []
+        },
+        {
+          "name": "POST /customer/register (tolak domain palsu)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user.hacker@test.com\",\n  \"password\": \"ValidPassword123!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/customer/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "customer",
+                "register"
+              ]
+            },
+            "description": "Penolakan domain di luar whitelist. HTTP 400, kode A010."
+          },
+          "response": []
+        },
+        {
+          "name": "POST /customer/register (tolak password lemah)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user.weak@gmail.com\",\n  \"password\": \"weak\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/customer/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "customer",
+                "register"
+              ]
+            },
+            "description": "Penolakan kata sandi lemah. HTTP 400, kode A011."
+          },
+          "response": []
+        },
+        {
+          "name": "POST /customer/login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var json = pm.response.json();",
+                  "    if (json.sessionToken) {",
+                  "        pm.environment.set(\"userSessionToken\", json.sessionToken);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-device-id",
+                "value": "device-browser-chrome-v1"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user.test123@gmail.com\",\n  \"password\": \"ValidPassword123!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/customer/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "customer",
+                "login"
+              ]
+            },
+            "description": "Login pelanggan. Perangkat baru mengembalikan requiresOtp: true."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /customer/profile",
           "request": {
             "method": "GET",
             "header": [
@@ -223,16 +369,21 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/user/profile",
-              "host": ["{{baseUrl}}"],
-              "path": ["user", "profile"]
+              "raw": "{{baseUrl}}/customer/profile",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "customer",
+                "profile"
+              ]
             },
-            "description": "Mengambil profil pengguna berdasarkan token sesi (bebas celah IDOR)."
+            "description": "Profil pelanggan dari sesi (anti-IDOR). Termasuk nextGenerateAt."
           },
           "response": []
         },
         {
-          "name": "1.9 Update Profil Pengguna",
+          "name": "PATCH /customer/profile",
           "request": {
             "method": "PATCH",
             "header": [
@@ -250,85 +401,183 @@
               "raw": "{\n  \"displayName\": \"Budi Santoso\",\n  \"phoneNumber\": \"081234567890\",\n  \"address\": \"Jl. Sudirman No. 123, Jakarta\"\n}"
             },
             "url": {
-              "raw": "{{baseUrl}}/user/profile",
-              "host": ["{{baseUrl}}"],
-              "path": ["user", "profile"]
+              "raw": "{{baseUrl}}/customer/profile",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "customer",
+                "profile"
+              ]
             },
-            "description": "Memperbarui nama alias, telepon, KTP, atau alamat pengguna."
+            "description": "Memperbarui nama alias, telepon, KTP, atau alamat."
           },
           "response": []
         },
         {
-          "name": "1.10 Request Reset Password",
+          "name": "GET /customer/coin",
           "request": {
-            "method": "POST",
+            "method": "GET",
             "header": [
               {
-                "key": "Content-Type",
-                "value": "application/json"
+                "key": "x-session-token",
+                "value": "{{userSessionToken}}"
               }
             ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"email\": \"user.test123@gmail.com\"\n}"
-            },
             "url": {
-              "raw": "{{baseUrl}}/auth/password-reset",
-              "host": ["{{baseUrl}}"],
-              "path": ["auth", "password-reset"]
+              "raw": "{{baseUrl}}/customer/coin",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "customer",
+                "coin"
+              ]
             },
-            "description": "Mengirimkan link reset password ke email terdaftar."
+            "description": "Saldo poin tersedia (available) dan tertahan (held)."
           },
           "response": []
         },
         {
-          "name": "1.11 Validasi Token Reset Password",
+          "name": "GET /customer/coin/ledger",
           "request": {
-            "method": "POST",
+            "method": "GET",
             "header": [
               {
-                "key": "Content-Type",
-                "value": "application/json"
+                "key": "x-session-token",
+                "value": "{{userSessionToken}}"
               }
             ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"token\": \"{{passwordResetToken}}\"\n}"
-            },
             "url": {
-              "raw": "{{baseUrl}}/auth/password-reset-validation",
-              "host": ["{{baseUrl}}"],
-              "path": ["auth", "password-reset-validation"]
+              "raw": "{{baseUrl}}/customer/coin/ledger",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "customer",
+                "coin",
+                "ledger"
+              ]
             },
-            "description": "Memeriksa apakah token reset password valid dan belum kadaluarsa."
+            "description": "Riwayat ledger poin pelanggan."
           },
           "response": []
         },
         {
-          "name": "1.12 Konfirmasi Reset Password Baru",
+          "name": "GET /customer/models",
           "request": {
-            "method": "POST",
+            "method": "GET",
             "header": [
               {
-                "key": "Content-Type",
-                "value": "application/json"
+                "key": "x-session-token",
+                "value": "{{userSessionToken}}"
               }
             ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"token\": \"{{passwordResetToken}}\",\n  \"password\": \"NewPassword123!\"\n}"
-            },
             "url": {
-              "raw": "{{baseUrl}}/auth/password-reset-confirm",
+              "raw": "{{baseUrl}}/customer/models",
               "host": ["{{baseUrl}}"],
-              "path": ["auth", "password-reset-confirm"]
+              "path": ["customer", "models"]
             },
-            "description": "Mengubah kata sandi pengguna dengan token reset password valid."
+            "description": "Katalog model generator yang enabled (pengganti /catalog/generate)."
           },
           "response": []
         },
         {
-          "name": "1.13 Logout User",
+          "name": "GET /customer/packages",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-session-token",
+                "value": "{{userSessionToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/customer/packages",
+              "host": ["{{baseUrl}}"],
+              "path": ["customer", "packages"]
+            },
+            "description": "Paket topup poin (pengganti /catalog/topup)."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /customer/generated-lists",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-session-token",
+                "value": "{{userSessionToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/customer/generated-lists",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "customer",
+                "generated-lists"
+              ]
+            },
+            "description": "Daftar job generator milik pelanggan. output.url same-origin /api/jobs/:id/file, bukan api.siray.ai."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /customer/generated/:jobId",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-session-token",
+                "value": "{{userSessionToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/customer/generated/{{jobId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "customer",
+                "generated",
+                "{{jobId}}"
+              ]
+            },
+            "description": "Detail job. HTTP 200. Gagal kebijakan Siray: status=failed, errorCode=W002, errorMessage (bukan 4xx). output.url = /api/jobs/:id/file."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /customer/generated/:jobId/file",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-session-token",
+                "value": "{{userSessionToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/customer/generated/{{jobId}}/file",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "customer",
+                "generated",
+                "{{jobId}}",
+                "file"
+              ]
+            },
+            "description": "Stream file hasil generate milik pemanggil (WebP di storage aplikasi). Orang lain 404."
+          },
+          "response": []
+        },
+        {
+          "name": "POST /customer/logout",
           "request": {
             "method": "POST",
             "header": [
@@ -338,83 +587,42 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/user/logout",
-              "host": ["{{baseUrl}}"],
-              "path": ["user", "logout"]
+              "raw": "{{baseUrl}}/customer/logout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "customer",
+                "logout"
+              ]
             },
-            "description": "Mencabut sesi login pengguna."
+            "description": "Mencabut sesi login pelanggan."
           },
           "response": []
         }
       ]
     },
     {
-      "name": "2. Customer Wallet & Balance (User)",
+      "name": "generate",
       "item": [
         {
-          "name": "2.1 Ambil Status Client & Cooldown (GET /api/me)",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "x-session-token",
-                "value": "{{userSessionToken}}"
+          "name": "POST /jobs",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 202) {",
+                  "    var json = pm.response.json();",
+                  "    if (json.job_id) {",
+                  "        pm.environment.set(\"jobId\", json.job_id);",
+                  "    }",
+                  "}"
+                ]
               }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/me",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "me"]
-            },
-            "description": "Mengecek informasi identitas user dan timer cooldown generator."
-          },
-          "response": []
-        },
-        {
-          "name": "2.2 Ambil Saldo Wallet Poin (GET /api/wallet)",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "x-session-token",
-                "value": "{{userSessionToken}}"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/wallet",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "wallet"]
-            },
-            "description": "Melihat poin tersedia (available) dan poin tertahan (held)."
-          },
-          "response": []
-        }
-      ]
-    },
-    {
-      "name": "3. Model Catalog & Generation (User)",
-      "item": [
-        {
-          "name": "3.1 Katalog Model Generator Customer (GET /api/catalog/generate)",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "x-session-token",
-                "value": "{{userSessionToken}}"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/catalog/generate",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "catalog", "generate"]
-            },
-            "description": "Melihat daftar model generator gambar yang aktif beserta biaya poin resmi dari server."
-          },
-          "response": []
-        },
-        {
-          "name": "3.2 Submit Job Generator Default (POST /api/jobs)",
+            }
+          ],
           "request": {
             "method": "POST",
             "header": [
@@ -433,19 +641,35 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"mode\": \"t2i\",\n  \"prompt\": \"Seekor kucing memakai mahkota raja emas di atas tahta, gaya lukisan minyak cat emas kustom\",\n  \"params\": {\n    \"aspectRatio\": \"1:1\"\n  }\n}"
+              "raw": "{\n  \"mode\": \"t2i\",\n  \"prompt\": \"Seekor kucing memakai mahkota raja emas di atas tahta\",\n  \"params\": {\n    \"aspectRatio\": \"1:1\"\n  }\n}"
             },
             "url": {
-              "raw": "{{baseUrl}}/api/jobs",
+              "raw": "{{baseUrl}}/jobs",
               "host": ["{{baseUrl}}"],
-              "path": ["api", "jobs"]
+              "path": ["jobs"]
             },
-            "description": "Mengirimkan permintaan generator gambar (202 Accepted + jobId)."
+            "description": "Submit generate generic (202 + job_id). BFF Next /api/jobs POST di-rewrite ke sini."
           },
           "response": []
         },
         {
-          "name": "3.3 Submit Siray GPT Image 2 (POST /generate/siray/gpt-image-2-t2i)",
+          "name": "POST /generate/siray/gpt-image-2-t2i",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 202) {",
+                  "    var json = pm.response.json();",
+                  "    if (json.job_id) {",
+                  "        pm.environment.set(\"jobId\", json.job_id);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
           "request": {
             "method": "POST",
             "header": [
@@ -468,58 +692,26 @@
             },
             "url": {
               "raw": "{{baseUrl}}/generate/siray/gpt-image-2-t2i",
-              "host": ["{{baseUrl}}"],
-              "path": ["generate", "siray", "gpt-image-2-t2i"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "generate",
+                "siray",
+                "gpt-image-2-t2i"
+              ]
             },
-            "description": "Endpoint khusus generate model Siray openai/gpt-image-2-t2i."
-          },
-          "response": []
-        },
-        {
-          "name": "3.4 Daftar Job Pengguna (GET /api/jobs)",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "x-session-token",
-                "value": "{{userSessionToken}}"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/jobs",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "jobs"]
-            },
-            "description": "Melihat riwayat job generator pengguna."
-          },
-          "response": []
-        },
-        {
-          "name": "3.5 Detail Job Pengguna (GET /api/jobs/:id)",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "x-session-token",
-                "value": "{{userSessionToken}}"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/jobs/{{jobId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "jobs", "{{jobId}}"]
-            },
-            "description": "Mengecek status pengerjaan job generator gambar dan mengambil signed URL hasil gambar."
+            "description": "Submit khusus model Siray openai/gpt-image-2-t2i."
           },
           "response": []
         }
       ]
     },
     {
-      "name": "4. Admin Management & Model Control",
+      "name": "admin",
       "item": [
         {
-          "name": "4.1 Register Admin Baru (Username + Password)",
+          "name": "POST /admin/register",
           "request": {
             "method": "POST",
             "header": [
@@ -534,15 +726,20 @@
             },
             "url": {
               "raw": "{{baseUrl}}/admin/register",
-              "host": ["{{baseUrl}}"],
-              "path": ["admin", "register"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "register"
+              ]
             },
-            "description": "Mendaftar akun admin baru menggunakan username dan password (tanpa OTP/verifikasi email)."
+            "description": "Mendaftar akun admin (username + password, tanpa OTP)."
           },
           "response": []
         },
         {
-          "name": "4.2 Login Admin (Username + Password)",
+          "name": "POST /admin/login",
           "event": [
             {
               "listen": "test",
@@ -553,7 +750,6 @@
                   "    var json = pm.response.json();",
                   "    if (json.sessionToken) {",
                   "        pm.environment.set(\"adminSessionToken\", json.sessionToken);",
-                  "        console.log(\"Auto-saved adminSessionToken:\", json.sessionToken);",
                   "    }",
                   "}"
                 ]
@@ -578,15 +774,44 @@
             },
             "url": {
               "raw": "{{baseUrl}}/admin/login",
-              "host": ["{{baseUrl}}"],
-              "path": ["admin", "login"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "login"
+              ]
             },
-            "description": "Login khusus admin menggunakan username dan password. Mengeset otomatis variable adminSessionToken di environment."
+            "description": "Login admin. Menyimpan adminSessionToken."
           },
           "response": []
         },
         {
-          "name": "4.3 Daftar Customer / User (Admin)",
+          "name": "GET /admin/me",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-session-token",
+                "value": "{{adminSessionToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "me"
+              ]
+            },
+            "description": "Identitas admin dari sesi sid_admin / x-session-token."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /admin/customer/list",
           "request": {
             "method": "GET",
             "header": [
@@ -597,15 +822,21 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/admin/customer/list",
-              "host": ["{{baseUrl}}"],
-              "path": ["admin", "customer", "list"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "customer",
+                "list"
+              ]
             },
-            "description": "Melihat seluruh daftar pengguna customer/user yang terdaftar di platform beserta detail status akun dan saldo poin."
+            "description": "Daftar pelanggan beserta saldo poin."
           },
           "response": []
         },
         {
-          "name": "4.4 Ambil Pengaturan Cooldown Admin",
+          "name": "GET /admin/settings/generate_cooldown_seconds",
           "request": {
             "method": "GET",
             "header": [
@@ -616,15 +847,21 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/admin/settings/generate_cooldown_seconds",
-              "host": ["{{baseUrl}}"],
-              "path": ["admin", "settings", "generate_cooldown_seconds"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "settings",
+                "generate_cooldown_seconds"
+              ]
             },
-            "description": "Melihat durasi cooldown generator dalam detik (default 43200 = 12 jam)."
+            "description": "Durasi cooldown generator (detik)."
           },
           "response": []
         },
         {
-          "name": "4.5 Ubah Pengaturan Cooldown Admin",
+          "name": "PUT /admin/settings/generate_cooldown_seconds",
           "request": {
             "method": "PUT",
             "header": [
@@ -643,15 +880,21 @@
             },
             "url": {
               "raw": "{{baseUrl}}/admin/settings/generate_cooldown_seconds",
-              "host": ["{{baseUrl}}"],
-              "path": ["admin", "settings", "generate_cooldown_seconds"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "settings",
+                "generate_cooldown_seconds"
+              ]
             },
-            "description": "Mengubah durasi cooldown generator global (misalnya menjadi 3600 detik = 1 jam)."
+            "description": "Ubah cooldown global (berlaku untuk generate sukses berikutnya)."
           },
           "response": []
         },
         {
-          "name": "4.6 Adjust Wallet Poin User (Admin)",
+          "name": "POST /admin/topup/poin/:userId",
           "request": {
             "method": "POST",
             "header": [
@@ -673,16 +916,23 @@
               "raw": "{\n  \"amount\": 50,\n  \"reason\": \"Topup via transfer manual terverifikasi admin\"\n}"
             },
             "url": {
-              "raw": "{{baseUrl}}/admin/users/{{userId}}/wallet/adjust",
-              "host": ["{{baseUrl}}"],
-              "path": ["admin", "users", "{{userId}}", "wallet", "adjust"]
+              "raw": "{{baseUrl}}/admin/topup/poin/{{userId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "topup",
+                "poin",
+                "{{userId}}"
+              ]
             },
-            "description": "Menambah atau mengurangi saldo poin user secara manual oleh Admin beralasan."
+            "description": "Adjust poin pelanggan (plus/minus) beralasan. Wajib Idempotency-Key."
           },
           "response": []
         },
         {
-          "name": "4.7 Reset Cooldown User (Admin)",
+          "name": "POST /admin/users/:id/cooldown/reset",
           "request": {
             "method": "POST",
             "header": [
@@ -693,15 +943,23 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/admin/users/{{userId}}/cooldown/reset",
-              "host": ["{{baseUrl}}"],
-              "path": ["admin", "users", "{{userId}}", "cooldown", "reset"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "users",
+                "{{userId}}",
+                "cooldown",
+                "reset"
+              ]
             },
-            "description": "Menghapus status cooldown generate untuk user tertentu secara khusus oleh Admin."
+            "description": "Reset cooldown generate satu user."
           },
           "response": []
         },
         {
-          "name": "4.8 Daftar Audit Log Admin",
+          "name": "GET /admin/audit",
           "request": {
             "method": "GET",
             "header": [
@@ -712,15 +970,39 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/admin/audit",
-              "host": ["{{baseUrl}}"],
-              "path": ["admin", "audit"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "audit"
+              ]
             },
-            "description": "Melihat riwayat aktivitas sensitif dan audit log perubahaan sistem oleh admin."
+            "description": "Audit log admin."
           },
           "response": []
         },
         {
-          "name": "4.9 Daftar Model Catalog (Admin)",
+          "name": "GET /admin/models",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var json = pm.response.json();",
+                  "    if (json.models && json.models[0] && json.models[0].id) {",
+                  "        pm.environment.set(\"modelCatalogId\", json.models[0].id);",
+                  "        if (json.models[0].providerId) {",
+                  "            pm.environment.set(\"provider\", json.models[0].providerId);",
+                  "        }",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
           "request": {
             "method": "GET",
             "header": [
@@ -730,16 +1012,47 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/admin/models",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "admin", "models"]
+              "raw": "{{baseUrl}}/admin/models",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "models"
+              ]
             },
-            "description": "Khusus Admin: Mengambil seluruh daftar model generator (termasuk status enabled, costPoints, dan providerId)."
+            "description": "Semua model catalog (semua provider)."
           },
           "response": []
         },
         {
-          "name": "4.10 Ubah Poin / Status Model Catalog (Admin)",
+          "name": "GET /admin/model/:provider/list",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-session-token",
+                "value": "{{adminSessionToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/model/{{provider}}/list",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "model",
+                "{{provider}}",
+                "list"
+              ]
+            },
+            "description": "Model yang terdaftar pada satu provider (siray, zencreator, dummy, dll)."
+          },
+          "response": []
+        },
+        {
+          "name": "PATCH /admin/model/:modelCatalogId",
           "request": {
             "method": "PATCH",
             "header": [
@@ -757,16 +1070,22 @@
               "raw": "{\n  \"costPoints\": 15,\n  \"enabled\": true,\n  \"displayName\": \"GPT Image 2\"\n}"
             },
             "url": {
-              "raw": "{{baseUrl}}/api/admin/models/{{modelCatalogId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "admin", "models", "{{modelCatalogId}}"]
+              "raw": "{{baseUrl}}/admin/model/{{modelCatalogId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "model",
+                "{{modelCatalogId}}"
+              ]
             },
-            "description": "Khusus Admin: Mengubah jumlah biaya poin (costPoints), status enabled, atau nama tampilan (displayName) pada model catalog tertentu."
+            "description": "Ubah costPoints, enabled, atau displayName satu model catalog."
           },
           "response": []
         },
         {
-          "name": "4.11 Logout Admin",
+          "name": "POST /admin/logout",
           "request": {
             "method": "POST",
             "header": [
@@ -777,10 +1096,15 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/admin/logout",
-              "host": ["{{baseUrl}}"],
-              "path": ["admin", "logout"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "logout"
+              ]
             },
-            "description": "Menghapus/mencabut sesi login admin yang sedang aktif dan membersihkan cookie sid_admin."
+            "description": "Mencabut sesi admin."
           },
           "response": []
         }

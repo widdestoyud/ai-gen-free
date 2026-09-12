@@ -49,6 +49,7 @@ export const JobErrorCodes = {
   PROVIDER_TIMEOUT: "W003",
   PROVIDER_ERROR: "W004",
   PROVIDER_UNAVAILABLE: "W005",
+  OUTPUT_COPY_FAILED: "W006",
 } as const;
 
 export type JobErrorCode = (typeof JobErrorCodes)[keyof typeof JobErrorCodes];

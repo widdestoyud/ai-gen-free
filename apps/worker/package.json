@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "start": "tsx src/index.ts",
-    "test": "tsx --test src/process-job.test.ts src/retention.test.ts"
+    "test": "tsx --test src/process-job.test.ts src/retention.test.ts src/siray-file-log.test.ts src/fetch-output.test.ts src/aspect-ratio.test.ts src/optimize-output.test.ts src/failure-source.test.ts src/recover-copy.test.ts"
   },
   "dependencies": {
     "@ai-gen-free/core": "workspace:*",
@@ -16,6 +16,7 @@
     "@ai-gen-free/wallet": "workspace:*",
     "bullmq": "^5.58.5",
     "fastify": "^5.6.0",
-    "ioredis": "^5.7.0"
+    "ioredis": "^5.7.0",
+    "sharp": "^0.35.4"
   }
 }

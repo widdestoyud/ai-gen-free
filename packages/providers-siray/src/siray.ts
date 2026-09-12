@@ -13,11 +13,25 @@ import { TokenBucket } from "./token-bucket.js";
 
 export type SirayFetch = (input: string | URL, init?: RequestInit) => Promise<Response>;
 
+export type SirayTraceEvent = {
+  at: string;
+  phase: "submit" | "poll" | "error";
+  method: "GET" | "POST";
+  path: string;
+  httpStatus?: number;
+  request?: unknown;
+  response?: unknown;
+  error?: string;
+};
+
+export type SirayTrace = (event: SirayTraceEvent) => void | Promise<void>;
+
 export type SirayProviderOptions = {
   token?: string;
   apiBase?: string;
   fetch?: SirayFetch;
   bucket?: TokenBucket;
+  onTrace?: SirayTrace;
 };
 
 type SirayTaskData = {
@@ -38,12 +52,14 @@ export class SirayProvider implements GenerationProvider {
   private readonly apiBase: string;
   private readonly fetchImpl: SirayFetch;
   private readonly bucket: TokenBucket;
+  private readonly onTrace?: SirayTrace;
 
   constructor(opts: SirayProviderOptions = {}) {
     this.token = (opts.token ?? process.env.SIRAY_API_TOKEN ?? "").trim();
     this.apiBase = (opts.apiBase ?? process.env.SIRAY_API_BASE ?? "https://api.siray.ai").replace(/\/+$/, "");
     this.fetchImpl = opts.fetch ?? fetch;
     this.bucket = opts.bucket ?? new TokenBucket();
+    this.onTrace = opts.onTrace;
   }
 
   async submit(input: CanonicalGenerateInput): Promise<ProviderHandle> {
@@ -126,6 +142,8 @@ export class SirayProvider implements GenerationProvider {
     path: string,
     body?: unknown,
   ): Promise<{ code?: string; message?: string; fail_code?: string; data?: SirayTaskData }> {
+    const phase = method === "POST" ? "submit" : "poll";
+    const at = new Date().toISOString();
     let res: Response;
     try {
       res = await this.fetchImpl(`${this.apiBase}${path}`, {
@@ -138,10 +156,28 @@ export class SirayProvider implements GenerationProvider {
         redirect: "follow",
       });
     } catch (err) {
+      const message = err instanceof Error ? err.message : "Siray network error";
+      await this.emitTrace({
+        at,
+        phase: "error",
+        method,
+        path,
+        request: redactSirayBody(body),
+        error: message,
+      });
       throw new RetryableProviderError("Siray network error", { cause: err });
     }
 
     const parsed = await readJson(res);
+    await this.emitTrace({
+      at,
+      phase,
+      method,
+      path,
+      httpStatus: res.status,
+      request: redactSirayBody(body),
+      response: parsed,
+    });
     const failCode = failCodeOf(parsed);
     if (res.status === 429 || isOverloaded(parsed, res.status)) {
       throw new RetryableProviderError(`Siray HTTP ${res.status}`);
@@ -159,13 +195,45 @@ export class SirayProvider implements GenerationProvider {
     }
     return parsed;
   }
+
+  private async emitTrace(event: SirayTraceEvent): Promise<void> {
+    if (!this.onTrace) return;
+    try {
+      await this.onTrace(event);
+    } catch {
+      // Logging must not fail the job.
+    }
+  }
+}
+
+function redactSirayBody(body: unknown): unknown {
+  if (body === undefined) return undefined;
+  if (!body || typeof body !== "object" || Array.isArray(body)) return body;
+  const copy = { ...(body as Record<string, unknown>) };
+  if (typeof copy.prompt === "string" && copy.prompt.length > 160) {
+    copy.prompt = `${copy.prompt.slice(0, 160)}…`;
+  }
+  return copy;
 }
 
 function collectOutputUrls(data: SirayTaskData): string[] {
+  const urls: string[] = [];
+  const push = (item: unknown) => {
+    if (typeof item === "string" && isHttpUrl(item) && !urls.includes(item)) urls.push(item);
+  };
   const raw = data.outputs ?? data.output;
-  if (typeof raw === "string" && raw) return [raw];
-  if (!Array.isArray(raw)) return [];
-  return raw.filter((item): item is string => typeof item === "string" && item.length > 0);
+  if (Array.isArray(raw)) {
+    for (const item of raw) push(item);
+  } else {
+    push(raw);
+  }
+  // gpt-image-2 (dan beberapa model lain) mengisi URL file ke fail_reason meski status SUCCESS.
+  push(data.fail_reason);
+  return urls;
+}
+
+function isHttpUrl(value: string): boolean {
+  return /^https?:\/\//i.test(value.trim());
 }
 
 function failCodeOf(parsed: { fail_code?: string; data?: SirayTaskData; code?: string }): string | undefined {

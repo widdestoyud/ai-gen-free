@@ -119,6 +119,48 @@ test("getStatus maps SUCCESS outputs", async () => {
   assert.deepEqual(status.outputUrls, ["https://api.siray.ai/redirect/out"]);
 });
 
+test("getStatus SUCCESS uses fail_reason URL when outputs empty (gpt-image-2 quirk)", async () => {
+  const url =
+    "https://api.siray.ai/redirect/vwIfmJ8CcZCyP7LXh_zI4GzZlpTl7bHPWhSiyEMcMdmobvjABYJYgXRdGov73K2F/out.png";
+  const provider = new SirayProvider({
+    token: "secret",
+    fetch: async () =>
+      jsonResponse(200, {
+        code: "success",
+        data: {
+          task_id: "openai-image-1",
+          status: "SUCCESS",
+          progress: "100%",
+          outputs: [],
+          fail_reason: url,
+        },
+      }),
+  });
+  const status = await provider.getStatus({ providerId: "siray", providerJobId: "openai-image-1" });
+  assert.equal(status.state, "succeeded");
+  assert.deepEqual(status.outputUrls, [url]);
+});
+
+test("getStatus SUCCESS does not duplicate the same URL in outputs and fail_reason", async () => {
+  const url = "https://api.siray.ai/redirect/out.png";
+  const provider = new SirayProvider({
+    token: "secret",
+    fetch: async () =>
+      jsonResponse(200, {
+        code: "success",
+        data: {
+          task_id: "image_abc",
+          status: "SUCCESS",
+          progress: "100%",
+          outputs: [url],
+          fail_reason: url,
+        },
+      }),
+  });
+  const status = await provider.getStatus({ providerId: "siray", providerJobId: "image_abc" });
+  assert.deepEqual(status.outputUrls, [url]);
+});
+
 test("policy 4xx is terminal PROVIDER_POLICY", async () => {
   const provider = new SirayProvider({
     token: "secret",

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { MemoryObjectStorage } from "@ai-gen-free/storage";
 import {
+  customerOutputPath,
   isOutputAssetLive,
   isOutputPurged,
   promptPreview,
@@ -39,7 +40,25 @@ test("resolveJobOutput: not succeeded or no asset is null", async () => {
   );
 });
 
-test("resolveJobOutput: live asset is signed 600s", async () => {
+test("resolveJobOutput: live customer asset is app file path, never Siray", async () => {
+  const storage = new MemoryObjectStorage();
+  await storage.put({ key: "outputs/u/j.webp", body: new Uint8Array([1, 2, 3]), contentType: "image/webp" });
+  const out = await resolveJobOutput(
+    "succeeded",
+    { storageKey: "outputs/u/j.webp", contentType: "image/webp", expiresAt: future, purgedAt: null },
+    storage,
+    { now, jobId: "job1" },
+  );
+  assert.ok(out);
+  assert.equal(out.url, customerOutputPath("job1"));
+  assert.equal(out.url, "/api/jobs/job1/file");
+  assert.ok(!out.url?.includes("siray.ai"));
+  assert.equal(out.contentType, "image/webp");
+  assert.equal(out.availableUntil, future.toISOString());
+  assert.equal(out.signedExpiresAt, null);
+});
+
+test("resolveJobOutput: live asset without jobId is signed 600s", async () => {
   const storage = new MemoryObjectStorage();
   await storage.put({ key: "outputs/u/j.png", body: new Uint8Array([1, 2, 3]), contentType: "image/png" });
   const out = await resolveJobOutput(
@@ -50,6 +69,7 @@ test("resolveJobOutput: live asset is signed 600s", async () => {
   );
   assert.ok(out);
   assert.ok(out.url);
+  assert.ok(!out.url.includes("siray.ai"));
   assert.equal(out.contentType, "image/png");
   assert.equal(out.availableUntil, future.toISOString());
   assert.equal(out.signedExpiresAt, new Date(now.getTime() + 600_000).toISOString());

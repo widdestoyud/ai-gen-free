@@ -1,4 +1,5 @@
 export { ErrorCodes, JobErrorCodes, type ErrorCode, type JobErrorCode, type ApiErrorBody } from "./errors.js";
+export { JOB_ERROR_MESSAGES, jobClientErrorMessage } from "./job-messages.js";
 export { AppError } from "./app-error.js";
 export {
   RetryableProviderError,

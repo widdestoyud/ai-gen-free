@@ -65,6 +65,17 @@ export function parseIdempotencyKey(raw: unknown): string {
   return value.trim();
 }
 
+export function parseProviderParam(raw: unknown): string {
+  if (typeof raw !== "string") {
+    throw new AppError(ErrorCodes.VALIDATION_ERROR, "Provider wajib diisi");
+  }
+  const provider = raw.trim();
+  if (provider.length < 1 || provider.length > 64) {
+    throw new AppError(ErrorCodes.VALIDATION_ERROR, "Provider wajib diisi (1–64 karakter)");
+  }
+  return provider;
+}
+
 export function parseAdjustBody(body: { amount?: unknown; reason?: unknown }): { amount: number; reason: string } {
   const { amount, reason } = body;
   if (typeof amount !== "number" || !Number.isInteger(amount) || amount === 0 || Math.abs(amount) > 1_000_000) {

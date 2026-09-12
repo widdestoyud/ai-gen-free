@@ -200,21 +200,43 @@ export async function listAuditLogs(opts: { limit: number; offset: number; actio
   };
 }
 
+function serializeAdminModel(row: {
+  id: string;
+  mode: string;
+  modelId: string;
+  displayName: string;
+  providerId: string;
+  costPoints: { toString(): string } | number;
+  enabled: boolean;
+  createdAt: Date;
+}) {
+  return {
+    id: row.id,
+    mode: row.mode,
+    modelId: row.modelId,
+    displayName: row.displayName,
+    providerId: row.providerId,
+    costPoints: Number(row.costPoints),
+    enabled: row.enabled,
+    createdAt: row.createdAt.toISOString(),
+  };
+}
+
 export async function listAdminModels() {
   const rows = await prisma.modelCatalog.findMany({
     orderBy: { createdAt: "asc" },
   });
+  return { models: rows.map(serializeAdminModel) };
+}
+
+export async function listAdminModelsByProvider(provider: string) {
+  const rows = await prisma.modelCatalog.findMany({
+    where: { providerId: { equals: provider, mode: "insensitive" } },
+    orderBy: { createdAt: "asc" },
+  });
   return {
-    models: rows.map((row) => ({
-      id: row.id,
-      mode: row.mode,
-      modelId: row.modelId,
-      displayName: row.displayName,
-      providerId: row.providerId,
-      costPoints: Number(row.costPoints),
-      enabled: row.enabled,
-      createdAt: row.createdAt.toISOString(),
-    })),
+    provider,
+    models: rows.map(serializeAdminModel),
   };
 }
 

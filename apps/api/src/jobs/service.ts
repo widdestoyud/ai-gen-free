@@ -1,5 +1,5 @@
 import { JobStatus, LedgerStatus, LedgerType, Prisma } from "@prisma/client";
-import { AppError, ErrorCodes, type ObjectStorage } from "@ai-gen-free/core";
+import { AppError, ErrorCodes, jobClientErrorMessage, type ObjectStorage } from "@ai-gen-free/core";
 import { prisma } from "@ai-gen-free/db";
 import { assertEnoughPoints, computeBalance, refreshWalletCache } from "@ai-gen-free/wallet";
 import { resolveModel } from "./catalog.js";
@@ -13,11 +13,20 @@ export async function submitJob(opts: {
   idempotencyKey: unknown;
   body: { mode?: unknown; modelId?: unknown; prompt?: unknown; params?: unknown; cost?: unknown; providerId?: unknown };
   enqueue: (jobId: string) => Promise<void>;
+  assertReady?: () => Promise<void>;
 }) {
   const idempotencyKey = parseIdempotencyKey(opts.idempotencyKey);
   const prompt = parsePrompt(opts.body.prompt);
   const model = await resolveModel(opts.body.mode, opts.body.modelId);
   const params = parseGenerateParams(opts.body.params, model.providerId);
+  if (opts.assertReady) {
+    try {
+      await opts.assertReady();
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : String(err);
+      throw new AppError(ErrorCodes.NOT_READY, `Storage/DB belum siap: ${detail}`, 503);
+    }
+  }
 
   const replay = await prisma.job.findFirst({
     where: { userId: opts.userId, idempotencyKey },
@@ -198,18 +207,38 @@ export async function getAdminJob(opts: { id: string; storage: ObjectStorage }) 
   };
 }
 
+export async function getJobOutputFileForUser(opts: {
+  userId: string;
+  id: string;
+  storage: ObjectStorage;
+}) {
+  const job = await prisma.job.findFirst({
+    where: { id: opts.id, userId: opts.userId },
+    include: outputInclude,
+  });
+  if (!job) throw new AppError(ErrorCodes.NOT_FOUND, "Job tidak ditemukan", 404);
+  return readLiveOutputFile(job, opts.storage);
+}
+
 export async function getAdminJobOutputFile(opts: { id: string; storage: ObjectStorage }) {
   const job = await prisma.job.findUnique({
     where: { id: opts.id },
     include: outputInclude,
   });
   if (!job) throw new AppError(ErrorCodes.NOT_FOUND, "Job tidak ditemukan", 404);
+  return readLiveOutputFile(job, opts.storage);
+}
+
+async function readLiveOutputFile(
+  job: { assets: { storageKey: string; contentType: string; expiresAt: Date; purgedAt: Date | null }[] },
+  storage: ObjectStorage,
+) {
   const asset = job.assets[0];
   if (!asset || !isOutputAssetLive(asset, new Date())) {
     throw new AppError(ErrorCodes.NOT_FOUND, "File tidak ditemukan", 404);
   }
   try {
-    const obj = await opts.storage.get(asset.storageKey);
+    const obj = await storage.get(asset.storageKey);
     return {
       bytes: obj.body,
       contentType: asset.contentType || obj.contentType || "application/octet-stream",
@@ -266,7 +295,7 @@ async function serializeJob(
   storage: ObjectStorage,
 ) {
   const asset = job.assets[0];
-  const output = await resolveJobOutput(job.status, asset, storage);
+  const output = await resolveJobOutput(job.status, asset, storage, { jobId: job.id });
   return {
     id: job.id,
     status: job.status,
@@ -276,6 +305,7 @@ async function serializeJob(
     cost: Number(job.cost),
     progressPct: job.progressPct,
     errorCode: job.status === "failed" ? job.errorCode : null,
+    errorMessage: job.status === "failed" ? jobClientErrorMessage(job.errorCode) : null,
     queuePosition: job.queuePosition,
     createdAt: job.createdAt.toISOString(),
     finishedAt: job.finishedAt?.toISOString() ?? null,

@@ -106,7 +106,10 @@ export function JobClient({ initial }: { initial: JobView }) {
       ) : null}
       {job.status === "failed" ? (
         <>
-          <ErrorAlert message={jobErrorMessage(job.errorCode)} />
+          <ErrorAlert
+            message={jobErrorMessage(job.errorCode, job.errorMessage)}
+            code={job.errorCode}
+          />
           <Text mt="sm">Kamu boleh generate lagi.</Text>
           <AppLink href="/app/generate">Generate lagi</AppLink>
         </>

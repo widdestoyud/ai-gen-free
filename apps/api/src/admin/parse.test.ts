@@ -9,6 +9,7 @@ import {
   parseIdempotencyKey,
   parseJobStatus,
   parseLimitOffset,
+  parseProviderParam,
 } from "./parse.js";
 
 function isValidation(err: unknown): boolean {
@@ -29,6 +30,15 @@ test("parseCooldownSecondsValue rejects string and out of range", () => {
   assert.throws(() => parseCooldownSecondsValue(2_592_001), isValidation);
   assert.throws(() => parseCooldownSecondsValue(-1), isValidation);
   assert.throws(() => parseCooldownSecondsValue(1.5), isValidation);
+});
+
+test("parseProviderParam trims and rejects empty", () => {
+  assert.equal(parseProviderParam("siray"), "siray");
+  assert.equal(parseProviderParam("  zencreator  "), "zencreator");
+  assert.equal(parseProviderParam("local comfyui"), "local comfyui");
+  assert.throws(() => parseProviderParam(""), isValidation);
+  assert.throws(() => parseProviderParam("   "), isValidation);
+  assert.throws(() => parseProviderParam(1), isValidation);
 });
 
 test("asCooldownSeconds falls back to seed 43200", () => {

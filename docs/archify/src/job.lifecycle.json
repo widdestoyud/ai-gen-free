@@ -7,7 +7,8 @@
     "quality_profile": "showcase",
     "views": [
       { "id": "main", "label": "Main path", "focus": ["queued", "running", "succeeded", "cooldown"], "note": "One active job, then a configurable cooldown after success." },
-      { "id": "fail", "label": "Failure", "focus": ["running", "failed", "queued"], "note": "Failed jobs release the hold and do not start cooldown." },
+      { "id": "fail", "label": "Failure", "focus": ["running", "failed", "queued"], "note": "Siray policy/timeout: release hold, no cooldown." },
+      { "id": "copy", "label": "Copy deferred", "focus": ["running", "succeeded"], "note": "Siray SUCCESS but R2/DB copy fails: stay running, hold kept, sweeper retries." },
       { "id": "ready-again", "label": "Ready again", "focus": ["cooldown", "ready", "queued"], "note": "After cooldown the user may submit another job." }
     ]
   },
@@ -23,7 +24,7 @@
     { "id": "succeeded", "type": "success", "label": "Succeeded", "sublabel": "capture posted", "lane": "main", "col": 2, "step": "03", "tag": "paid" },
     { "id": "cooldown", "type": "waiting", "label": "Cooldown", "sublabel": "admin setting", "lane": "main", "col": 3, "step": "04", "tag": "12h default" },
     { "id": "ready", "type": "active", "label": "Ready", "sublabel": "may submit again", "lane": "main", "col": 4, "step": "05" },
-    { "id": "failed", "type": "failure", "label": "Failed", "sublabel": "hold released", "lane": "exceptions", "col": 0, "yOffset": 78, "tag": "no cooldown" }
+    { "id": "failed", "type": "failure", "label": "Failed", "sublabel": "hold released", "lane": "exceptions", "col": 0, "yOffset": 78, "tag": "W002/W003" }
   ],
   "transitions": [
     { "id": "run-fail", "from": "running", "to": "failed", "variant": "security" },
@@ -31,6 +32,6 @@
   ],
   "cards": [
     { "dot": "emerald", "title": "Success", "items": ["Capture is idempotent per job id", "Cooldown is stored on the user, not the job"] },
-    { "dot": "rose", "title": "Failure", "items": ["Points return via release", "A new generate is allowed immediately"] }
+    { "dot": "rose", "title": "Fail vs defer", "items": ["W002/W003: release, user may generate again", "R2 fail after SUCCESS: hold stays, job stays running"] }
   ]
 }

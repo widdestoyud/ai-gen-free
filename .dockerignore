@@ -7,3 +7,4 @@ docs/archify/html
 tools
 *.log
 .env
+logs
