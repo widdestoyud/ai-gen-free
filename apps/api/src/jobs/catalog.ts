@@ -4,6 +4,8 @@ import type { JobMode } from "@prisma/client";
 
 const DISPLAY_FALLBACK: Record<string, string> = {
   "black-forest-labs/flux-1.1-pro-t2i": "Flux 1.1 Pro",
+  "openai/gpt-image-2-t2i": "GPT Image 2",
+  "bytedance/seedream-5.0-pro-t2i-spicy": "Seedream 5.0 Pro Spicy",
   "dummy-t2i": "Dummy",
 };
 

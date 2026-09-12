@@ -6,6 +6,7 @@ import { assertStorageReady } from "@ai-gen-free/storage";
 import { userFromCookie } from "../auth/service.js";
 import { sendError } from "../http.js";
 import { listEnabledModels } from "../jobs/catalog.js";
+import { resolveSirayGenerateSlug, sirayGenerateParamsFromBody } from "../jobs/siray-generate.js";
 import { getJobForUser, getJobOutputFileForUser, listJobsForUser, submitJob } from "../jobs/service.js";
 
 async function assertGenerateReady(storage: ObjectStorage): Promise<void> {
@@ -38,49 +39,36 @@ export async function registerJobRoutes(
   app: FastifyInstance,
   deps: { storage: ObjectStorage; queue: Queue },
 ) {
-  const handleSirayGptImage2 = async (req: any, reply: any) => {
+  const enqueueGenerate = async (jobId: string) => {
+    await deps.queue.add("generate", { jobId }, { jobId, attempts: 10, backoff: { type: "custom" } });
+  };
+
+  app.post("/generate/siray/:modelSlug", async (req, reply) => {
     const session = await requireUser(req, reply);
     if (!session) return;
     try {
+      const { modelSlug } = req.params as { modelSlug: string };
+      const mapped = resolveSirayGenerateSlug(modelSlug);
       const body = (req.body ?? {}) as Record<string, unknown>;
       const idempotencyKey =
-        req.headers["idempotency-key"] ?? `siray-gpt2-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+        req.headers["idempotency-key"] ?? `siray-${modelSlug}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
       const accepted = await submitJob({
         userId: session.userId,
         idempotencyKey,
         body: {
           mode: "t2i",
-          modelId: "openai/gpt-image-2-t2i",
+          modelId: mapped.modelId,
           prompt: body.prompt,
-          params: {
-            n: body.n,
-            output_format: body.output_format ?? body.outputFormat,
-            quality: body.quality,
-            size: body.size,
-            moderation: body.moderation,
-            aspectRatio: body.aspectRatio ?? body.aspect_ratio,
-          },
+          params: sirayGenerateParamsFromBody(body, mapped.defaultParams),
         },
-        enqueue: async (jobId) => {
-          await deps.queue.add(
-            "generate",
-            { jobId },
-            {
-              jobId,
-              attempts: 10,
-              backoff: { type: "custom" },
-            },
-          );
-        },
+        enqueue: enqueueGenerate,
         assertReady: () => assertGenerateReady(deps.storage),
       });
       return reply.code(202).send(accepted);
     } catch (err) {
       return sendError(reply, err);
     }
-  };
-
-  app.post("/generate/siray/gpt-image-2-t2i", handleSirayGptImage2);
+  });
 
   app.get("/customer/models", async (req, reply) => {
     const session = await requireUser(req, reply);
@@ -103,17 +91,7 @@ export async function registerJobRoutes(
           cost?: unknown;
           providerId?: unknown;
         },
-        enqueue: async (jobId) => {
-          await deps.queue.add(
-            "generate",
-            { jobId },
-            {
-              jobId,
-              attempts: 10,
-              backoff: { type: "custom" },
-            },
-          );
-        },
+        enqueue: enqueueGenerate,
         assertReady: () => assertGenerateReady(deps.storage),
       });
       return reply.code(202).send(accepted);

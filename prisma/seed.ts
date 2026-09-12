@@ -28,6 +28,24 @@ async function main() {
   });
 
   await prisma.modelCatalog.upsert({
+    where: { mode_modelId: { mode: "t2i", modelId: "bytedance/seedream-5.0-pro-t2i-spicy" } },
+    update: {
+      displayName: "Seedream 5.0 Pro Spicy",
+      providerId: "siray",
+      costPoints: 10,
+      enabled: true,
+    },
+    create: {
+      mode: "t2i",
+      modelId: "bytedance/seedream-5.0-pro-t2i-spicy",
+      displayName: "Seedream 5.0 Pro Spicy",
+      providerId: "siray",
+      costPoints: 10,
+      enabled: true,
+    },
+  });
+
+  await prisma.modelCatalog.upsert({
     where: { mode_modelId: { mode: "t2i", modelId: "openai/gpt-image-2-t2i" } },
     update: {
       displayName: "GPT Image 2",

@@ -65,34 +65,7 @@ export class SirayProvider implements GenerationProvider {
   async submit(input: CanonicalGenerateInput): Promise<ProviderHandle> {
     this.assertConfigured();
     this.assertRateLimit();
-    const aspectRatio = typeof input.params.aspectRatio === "string" ? input.params.aspectRatio : undefined;
-    const size = typeof input.params.size === "string" ? input.params.size : undefined;
-    const quality = typeof input.params.quality === "string" ? input.params.quality : undefined;
-    const outputFormat =
-      typeof input.params.output_format === "string"
-        ? input.params.output_format
-        : typeof input.params.outputFormat === "string"
-          ? input.params.outputFormat
-          : undefined;
-    const moderation = typeof input.params.moderation === "string" ? input.params.moderation : undefined;
-    const n = typeof input.params.n === "number" ? input.params.n : undefined;
-
-    const payload: Record<string, unknown> = {
-      model: input.modelId,
-      prompt: input.prompt,
-    };
-
-    if (aspectRatio) payload.aspect_ratio = aspectRatio;
-    if (size) payload.size = size;
-    if (quality) payload.quality = quality;
-    if (outputFormat) payload.output_format = outputFormat;
-    if (moderation) payload.moderation = moderation;
-    if (n !== undefined) payload.n = n;
-
-    if (!payload.aspect_ratio && !payload.size) {
-      payload.aspect_ratio = "1:1";
-    }
-
+    const payload = buildSiraySubmitPayload(input);
     const json = await this.requestJson("POST", "/v1/images/generations/async", payload);
     const taskId = json.data?.task_id;
     if (!taskId) {
@@ -214,6 +187,59 @@ function redactSirayBody(body: unknown): unknown {
     copy.prompt = `${copy.prompt.slice(0, 160)}…`;
   }
   return copy;
+}
+
+/** Seedream t2i memakai `size` wajib, bukan aspect_ratio. */
+const SEEDREAM_SIZE_BY_ASPECT: Record<string, string> = {
+  "1:1": "1024x1024",
+  "4:3": "1152x864",
+  "3:4": "864x1152",
+  "16:9": "1424x800",
+  "9:16": "800x1424",
+  "3:2": "1248x832",
+  "2:3": "832x1248",
+  "5:4": "1152x864",
+  "4:5": "864x1152",
+};
+
+function isSeedreamT2i(modelId: string): boolean {
+  return modelId.includes("seedream") && modelId.includes("t2i");
+}
+
+export function buildSiraySubmitPayload(input: CanonicalGenerateInput): Record<string, unknown> {
+  const aspectRatio = typeof input.params.aspectRatio === "string" ? input.params.aspectRatio : undefined;
+  const size = typeof input.params.size === "string" ? input.params.size : undefined;
+  const quality = typeof input.params.quality === "string" ? input.params.quality : undefined;
+  const outputFormat =
+    typeof input.params.output_format === "string"
+      ? input.params.output_format
+      : typeof input.params.outputFormat === "string"
+        ? input.params.outputFormat
+        : undefined;
+  const moderation = typeof input.params.moderation === "string" ? input.params.moderation : undefined;
+  const n = typeof input.params.n === "number" ? input.params.n : undefined;
+
+  const payload: Record<string, unknown> = {
+    model: input.modelId,
+    prompt: input.prompt,
+  };
+
+  if (isSeedreamT2i(input.modelId)) {
+    payload.size = size ?? (aspectRatio ? SEEDREAM_SIZE_BY_ASPECT[aspectRatio] : undefined) ?? "1024x1024";
+    if (outputFormat) payload.output_format = outputFormat;
+    return payload;
+  }
+
+  if (aspectRatio) payload.aspect_ratio = aspectRatio;
+  if (size) payload.size = size;
+  if (quality) payload.quality = quality;
+  if (outputFormat) payload.output_format = outputFormat;
+  if (moderation) payload.moderation = moderation;
+  if (n !== undefined) payload.n = n;
+  if (!payload.aspect_ratio && !payload.size) {
+    payload.aspect_ratio = "1:1";
+  }
+  return payload;
 }
 
 function collectOutputUrls(data: SirayTaskData): string[] {

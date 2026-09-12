@@ -704,6 +704,53 @@
             "description": "Submit khusus model Siray openai/gpt-image-2-t2i."
           },
           "response": []
+        },
+        {
+          "name": "POST /generate/siray/seedream-5.0-pro-t2i-spicy",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 202) {",
+                  "    var json = pm.response.json();",
+                  "    if (json.job_id) {",
+                  "        pm.environment.set(\"jobId\", json.job_id);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-session-token",
+                "value": "{{userSessionToken}}"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "idemp-siray-seedream-001"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"prompt\": \"Sebuah pemandangan gunung dengan danau jernih di sore hari\",\n  \"size\": \"1024x1024\",\n  \"output_format\": \"png\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/generate/siray/seedream-5.0-pro-t2i-spicy",
+              "host": ["{{baseUrl}}"],
+              "path": ["generate", "siray", "seedream-5.0-pro-t2i-spicy"]
+            },
+            "description": "Submit Seedream 5.0 Pro t2i Spicy (bytedance/seedream-5.0-pro-t2i-spicy). Size wajib menurut Siray; default 1024x1024."
+          },
+          "response": []
         }
       ]
     },

@@ -50,5 +50,6 @@ test("non-t2i is VALIDATION_ERROR", () => {
 
 test("displayName fallback from map", () => {
   assert.equal(humanDisplayName("black-forest-labs/flux-1.1-pro-t2i", ""), "Flux 1.1 Pro");
+  assert.equal(humanDisplayName("bytedance/seedream-5.0-pro-t2i-spicy", ""), "Seedream 5.0 Pro Spicy");
   assert.equal(humanDisplayName("dummy-t2i", "Dummy"), "Dummy");
 });

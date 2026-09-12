@@ -100,6 +100,30 @@ test("submit supports openai/gpt-image-2-t2i parameters (n, size, quality, outpu
   });
 });
 
+test("submit seedream t2i spicy uses required size and omits gpt-only fields", async () => {
+  const calls: { url: string; init?: RequestInit }[] = [];
+  const provider = new SirayProvider({
+    token: "secret",
+    fetch: async (url, init) => {
+      calls.push({ url: String(url), init });
+      return jsonResponse(200, { code: "success", data: { task_id: "seedream_1" } });
+    },
+  });
+  await provider.submit({
+    mode: "t2i",
+    modelId: "bytedance/seedream-5.0-pro-t2i-spicy",
+    prompt: "pemandangan kiamat",
+    params: { aspectRatio: "16:9", output_format: "png" },
+    inputFiles: [],
+  });
+  assert.deepEqual(JSON.parse(String(calls[0]?.init?.body)), {
+    model: "bytedance/seedream-5.0-pro-t2i-spicy",
+    prompt: "pemandangan kiamat",
+    size: "1424x800",
+    output_format: "png",
+  });
+});
+
 test("getStatus maps SUCCESS outputs", async () => {
   const provider = new SirayProvider({
     token: "secret",

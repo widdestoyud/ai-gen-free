@@ -21,6 +21,10 @@ test("strips /api prefix then maps legacy customer paths", () => {
   assert.equal(rewriteRequestUrl("/api/jobs/abc123", "GET"), "/customer/generated/abc123");
   assert.equal(rewriteRequestUrl("/api/jobs/abc123/file", "GET"), "/customer/generated/abc123/file");
   assert.equal(rewriteRequestUrl("/api/jobs", "POST"), "/jobs");
+  assert.equal(
+    rewriteRequestUrl("/api/generate/siray/seedream-5.0-pro-t2i-spicy", "POST"),
+    "/generate/siray/seedream-5.0-pro-t2i-spicy",
+  );
   assert.equal(rewriteRequestUrl("/api/catalog/generate", "GET"), "/customer/models");
   assert.equal(rewriteRequestUrl("/api/catalog/topup", "GET"), "/customer/packages");
   assert.equal(rewriteRequestUrl("/api/auth/otp/verify", "POST"), "/auth/otp-validation");
