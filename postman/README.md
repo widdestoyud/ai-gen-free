@@ -4,18 +4,26 @@ Anda dapat menguji seluruh API Backend Fastify **langsung** melalui `http://loca
 
 Port `4000` telah dipublish ke host di `docker-compose.yml`.
 
-## Berkas yang Tersedia
+## Hirarki (tepat 1 koleksi, 1 environment)
 
-1. **Collection**: `postman/ai-gen-free.postman_collection.json`
-2. **Environment**: `postman/local.postman_environment.json`
+```
+postman/
+  ai-gen-free.postman_collection.json   # satu-satunya koleksi
+  local.postman_environment.json        # satu-satunya environment
+  README.md
+```
+
+Folder di dalam koleksi (bukan file terpisah): `health` → `auth` → `customer` → `generate` → `admin`.
+
+Jangan impor folder `postman/postman/` atau file `.yaml` hasil export app — itu koleksi ganda. Abaikan jika muncul di disk (sudah di `.gitignore`).
 
 ## Cara Impor & Penggunaan
 
 1. Buka aplikasi **Postman**.
-2. Klik tombol **Import** di pojok kiri atas.
-3. Drag & drop atau pilih file `postman/ai-gen-free.postman_collection.json` dan `postman/local.postman_environment.json`.
-4. Pilih environment **ai-gen-free local (via Next BFF)** di kanan atas Postman.
-5. Variabel `baseUrl` diatur default ke **`http://localhost:4000`** (Direct Backend API).
+2. Klik **Import**.
+3. Pilih hanya `postman/ai-gen-free.postman_collection.json` dan `postman/local.postman_environment.json`.
+4. Pilih environment **ai-gen-free local (via Direct API)** di kanan atas.
+5. `baseUrl` default **`http://localhost:4000`**.
 
 ## Daftar Endpoint Utama
 
