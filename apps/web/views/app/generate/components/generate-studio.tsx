@@ -1,16 +1,19 @@
 "use client";
 
-import { ActionIcon, Badge, Group, Paper, Text, Textarea, UnstyledButton } from "@mantine/core";
+import { ActionIcon, Alert, Button, Group, Paper, Text, Textarea, UnstyledButton } from "@mantine/core";
 import { AppLink } from "@/components/app-link";
 import { CooldownText } from "@/components/cooldown-text";
 import { EmptyState } from "@/components/empty-state";
 import { ErrorAlert } from "@/components/error-alert";
 import { WaitAlert } from "@/components/wait-alert";
 import { useGenerateStudio } from "@/hooks/use-generate-studio";
-import type { JobView } from "@/lib/job-status";
+import { hasLiveOutput, type JobView } from "@/lib/job-status";
 import type { Model } from "../types";
 import { GenerateAspectMenu } from "./generate-aspect-menu";
 import { GenerateLibraryModal } from "./generate-library-modal";
+import { GenerateSkeleton } from "./generate-skeleton";
+import { ImageIcon, SparkleIcon, VideoIcon } from "./generate-icons";
+import { GenerateDurationMenu, GenerateResolutionMenu } from "./generate-video-menu";
 import classes from "./generate-studio.module.css";
 
 export function GenerateStudio(props: {
@@ -25,16 +28,50 @@ export function GenerateStudio(props: {
   return (
     <div className={classes.page}>
       <div className={classes.stage}>
-        {ctrl.active ? (
-          <WaitAlert message="Sedang generate. Tab lain tidak bisa submit paralel." />
-        ) : null}
-        {ctrl.cooldownLeft > 0 && !ctrl.active ? <CooldownText until={ctrl.cooldownUntil} /> : null}
-        {!ctrl.active ? (
-          <EmptyState>
-            Tulis prompt di bawah untuk mulai generate gambar baru. Semua hasil render tersimpan di menu{" "}
-            <AppLink href="/app/library">Library</AppLink>.
-          </EmptyState>
-        ) : null}
+        {ctrl.isGenerating ? (
+          <GenerateSkeleton
+            aspectRatio={ctrl.aspectRatio}
+            progress={ctrl.active?.progressPct}
+            mediaType={ctrl.mediaType}
+          />
+        ) : ctrl.lastGeneratedJob && hasLiveOutput(ctrl.lastGeneratedJob.output) ? (
+          <div className={classes.previewContainerFull}>
+            {ctrl.cooldownLeft > 0 ? (
+              <Alert color="yellow" variant="light" radius="md" className={classes.stageAlert}>
+                <CooldownText until={ctrl.cooldownUntil} />
+              </Alert>
+            ) : null}
+            <div className={classes.previewCard}>
+              <div className={classes.stageMediaWrapper}>
+                {ctrl.lastGeneratedJob.output?.contentType?.includes("video") ||
+                ctrl.lastGeneratedJob.mode === "t2v" ||
+                ctrl.lastGeneratedJob.mode === "i2v" ? (
+                  <video
+                    src={ctrl.lastGeneratedJob.output?.url ?? ""}
+                    controls
+                    autoPlay
+                    loop
+                    className={classes.stageMedia}
+                  />
+                ) : (
+                  <img
+                    src={ctrl.lastGeneratedJob.output?.url ?? ""}
+                    alt={ctrl.lastGeneratedJob.prompt}
+                    className={classes.stageMedia}
+                  />
+                )}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <>
+            {ctrl.cooldownLeft > 0 ? <CooldownText until={ctrl.cooldownUntil} /> : null}
+            <EmptyState>
+              Tulis prompt di bawah untuk mulai generate gambar baru. Semua hasil render tersimpan di menu{" "}
+              <AppLink href="/app/library">Library</AppLink>.
+            </EmptyState>
+          </>
+        )}
       </div>
 
       <div className={classes.dock}>
@@ -61,30 +98,93 @@ export function GenerateStudio(props: {
               classNames={{ input: classes.textarea }}
             />
             {ctrl.waiting ? <WaitAlert message={ctrl.error} /> : <ErrorAlert message={ctrl.error} />}
-            <Group justify="space-between" mt="sm" wrap="wrap">
-              <Group gap="xs">
+            <Group justify="space-between" mt="sm" wrap="wrap" gap="xs">
+              <Group gap="xs" align="center">
                 <ActionIcon type="button" variant="subtle" size="lg" onClick={ctrl.openLibrary} aria-label="Tambah gambar">
                   +
                 </ActionIcon>
-                <Badge variant="light">Image</Badge>
-                {ctrl.selected ? (
-                  <Badge variant="light">{ctrl.selected.displayName}</Badge>
+                <div className={classes.pillSegment}>
+                  <button
+                    type="button"
+                    className={`${classes.pillBtn} ${ctrl.mediaType === "image" ? classes.pillBtnActive : classes.pillBtnIconOnly}`}
+                    onClick={() => ctrl.setMediaType("image")}
+                    aria-label="Mode Image"
+                  >
+                    <ImageIcon size={15} />
+                    {ctrl.mediaType === "image" ? <span>Image</span> : null}
+                  </button>
+                  <button
+                    type="button"
+                    className={`${classes.pillBtn} ${ctrl.mediaType === "video" ? classes.pillBtnActive : classes.pillBtnIconOnly}`}
+                    onClick={() => ctrl.setMediaType("video")}
+                    aria-label="Mode Video"
+                  >
+                    <VideoIcon size={15} />
+                    {ctrl.mediaType === "video" ? <span>Video</span> : null}
+                  </button>
+                </div>
+
+                {ctrl.mediaType === "image" ? (
+                  <div className={classes.pillSegment}>
+                    <button
+                      type="button"
+                      className={`${classes.pillBtn} ${ctrl.imageMode === "t2i" ? classes.pillBtnActive : ""}`}
+                      onClick={() => ctrl.setImageMode("t2i")}
+                    >
+                      T2I
+                    </button>
+                    <button
+                      type="button"
+                      className={`${classes.pillBtn} ${ctrl.imageMode === "i2i" ? classes.pillBtnActive : ""}`}
+                      onClick={() => {
+                        ctrl.setImageMode("i2i");
+                        if (ctrl.selectedRefs.length === 0) {
+                          ctrl.openLibrary();
+                        }
+                      }}
+                    >
+                      I2I
+                    </button>
+                  </div>
                 ) : null}
               </Group>
-              <Group gap="xs">
-                <Text size="sm" c="dimmed">
-                  {props.available} poin
-                </Text>
+
+              <Group gap="xs" align="center">
+                {ctrl.mediaType === "video" ? (
+                  <>
+                    <GenerateResolutionMenu
+                      value={ctrl.videoResolution}
+                      onChange={ctrl.setVideoResolution}
+                    />
+                    <GenerateDurationMenu
+                      value={ctrl.videoDuration}
+                      onChange={ctrl.setVideoDuration}
+                    />
+                  </>
+                ) : null}
+
                 <GenerateAspectMenu
                   value={ctrl.aspectRatio}
                   preview={ctrl.aspectMeta.preview}
                   onChange={ctrl.setAspectRatio}
                 />
-                {ctrl.prompt.trim() ? (
-                  <ActionIcon type="submit" size="lg" radius="xl" disabled={!ctrl.canSend} aria-label="Generate">
-                    ↑
-                  </ActionIcon>
-                ) : null}
+
+                <Text size="sm" c="dimmed" fw={500}>
+                  {props.available} poin
+                </Text>
+
+                <button
+                  type="submit"
+                  className={classes.fancyGenerateBtn}
+                  disabled={!ctrl.canSend}
+                  aria-label="Generate"
+                >
+                  <span>Generate</span>
+                  <span className={classes.generatePointBadge}>
+                    <SparkleIcon size={13} />
+                    <span>{ctrl.estimatedCost}</span>
+                  </span>
+                </button>
               </Group>
             </Group>
           </Paper>

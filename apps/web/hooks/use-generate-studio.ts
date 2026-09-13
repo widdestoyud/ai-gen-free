@@ -6,6 +6,7 @@ import { remainingSeconds } from "@/lib/format";
 import {
   hasLiveOutput,
   isJobActive,
+  jobErrorMessage,
   signedRefreshDelayMs,
   type JobsListView,
   type JobView,
@@ -32,6 +33,14 @@ export type StudioUpload = {
   name: string;
 };
 
+const DEFAULT_T2I_MODEL_ID = "openai/gpt-image-2-t2i";
+
+function pickInitialModel(catalog: Model[]): string {
+  if (catalog.length === 0) return "";
+  const preferred = catalog.find((m) => m.modelId === DEFAULT_T2I_MODEL_ID);
+  return (preferred ?? catalog[0])!.modelId;
+}
+
 function t2iModels(models: Model[]): Model[] {
   return models.filter((m) => m.mode === "t2i");
 }
@@ -55,7 +64,11 @@ export function useGenerateStudio(props: {
 }) {
   const catalog = useMemo(() => t2iModels(props.models), [props.models]);
   const [jobs, setJobs] = useState(props.jobs);
-  const [modelId, setModelId] = useState(catalog[0]?.modelId ?? "");
+  const [modelId, setModelId] = useState(() => pickInitialModel(catalog));
+  const [mediaType, setMediaType] = useState<"image" | "video">("image");
+  const [imageMode, setImageMode] = useState<"t2i" | "i2i">("t2i");
+  const [videoDuration, setVideoDuration] = useState<"6s" | "10s" | "15s">("6s");
+  const [videoResolution, setVideoResolution] = useState<"720p" | "1080p">("720p");
   const [prompt, setPrompt] = useState("");
   const [aspectRatio, setAspectRatio] = useState("3:2");
   const [error, setError] = useState("");
@@ -69,8 +82,17 @@ export function useGenerateStudio(props: {
   const [selectedRefs, setSelectedRefs] = useState<StudioRef[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const selected = catalog.find((m) => m.modelId === modelId) ?? catalog[0];
-  const active = jobs.find((j) => isJobActive(j.status));
+  const [lastGeneratedJob, setLastGeneratedJob] = useState<JobView | null>(null);
+  const initialActive = props.jobs.find((j) => isJobActive(j.status));
+  const [activeJobId, setActiveJobId] = useState<string | null>(initialActive?.id ?? null);
+  const [activeJob, setActiveJob] = useState<JobView | null>(initialActive ?? null);
+
+  const selected =
+    catalog.find((m) => m.modelId === modelId) ??
+    catalog.find((m) => m.modelId === DEFAULT_T2I_MODEL_ID) ??
+    catalog[0];
+  const active = activeJob ?? jobs.find((j) => isJobActive(j.status));
+  const isGenerating = busy || Boolean(activeJobId) || Boolean(active);
   const gallery = jobs.filter((j) => j.status === "succeeded" && hasLiveOutput(j.output));
   const cooldownLeft = remainingSeconds(cooldownUntil, now);
   const waiting = errorCode === "JOB_IN_PROGRESS" || errorCode === "COOLDOWN";
@@ -79,7 +101,17 @@ export function useGenerateStudio(props: {
     .map((j) => `${j.id}:${j.output?.signedExpiresAt ?? ""}`)
     .join("|");
   const aspectMeta = STUDIO_ASPECTS.find((item) => item.value === aspectRatio) ?? STUDIO_ASPECTS[1];
-  const canSend = prompt.trim().length > 0 && Boolean(selected) && !busy && !active && cooldownLeft <= 0;
+
+  const estimatedCost = useMemo(() => {
+    if (mediaType === "video") {
+      if (videoDuration === "15s") return 12;
+      if (videoDuration === "10s") return 8;
+      return 5;
+    }
+    return selected?.costPoints ?? 1;
+  }, [mediaType, videoDuration, selected]);
+
+  const canSend = prompt.trim().length > 0 && Boolean(selected) && !busy && !isGenerating && cooldownLeft <= 0;
 
   useEffect(() => {
     setJobs(props.jobs);
@@ -89,7 +121,7 @@ export function useGenerateStudio(props: {
   useEffect(() => {
     if (catalog.length === 0) return;
     if (!catalog.some((m) => m.modelId === modelId)) {
-      setModelId(catalog[0]!.modelId);
+      setModelId(pickInitialModel(catalog));
     }
   }, [catalog, modelId]);
 
@@ -104,35 +136,47 @@ export function useGenerateStudio(props: {
     };
   }, [uploads]);
 
-  async function applyJobs(data: JobsListView) {
-    setJobs(data.jobs);
-    setCooldownUntil(data.nextGenerateAt ?? null);
-  }
-
-  async function refreshJobs() {
-    const result = await requestJson<JobsListView>("/api/jobs");
-    if (!result.ok) return;
-    await applyJobs(result.data);
-  }
-
+  // Polling spesifik pada job yang sedang aktif / baru disubmit (/api/jobs/:id)
   useEffect(() => {
-    if (!active) return;
+    if (!activeJobId) return;
     let cancelled = false;
+
+    async function pollJob() {
+      const result = await requestJson<JobView>(`/api/jobs/${activeJobId}`);
+      if (cancelled || !result.ok) return;
+      const data = result.data;
+      setActiveJob(data);
+
+      if (data.status === "succeeded") {
+        if (hasLiveOutput(data.output)) {
+          setLastGeneratedJob(data);
+        }
+        setCooldownUntil(data.nextGenerateAt ?? null);
+        setActiveJobId(null);
+        setActiveJob(null);
+        setJobs((prev) => [data, ...prev.filter((j) => j.id !== data.id)]);
+      } else if (data.status === "failed" || data.status === "canceled") {
+        setError(jobErrorMessage(data.errorCode, data.errorMessage));
+        setErrorCode(data.errorCode ?? "JOB_FAILED");
+        setActiveJobId(null);
+        setActiveJob(null);
+        setJobs((prev) => [data, ...prev.filter((j) => j.id !== data.id)]);
+      }
+    }
+
+    void pollJob();
     const timer = window.setInterval(() => {
-      void (async () => {
-        const result = await requestJson<JobsListView>("/api/jobs");
-        if (cancelled || !result.ok) return;
-        await applyJobs(result.data);
-      })();
+      void pollJob();
     }, 1500);
+
     return () => {
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, [active]);
+  }, [activeJobId]);
 
   useEffect(() => {
-    if (active || cooldownLeft <= 0) return;
+    if (isGenerating || cooldownLeft <= 0) return;
     let cancelled = false;
     const timer = window.setInterval(() => {
       void (async () => {
@@ -145,17 +189,31 @@ export function useGenerateStudio(props: {
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, [active, cooldownLeft]);
+  }, [isGenerating, cooldownLeft]);
 
   useEffect(() => {
-    if (active) return;
+    if (isGenerating) return;
     const delay = nearestSignedRefresh(jobs);
     if (delay == null) return;
     const timer = window.setTimeout(() => {
-      void refreshJobs();
+      void (async () => {
+        const result = await requestJson<JobsListView>("/api/jobs");
+        if (result.ok) {
+          setJobs(result.data.jobs);
+          setCooldownUntil(result.data.nextGenerateAt ?? null);
+        }
+      })();
     }, delay);
     return () => window.clearTimeout(timer);
-  }, [active, signedKey]);
+  }, [isGenerating, signedKey]);
+
+  useEffect(() => {
+    if (!lastGeneratedJob) return;
+    const current = jobs.find((j) => j.id === lastGeneratedJob.id);
+    if (current && hasLiveOutput(current.output)) {
+      setLastGeneratedJob(current);
+    }
+  }, [jobs, lastGeneratedJob]);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -163,14 +221,26 @@ export function useGenerateStudio(props: {
     setError("");
     setErrorCode("");
     setBusy(true);
-    const result = await requestJson<{ job_id?: string }>("/api/jobs", {
+    setLastGeneratedJob(null);
+
+    const mode = mediaType === "video" ? (selectedRefs.length > 0 ? "i2v" : "t2v") : imageMode;
+    const params: Record<string, unknown> = { aspectRatio };
+    if (mediaType === "video") {
+      params.duration = videoDuration;
+      params.resolution = videoResolution;
+    }
+    if (selectedRefs.length > 0) {
+      params.refs = selectedRefs.map((r) => r.url);
+    }
+
+    const result = await requestJson<{ job_id?: string; id?: string }>("/api/jobs", {
       method: "POST",
       headers: { "Idempotency-Key": crypto.randomUUID() },
       body: JSON.stringify({
-        mode: "t2i",
+        mode,
         modelId: selected?.modelId,
         prompt: prompt.trim(),
-        params: { aspectRatio },
+        params,
       }),
     });
     setBusy(false);
@@ -180,10 +250,25 @@ export function useGenerateStudio(props: {
       if (result.code === "COOLDOWN" && typeof result.retryAfterSeconds === "number") {
         setCooldownUntil(new Date(Date.now() + result.retryAfterSeconds * 1000).toISOString());
       }
-      await refreshJobs();
       return;
     }
-    await refreshJobs();
+
+    const newJobId = result.data.job_id ?? result.data.id;
+    if (newJobId) {
+      setActiveJobId(newJobId);
+      setActiveJob({
+        id: newJobId,
+        status: "queued",
+        mode,
+        modelId: selected?.modelId,
+        prompt: prompt.trim(),
+        cost: estimatedCost,
+        progressPct: 0,
+        errorCode: null,
+        output: null,
+        nextGenerateAt: null,
+      });
+    }
   }
 
   function openLibrary() {
@@ -249,6 +334,18 @@ export function useGenerateStudio(props: {
     jobs,
     gallery,
     active,
+    isGenerating,
+    lastGeneratedJob,
+    setLastGeneratedJob,
+    mediaType,
+    setMediaType,
+    imageMode,
+    setImageMode,
+    videoDuration,
+    setVideoDuration,
+    videoResolution,
+    setVideoResolution,
+    estimatedCost,
     prompt,
     setPrompt,
     aspectRatio,
