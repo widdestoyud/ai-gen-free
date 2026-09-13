@@ -1,7 +1,6 @@
-import { AdminPageShell, AdminUnauth } from "@/components/admin-page-shell";
+import { AdminUsersPageView } from "@/views/admin/users";
 import { ADMIN_PAGE_SIZE, parseOffset, type AdminUserRow } from "@/lib/admin";
 import { fetchAdminApi, loadAdminMe } from "@/lib/server-api";
-import { AdminUsersList } from "./users-list";
 
 async function loadUsers(q: string, offset: number) {
   const params = new URLSearchParams();
@@ -19,14 +18,9 @@ export default async function AdminUsersPage({
   searchParams: Promise<{ q?: string; offset?: string }>;
 }) {
   const me = await loadAdminMe();
-  if (!me) return <AdminUnauth />;
   const sp = await searchParams;
   const q = sp.q?.trim() ?? "";
   const offset = parseOffset(sp.offset);
-  const users = await loadUsers(q, offset);
-  return (
-    <AdminPageShell title="Daftar user">
-      <AdminUsersList users={users} q={q} offset={offset} />
-    </AdminPageShell>
-  );
+  const users = me ? await loadUsers(q, offset) : [];
+  return <AdminUsersPageView me={me} users={users} q={q} offset={offset} />;
 }

@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { adminAuth } from "@/auth-admin";
 import { auth } from "@/auth";
 import { mergeCookie } from "@/lib/cookie-header";
+import { resolveBackendPath } from "@/lib/api-mapping";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -24,7 +25,9 @@ function apiBase() {
 }
 
 async function proxy(req: NextRequest, path: string[]) {
-  const target = `${apiBase()}/api/${path.join("/")}${req.nextUrl.search}`;
+  const fePath = `/api/${path.join("/")}`;
+  const backendPath = resolveBackendPath(fePath, req.method);
+  const target = `${apiBase()}${backendPath}${req.nextUrl.search}`;
   const headers = new Headers();
   req.headers.forEach((value, key) => {
     if (!HOP.has(key.toLowerCase())) headers.set(key, value);

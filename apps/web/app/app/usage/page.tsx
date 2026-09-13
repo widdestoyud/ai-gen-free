@@ -1,13 +1,5 @@
-import { Title } from "@mantine/core";
-import { EmptyState } from "@/components/empty-state";
+import { UsagePageView } from "@/views/app/usage";
 
 export default function AppUsagePage() {
-  return (
-    <>
-      <Title order={2} mb="md">
-        Usage
-      </Title>
-      <EmptyState>Riwayat pemakaian akan tampil di sini.</EmptyState>
-    </>
-  );
+  return <UsagePageView />;
 }

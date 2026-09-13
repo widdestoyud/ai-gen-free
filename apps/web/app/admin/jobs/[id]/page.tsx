@@ -1,9 +1,9 @@
 import { Text } from "@mantine/core";
-import { AdminPageShell, AdminUnauth } from "@/components/admin-page-shell";
+import { AdminPageShell, AdminUnauth } from "@/views/admin/components/admin-page-shell";
 import { AppLink } from "@/components/app-link";
 import type { AdminJobDetailView } from "@/lib/admin";
 import { fetchAdminApi, loadAdminMe } from "@/lib/server-api";
-import { AdminJobDetail } from "./job-detail";
+import { AdminJobDetail } from "@/views/admin/jobs/components/job-detail";
 
 async function loadJob(id: string): Promise<AdminJobDetailView | null | "error"> {
   const res = await fetchAdminApi(`/api/admin/jobs/${id}`);

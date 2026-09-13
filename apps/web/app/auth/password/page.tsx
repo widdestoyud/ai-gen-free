@@ -1,4 +1,4 @@
-import { ResetPasswordView } from "@/components/reset-password-view";
+import { ResetPasswordView } from "@/views/auth";
 
 export const dynamic = "force-dynamic";
 

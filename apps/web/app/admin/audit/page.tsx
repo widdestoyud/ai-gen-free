@@ -1,7 +1,6 @@
-import { AdminPageShell, AdminUnauth } from "@/components/admin-page-shell";
+import { AdminAuditPageView } from "@/views/admin/audit";
 import { ADMIN_PAGE_SIZE, parseOffset, type AdminAuditItem } from "@/lib/admin";
 import { fetchAdminApi, loadAdminMe } from "@/lib/server-api";
-import { AdminAuditList } from "./audit-list";
 
 async function loadAudit(opts: { action: string; offset: number }) {
   const params = new URLSearchParams();
@@ -19,14 +18,9 @@ export default async function AdminAuditPage({
   searchParams: Promise<{ action?: string; offset?: string }>;
 }) {
   const me = await loadAdminMe();
-  if (!me) return <AdminUnauth />;
   const sp = await searchParams;
   const action = sp.action?.trim() ?? "";
   const offset = parseOffset(sp.offset);
-  const items = await loadAudit({ action, offset });
-  return (
-    <AdminPageShell title="Jejak audit">
-      <AdminAuditList items={items} action={action} offset={offset} />
-    </AdminPageShell>
-  );
+  const items = me ? await loadAudit({ action, offset }) : [];
+  return <AdminAuditPageView me={me} items={items} action={action} offset={offset} />;
 }

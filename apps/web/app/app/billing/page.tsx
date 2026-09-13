@@ -1,8 +1,6 @@
 import { redirect } from "next/navigation";
-import { Title } from "@mantine/core";
 import { fetchUserApi } from "@/lib/server-api";
-import { WalletClient } from "../../wallet/wallet-client";
-import type { Invoice, LedgerRow, Package } from "../../wallet/page";
+import { BillingPageView, type Invoice, type LedgerRow, type Package } from "@/views/app/billing";
 
 async function loadWallet() {
   const [wallet, catalog, invoices, ledger] = await Promise.all([
@@ -23,18 +21,5 @@ async function loadWallet() {
 export default async function AppBillingPage() {
   const data = await loadWallet();
   if (!data) redirect("/");
-  return (
-    <>
-      <Title order={2} mb="md">
-        Billing
-      </Title>
-      <WalletClient
-        available={data.wallet.available}
-        held={data.wallet.held}
-        packages={data.packages}
-        invoices={data.invoices}
-        entries={data.entries}
-      />
-    </>
-  );
+  return <BillingPageView data={data} />;
 }

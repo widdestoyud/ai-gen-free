@@ -18,6 +18,7 @@ test("strips /api prefix then maps legacy customer paths", () => {
   assert.equal(rewriteRequestUrl("/api/wallet", "GET"), "/customer/coin");
   assert.equal(rewriteRequestUrl("/api/wallet/ledger", "GET"), "/customer/coin/ledger");
   assert.equal(rewriteRequestUrl("/api/jobs", "GET"), "/customer/generated-lists");
+  assert.equal(rewriteRequestUrl("/api/library", "GET"), "/customer/generated-lists");
   assert.equal(rewriteRequestUrl("/api/jobs/abc123", "GET"), "/customer/generated/abc123");
   assert.equal(rewriteRequestUrl("/api/jobs/abc123/file", "GET"), "/customer/generated/abc123/file");
   assert.equal(rewriteRequestUrl("/api/jobs", "POST"), "/jobs");

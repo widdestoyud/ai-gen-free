@@ -48,6 +48,10 @@ Jangan mengarang ulang arsitektur. Jika ingin mengubah keputusan di `docs/adr/`,
 - UI: **Mantine**. Dilarang style inline `style={{ … }}`. Item berulang = komponen di `apps/web/components/` (ADR 0011).
 - SoC Web (ADR 0013): Controller = custom hooks di `apps/web/hooks/`, presentation = komponen di `components/` & `app/`. Landing `/` memakai CTA untuk modal masuk (tidak auto-buka); OTP modal hanya jika perangkat baru. Setelah login → `/app/generate`. Admin `/admin` = Basic Auth (bukan publik) + username/password, tanpa OTP. Kode error ber-prefix (`AXXX`, `BXXX`, dll.) dan `transaction_id` di seluruh endpoint.
 - Payload HTTP (ADR 0016): **dilarang** mengirim payload aksi sebagai query string. Email, token, OTP, password, profil, dan field aksi lain **wajib** JSON body pada `POST`/`PATCH`/`PUT`. Bukan `?token=`, `?email=`, `?code=`. Pengecualian: filter/pagination GET daftar (`limit`, `offset`, `q`, `status`) — itu bukan payload. Tautan di email boleh membawa token di URL halaman FE; request ke API tetap body.
+- Arsitektur Web & Pemetaan API (ADR 0017):
+  - **Struktur Web**: `apps/web/app/` hanya berisi routing/entry point (`page.tsx`, `layout.tsx`, `route.ts`). Logika presentation halaman diisolasi ke `apps/web/views/<halaman>/`. Komponen yang spesifik pada halaman tersebut ditaruh di `apps/web/views/<halaman>/components/`. Folder `apps/web/components/` **hanya dan mutlak** memuat komponen UI generic reusable primitives (`app-link`, `page-shell`, `error-alert`, `empty-state`, `item-card`, `otp-modal`, dll.).
+  - **Pemisahan Generate & Library**: `/app/generate` berfokus khusus pada studio/prompt submit; seluruh riwayat media yang telah digenerate dipusatkan di `/app/library` (hit `GET /api/library` yang dipetakan ke `GET /customer/generated-lists`).
+  - **Kamus API Mapping**: Seluruh endpoint FE (`/api/*`) wajib terdaftar di `apps/web/lib/api-mapping.ts` (`API_MAPPINGS` & `resolveBackendPath`) untuk menjamin transparansi pemetaan kontrak FE ke Fastify backend (`/customer/...`, `/admin/...`, `/invoices/...`).
 - Koleksi & Environment Postman: hanya **1 file koleksi** (`postman/ai-gen-free.postman_collection.json`) dan **1 file environment** (`postman/local.postman_environment.json`). Update Postman wajib menjaga tepat 1 koleksi dan 1 environment tanpa file ganda/duplikat.
 - Seluruh stack jalan lewat Docker Compose.
 
@@ -94,6 +98,8 @@ UI dan Route Handler Next.js **dilarang** memanggil SDK Siray, Prisma wallet mut
 - Face swap orang nyata sebagai fitur default tanpa keputusan produk baru + ADR.
 - Memakai Firebase Auth sebagai identity utama tanpa ADR yang mencabut `0006`.
 - Membuat atau menyimpan file koleksi/environment Postman ganda (harus tepat 1 file `.postman_collection.json` dan 1 file `.postman_environment.json`).
+- Menaruh komponen spesifik halaman / domain di dalam `apps/web/components/` (wajib di `apps/web/views/<halaman>/components/`).
+- Memanggil atau mendaftarkan endpoint API di frontend tanpa mencatatnya di `apps/web/lib/api-mapping.ts`.
 
 ## Cara menambah fitur
 

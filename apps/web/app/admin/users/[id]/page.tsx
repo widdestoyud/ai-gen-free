@@ -1,9 +1,9 @@
 import { Text } from "@mantine/core";
-import { AdminPageShell, AdminUnauth } from "@/components/admin-page-shell";
+import { AdminPageShell, AdminUnauth } from "@/views/admin/components/admin-page-shell";
 import { AppLink } from "@/components/app-link";
 import type { AdminUserRow } from "@/lib/admin";
 import { fetchAdminApi, loadAdminMe } from "@/lib/server-api";
-import { AdminUserDetail } from "./user-detail";
+import { AdminUserDetail } from "@/views/admin/users/components/user-detail";
 
 async function loadUser(id: string): Promise<AdminUserRow | null | "error"> {
   const res = await fetchAdminApi(`/api/admin/users/${id}`);

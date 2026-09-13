@@ -10,7 +10,7 @@ import {
   type JobsListView,
   type JobView,
 } from "@/lib/job-status";
-import type { Model } from "@/app/generate/generate-client";
+import type { Model } from "@/views/app/generate";
 
 export const STUDIO_ASPECTS = [
   { value: "2:3", label: "2:3 Tall", preview: "tall" },

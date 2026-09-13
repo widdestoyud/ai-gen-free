@@ -20,3 +20,4 @@ Baca urut. Mencabut keputusan = ADR baru, jangan edit diam-diam.
 | [0014](./0014-password-signup-device-verification.md) | Signup password, whitelist domain, OTP perangkat, rate limit terpusat |
 | [0015](./0015-password-reset.md) | Reset kata sandi via tautan email, cooldown 1 jam / 24 jam, rate limit IP |
 | [0016](./0016-json-body-payload-only.md) | Payload aksi hanya JSON body; dilarang query param |
+| [0017](./0017-web-views-structure-and-api-mapping.md) | Struktur views halaman & mapping tabel endpoint API FE-BE |

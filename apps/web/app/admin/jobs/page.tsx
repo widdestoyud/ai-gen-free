@@ -1,7 +1,6 @@
-import { AdminPageShell, AdminUnauth } from "@/components/admin-page-shell";
+import { AdminJobsPageView } from "@/views/admin/jobs";
 import { ADMIN_PAGE_SIZE, parseOffset, type AdminJobRow } from "@/lib/admin";
 import { fetchAdminApi, loadAdminMe } from "@/lib/server-api";
-import { AdminJobsList } from "./jobs-list";
 
 async function loadJobs(opts: { q: string; status: string; userId: string; offset: number }) {
   const params = new URLSearchParams();
@@ -21,16 +20,11 @@ export default async function AdminJobsPage({
   searchParams: Promise<{ q?: string; status?: string; userId?: string; offset?: string }>;
 }) {
   const me = await loadAdminMe();
-  if (!me) return <AdminUnauth />;
   const sp = await searchParams;
   const q = sp.q?.trim() ?? "";
   const status = sp.status?.trim() ?? "";
   const userId = sp.userId?.trim() ?? "";
   const offset = parseOffset(sp.offset);
-  const jobs = await loadJobs({ q, status, userId, offset });
-  return (
-    <AdminPageShell title="Daftar job">
-      <AdminJobsList jobs={jobs} q={q} status={status} userId={userId} offset={offset} />
-    </AdminPageShell>
-  );
+  const jobs = me ? await loadJobs({ q, status, userId, offset }) : [];
+  return <AdminJobsPageView me={me} jobs={jobs} q={q} status={status} userId={userId} offset={offset} />;
 }

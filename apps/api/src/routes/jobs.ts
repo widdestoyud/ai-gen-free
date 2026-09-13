@@ -100,11 +100,14 @@ export async function registerJobRoutes(
     }
   });
 
-  app.get("/customer/generated-lists", async (req, reply) => {
+  const handleListJobs = async (req: any, reply: any) => {
     const session = await requireUser(req, reply);
     if (!session) return;
     return await listJobsForUser({ userId: session.userId, storage: deps.storage });
-  });
+  };
+
+  app.get("/customer/generated-lists", handleListJobs);
+  app.get("/customer/library", handleListJobs);
 
   app.get("/customer/generated/:jobId", async (req, reply) => {
     const session = await requireUser(req, reply);

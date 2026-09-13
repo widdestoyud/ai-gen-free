@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
-import { Title } from "@mantine/core";
-import { CustomerHome } from "@/components/customer-home";
 import { loadCustomerProfile } from "@/lib/server-api";
+import { ProfilePageView } from "@/views/app/profile";
 
 export const dynamic = "force-dynamic";
 
@@ -11,12 +10,5 @@ export default async function AppProfilePage() {
     redirect("/");
   }
 
-  return (
-    <>
-      <Title order={2} mb="md">
-        Profile
-      </Title>
-      <CustomerHome profile={profile.user} />
-    </>
-  );
+  return <ProfilePageView profile={profile.user} />;
 }

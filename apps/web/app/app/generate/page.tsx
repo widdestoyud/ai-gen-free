@@ -1,8 +1,7 @@
 import { redirect } from "next/navigation";
 import { fetchUserApi } from "@/lib/server-api";
 import type { JobsListView, JobView } from "@/lib/job-status";
-import { type Model } from "../../generate/generate-client";
-import { GenerateStudio } from "@/components/generate-studio";
+import { type Model, GeneratePageView } from "@/views/app/generate";
 
 async function load() {
   const [wallet, catalog, jobs] = await Promise.all([
@@ -24,7 +23,7 @@ export default async function AppGeneratePage() {
   const data = await load();
   if (!data) redirect("/");
   return (
-    <GenerateStudio
+    <GeneratePageView
       available={data.wallet.available}
       held={data.wallet.held}
       models={data.models}

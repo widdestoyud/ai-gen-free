@@ -1,7 +1,6 @@
-import { AdminPageShell, AdminUnauth } from "@/components/admin-page-shell";
+import { AdminSettingsPageView } from "@/views/admin/settings";
 import { GENERATE_COOLDOWN_DEFAULT } from "@/lib/admin";
 import { fetchAdminApi, loadAdminMe } from "@/lib/server-api";
-import { AdminSettingsForm } from "./settings-form";
 
 async function loadSetting() {
   const res = await fetchAdminApi("/api/admin/settings/generate_cooldown_seconds");
@@ -12,11 +11,6 @@ async function loadSetting() {
 
 export default async function AdminSettingsPage() {
   const me = await loadAdminMe();
-  if (!me) return <AdminUnauth />;
-  const value = await loadSetting();
-  return (
-    <AdminPageShell title="Pengaturan cooldown">
-      <AdminSettingsForm initialValue={value} />
-    </AdminPageShell>
-  );
+  const value = me ? await loadSetting() : GENERATE_COOLDOWN_DEFAULT;
+  return <AdminSettingsPageView me={me} value={value} />;
 }

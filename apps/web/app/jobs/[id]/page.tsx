@@ -1,10 +1,7 @@
-import { Text } from "@mantine/core";
 import { redirect } from "next/navigation";
-import { AppLink } from "@/components/app-link";
-import { PageShell } from "@/components/page-shell";
 import type { JobView } from "@/lib/job-status";
 import { fetchUserApi } from "@/lib/server-api";
-import { JobClient } from "./job-client";
+import { JobPageView } from "@/views/jobs";
 
 async function load(id: string): Promise<JobView | null | "unauth"> {
   const res = await fetchUserApi(`/api/jobs/${id}`);
@@ -17,18 +14,6 @@ async function load(id: string): Promise<JobView | null | "unauth"> {
 export default async function JobPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const job = await load(id);
-  if (job === "unauth") redirect("/login");
-  if (!job) {
-    return (
-      <PageShell title="Job" backHref="/app/generate" backLabel="Kembali" size="md">
-        <Text>Job tidak ditemukan.</Text>
-        <AppLink href="/app/generate">Kembali</AppLink>
-      </PageShell>
-    );
-  }
-  return (
-    <PageShell title="Job" backHref="/app/generate" backLabel="← Generate" size="md">
-      <JobClient initial={job} />
-    </PageShell>
-  );
+  if (job === "unauth") redirect("/");
+  return <JobPageView job={job} />;
 }

@@ -13,7 +13,7 @@ COPY packages/storage/package.json packages/storage/
 COPY packages/wallet/package.json packages/wallet/
 RUN pnpm install --frozen-lockfile
 COPY . .
-ARG API_INTERNAL_URL=http://api:3001
+ARG API_INTERNAL_URL=http://api:4000
 ARG AUTH_SECRET=change-me-to-32-bytes-min
 ENV API_INTERNAL_URL=$API_INTERNAL_URL
 ENV AUTH_SECRET=$AUTH_SECRET

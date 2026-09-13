@@ -11,6 +11,7 @@ import classes from "./app-workspace.module.css";
 
 const NAV = [
   { href: "/app/generate", label: "Generate" },
+  { href: "/app/library", label: "Library" },
   { href: "/app/profile", label: "Profile" },
   { href: "/app/usage", label: "Usage" },
   { href: "/app/billing", label: "Billing" },

@@ -1,4 +1,4 @@
-import { EmailValidationView } from "@/components/email-validation-view";
+import { EmailValidationView } from "@/views/auth";
 
 export const dynamic = "force-dynamic";
 
