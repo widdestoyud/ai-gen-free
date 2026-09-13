@@ -16,6 +16,12 @@ import { ImageIcon, SparkleIcon, VideoIcon } from "./generate-icons";
 import { GenerateDurationMenu, GenerateResolutionMenu } from "./generate-video-menu";
 import classes from "./generate-studio.module.css";
 
+function hasLiveJobOutput(
+  job: JobView | null,
+): job is JobView & { output: { url: string; contentType: string } } {
+  return Boolean(job && job.output && typeof job.output.url === "string" && job.output.url.length > 0);
+}
+
 export function GenerateStudio(props: {
   available: number;
   held: number;
@@ -24,6 +30,7 @@ export function GenerateStudio(props: {
   nextGenerateAt: string | null;
 }) {
   const ctrl = useGenerateStudio(props);
+  const lastJob = ctrl.lastGeneratedJob;
 
   return (
     <div className={classes.page}>
@@ -34,7 +41,7 @@ export function GenerateStudio(props: {
             progress={ctrl.active?.progressPct}
             mediaType={ctrl.mediaType}
           />
-        ) : ctrl.lastGeneratedJob && hasLiveOutput(ctrl.lastGeneratedJob.output) ? (
+        ) : hasLiveJobOutput(lastJob) ? (
           <div className={classes.previewContainerFull}>
             {ctrl.cooldownLeft > 0 ? (
               <Alert color="yellow" variant="light" radius="md" className={classes.stageAlert}>
@@ -43,11 +50,11 @@ export function GenerateStudio(props: {
             ) : null}
             <div className={classes.previewCard}>
               <div className={classes.stageMediaWrapper}>
-                {ctrl.lastGeneratedJob.output?.contentType?.includes("video") ||
-                ctrl.lastGeneratedJob.mode === "t2v" ||
-                ctrl.lastGeneratedJob.mode === "i2v" ? (
+                {lastJob.output.contentType.includes("video") ||
+                lastJob.mode === "t2v" ||
+                lastJob.mode === "i2v" ? (
                   <video
-                    src={ctrl.lastGeneratedJob.output?.url ?? ""}
+                    src={lastJob.output.url}
                     controls
                     autoPlay
                     loop
@@ -55,8 +62,8 @@ export function GenerateStudio(props: {
                   />
                 ) : (
                   <img
-                    src={ctrl.lastGeneratedJob.output?.url ?? ""}
-                    alt={ctrl.lastGeneratedJob.prompt}
+                    src={lastJob.output.url}
+                    alt={lastJob.prompt}
                     className={classes.stageMedia}
                   />
                 )}

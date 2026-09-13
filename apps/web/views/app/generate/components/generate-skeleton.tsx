@@ -1,6 +1,6 @@
 "use client";
 
-import { Group, Progress, Skeleton, Text } from "@mantine/core";
+import { Skeleton, Text } from "@mantine/core";
 import { useEffect, useState } from "react";
 import { SparkleIcon } from "./generate-icons";
 import classes from "./generate-studio.module.css";
@@ -40,35 +40,14 @@ export function GenerateSkeleton({
   const aspectClass = ASPECT_CLASS[aspectRatio] ?? classes.skeletonAspect_3_2;
 
   return (
-    <div className={classes.skeletonCard}>
-      <div className={`${classes.skeletonBox} ${aspectClass}`}>
-        <Skeleton height="100%" width="100%" radius="md" animate={true} />
-        <div className={classes.skeletonOverlay}>
-          <SparkleIcon size={24} className={classes.sparkleSpin} />
-          <Text size="sm" fw={600} c="dimmed">
-            {mediaType === "video" ? "Merender video..." : "Merender gambar..."}
-          </Text>
+    <div className={`${classes.skeletonBox} ${aspectClass}`}>
+      <Skeleton height="100%" width="100%" radius="lg" animate={true} />
+      <div className={classes.skeletonOverlay}>
+        <div className={classes.rainbowSparkle}>
+          <SparkleIcon size={34} />
         </div>
-      </div>
-      <div className={classes.progressWrapper}>
-        <Group justify="space-between" mb={4}>
-          <Text size="xs" fw={600} c="dimmed">
-            {mediaType === "video" ? "Proses Render Video" : "Proses Render Gambar"}
-          </Text>
-          <Text size="xs" fw={700} c="lime.4">
-            {Math.round(progressVal)}%
-          </Text>
-        </Group>
-        <Progress
-          value={progressVal}
-          animated
-          striped
-          size="sm"
-          radius="xl"
-          color="lime"
-        />
-        <Text size="xs" c="dimmed" mt={6} ta="center">
-          Tab lain tidak bisa submit paralel saat proses berlangsung.
+        <Text size="sm" fw={500} className={classes.generatingText}>
+          Generating... {Math.round(progressVal)}%
         </Text>
       </div>
     </div>
