@@ -71,13 +71,24 @@ export function GenerateStudio(props: {
             </div>
           </div>
         ) : (
-          <>
+          <div className={classes.stageDefaultWrapper}>
+            {ctrl.error ? (
+              ctrl.waiting ? (
+                <div className={classes.stageAlert}>
+                  <WaitAlert message={ctrl.error} />
+                </div>
+              ) : (
+                <div className={classes.stageAlert}>
+                  <ErrorAlert message={ctrl.error} />
+                </div>
+              )
+            ) : null}
             {ctrl.cooldownLeft > 0 ? <CooldownText until={ctrl.cooldownUntil} /> : null}
             <EmptyState>
               Tulis prompt di bawah untuk mulai generate gambar baru. Semua hasil render tersimpan di menu{" "}
               <AppLink href="/app/library">Library</AppLink>.
             </EmptyState>
-          </>
+          </div>
         )}
       </div>
 
@@ -104,7 +115,6 @@ export function GenerateStudio(props: {
               variant="unstyled"
               classNames={{ input: classes.textarea }}
             />
-            {ctrl.waiting ? <WaitAlert message={ctrl.error} /> : <ErrorAlert message={ctrl.error} />}
             <Group justify="space-between" mt="sm" wrap="wrap" gap="xs">
               <Group gap="xs" align="center">
                 <ActionIcon type="button" variant="subtle" size="lg" onClick={ctrl.openLibrary} aria-label="Tambah gambar">

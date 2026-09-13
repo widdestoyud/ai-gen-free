@@ -1,10 +1,7 @@
 "use client";
 
 import {
-  Badge,
   Button,
-  Group,
-  Modal,
   SegmentedControl,
   Stack,
   Text,
@@ -16,6 +13,7 @@ import { EmptyState } from "@/components/empty-state";
 import { WaitAlert } from "@/components/wait-alert";
 import { useLibrary, type MediaFilter } from "@/hooks/use-library";
 import type { JobView } from "@/lib/job-status";
+import { MediaDetailModal } from "./media-detail-modal";
 import classes from "./library-view.module.css";
 
 function MediaStackIcon() {
@@ -138,72 +136,13 @@ export function LibraryView(props: {
         </div>
       )}
 
-      <Modal
+      <MediaDetailModal
         opened={ctrl.previewOpened}
         onClose={ctrl.closePreview}
-        title="Detail Media"
-        size="lg"
-        centered
-      >
-        {ctrl.selectedJob ? (
-          <Stack gap="md">
-            {ctrl.selectedJob.output?.contentType.startsWith("video/") ? (
-              <video
-                src={ctrl.selectedJob.output.url ?? ""}
-                controls
-                autoPlay
-                className={classes.modalImage}
-              />
-            ) : (
-              <img
-                src={ctrl.selectedJob.output?.url ?? ""}
-                alt={ctrl.selectedJob.prompt}
-                className={classes.modalImage}
-              />
-            )}
-
-            <Stack gap="xs">
-              <Group justify="space-between">
-                <Badge variant="light" size="sm">
-                  {ctrl.selectedJob.mode?.toUpperCase() ?? "T2I"}
-                </Badge>
-                {ctrl.selectedJob.createdAt ? (
-                  <Text size="xs" c="dimmed">
-                    {new Date(ctrl.selectedJob.createdAt).toLocaleString("id-ID")}
-                  </Text>
-                ) : null}
-              </Group>
-
-              <Text size="sm" fw={500}>
-                {ctrl.selectedJob.prompt}
-              </Text>
-
-              <Group justify="flex-end" gap="xs" mt="sm">
-                {ctrl.selectedJob.output?.url ? (
-                  <Button
-                    component="a"
-                    href={ctrl.selectedJob.output.url}
-                    target="_blank"
-                    download={`media-${ctrl.selectedJob.id}`}
-                    variant="default"
-                    size="xs"
-                  >
-                    Unduh
-                  </Button>
-                ) : null}
-                <Button
-                  component={Link}
-                  href={`/jobs/${ctrl.selectedJob.id}`}
-                  variant="filled"
-                  size="xs"
-                >
-                  Buka Halaman Job
-                </Button>
-              </Group>
-            </Stack>
-          </Stack>
-        ) : null}
-      </Modal>
+        job={ctrl.selectedJob}
+        jobs={ctrl.filteredJobs}
+        onSelectJob={ctrl.openPreview}
+      />
     </div>
   );
 }

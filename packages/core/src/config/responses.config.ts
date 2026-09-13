@@ -185,5 +185,9 @@ export const AuthResponses = {
       status: 200,
       message: "Kata sandi berhasil diubah. Silakan masuk dengan kata sandi baru.",
     },
+    PASSWORD_CHANGED: {
+      status: 200,
+      message: "Kata sandi berhasil diubah.",
+    },
   } satisfies Record<string, SuccessDefinition>,
 } as const;

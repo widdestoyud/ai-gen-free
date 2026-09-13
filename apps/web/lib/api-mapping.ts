@@ -145,6 +145,18 @@ export const API_MAPPINGS: readonly ApiRouteMapping[] = [
     method: "POST",
     description: "Konfirmasi penyimpanan kata sandi baru",
   },
+  {
+    FE: "/api/customer/password-change",
+    BE: "/customer/password-change",
+    method: "POST",
+    description: "Ganti kata sandi pelanggan dengan verifikasi kata sandi lama",
+  },
+  {
+    FE: "/api/user/password-change",
+    BE: "/customer/password-change",
+    method: "POST",
+    description: "Ganti kata sandi pelanggan (alias)",
+  },
 
   // -------------------------------------------------------------
   // 3. Profil Pelanggan

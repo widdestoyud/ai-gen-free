@@ -123,6 +123,8 @@ test("Centralized Response Configuration Integrity", () => {
   assert.ok(AuthResponses.success.PROFILE_UPDATED.message.length > 0);
   assert.ok(AuthResponses.success.PASSWORD_RESET_SENT.message.length > 0);
   assert.ok(AuthResponses.success.PASSWORD_RESET_SUCCESS.message.length > 0);
+  assert.equal(AuthResponses.success.PASSWORD_CHANGED.code ?? "200", "200");
+  assert.equal(AuthResponses.success.PASSWORD_CHANGED.message, "Kata sandi berhasil diubah.");
 });
 
 test("OTP TTL Configuration & Fallback", () => {

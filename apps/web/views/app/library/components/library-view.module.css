@@ -126,3 +126,229 @@
   border-radius: var(--mantine-radius-md);
   background: var(--mantine-color-dark-8);
 }
+
+.modalContentFull {
+  overflow: hidden;
+  background: var(--mantine-color-dark-7);
+  border-radius: var(--mantine-radius-lg);
+  max-width: 1140px;
+}
+
+@media (max-width: 48em) {
+  .modalContentFull {
+    max-height: 92vh;
+    display: flex;
+    flex-direction: column;
+  }
+}
+
+.modalBodyNoPadding {
+  padding: 0 !important;
+}
+
+@media (max-width: 48em) {
+  .modalBodyNoPadding {
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+    flex: 1;
+    min-height: 0;
+  }
+}
+
+.modalHeaderClean {
+  background: var(--mantine-color-dark-8);
+  border-bottom: 1px solid var(--mantine-color-dark-5);
+  padding-block: 10px;
+  padding-inline: var(--mantine-spacing-md);
+  flex-shrink: 0;
+}
+
+.detailModalLayout {
+  display: flex;
+  flex-direction: column;
+}
+
+@media (min-width: 48em) {
+  .detailModalLayout {
+    flex-direction: row;
+    min-height: 480px;
+    max-height: calc(88vh - 60px);
+    overflow: hidden;
+  }
+}
+
+.mediaShowcaseSection {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: #090a0d;
+  min-width: 0;
+  position: relative;
+  justify-content: center;
+  align-items: center;
+}
+
+.mediaViewerWrapper {
+  flex: 1;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  padding: var(--mantine-spacing-md);
+  min-height: 340px;
+}
+
+@media (max-width: 48em) {
+  .mediaViewerWrapper {
+    min-height: 220px;
+    padding: var(--mantine-spacing-sm);
+  }
+}
+
+.detailMedia {
+  max-height: min(60vh, 560px);
+  max-width: 100%;
+  object-fit: contain;
+  border-radius: var(--mantine-radius-sm);
+  box-shadow: 0 10px 36px rgba(0, 0, 0, 0.65);
+  display: block;
+}
+
+@media (max-width: 48em) {
+  .detailMedia {
+    max-height: 38vh;
+  }
+}
+
+.navArrowLeft,
+.navArrowRight {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(20, 21, 26, 0.75);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #fff;
+  transition: all 0.15s ease;
+  z-index: 2;
+}
+
+.navArrowLeft {
+  left: 14px;
+}
+
+.navArrowRight {
+  right: 14px;
+}
+
+.navArrowLeft:hover,
+.navArrowRight:hover {
+  background: rgba(30, 33, 42, 0.95);
+  transform: translateY(-50%) scale(1.08);
+}
+
+.modalThumbnailBar {
+  width: 100%;
+  background: rgba(12, 13, 16, 0.95);
+  border-top: 1px solid var(--mantine-color-dark-5);
+}
+
+.modalThumbButton {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--mantine-radius-sm);
+  overflow: hidden;
+  background: var(--mantine-color-dark-6);
+  border: 1px solid var(--mantine-color-dark-4);
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+  cursor: pointer;
+}
+
+.modalThumbSelected {
+  outline: 2px solid var(--mantine-color-blue-5);
+  border-color: transparent;
+  transform: scale(1.05);
+}
+
+.modalThumbImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.detailInfoSidebar {
+  width: 100%;
+  max-width: 360px;
+  background: var(--mantine-color-dark-7);
+  border-left: 1px solid var(--mantine-color-dark-5);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+
+@media (max-width: 48em) {
+  .detailInfoSidebar {
+    max-width: 100%;
+    border-left: none;
+    border-top: 1px solid var(--mantine-color-dark-5);
+    overflow: visible;
+  }
+}
+
+.sidebarScroll {
+  flex: 1;
+  min-height: 0;
+}
+
+.primaryDownloadBtn {
+  background: var(--mantine-color-dark-5);
+  border: 1px solid var(--mantine-color-dark-3);
+  font-weight: 600;
+  transition: all 0.15s ease;
+}
+
+.primaryDownloadBtn:hover {
+  background: var(--mantine-color-dark-4);
+}
+
+.promptSection {
+  background: var(--mantine-color-dark-8);
+  border: 1px solid var(--mantine-color-dark-5);
+  border-radius: var(--mantine-radius-md);
+  padding: 12px;
+}
+
+.promptParagraph {
+  color: var(--mantine-color-gray-2);
+  line-height: 1.45;
+  word-break: break-word;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.metaProperties {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--mantine-color-dark-8);
+  border: 1px solid var(--mantine-color-dark-5);
+  border-radius: var(--mantine-radius-md);
+  padding: 12px;
+}
+
+.metaRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.sidebarFooter {
+  padding: 10px var(--mantine-spacing-md);
+  background: var(--mantine-color-dark-8);
+  border-top: 1px solid var(--mantine-color-dark-5);
+}
+

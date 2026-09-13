@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { AuthResponses, ErrorCodes } from "@ai-gen-free/core";
 import {
   AuthError,
+  changeUserPassword,
   confirmPasswordReset,
   getUserProfile,
   loginUser,
@@ -255,6 +256,7 @@ export async function registerAuthRoutes(
         phoneNumber?: unknown;
         ktp?: unknown;
         address?: unknown;
+        email?: unknown;
       };
 
       const result = await updateUserProfile(session.user.id, body);
@@ -302,7 +304,43 @@ export async function registerAuthRoutes(
   app.post("/customer/logout", handleLogout);
 
   // -------------------------------------------------------------
-  // 7b. RESET KATA SANDI
+  // 7b. GANTI KATA SANDI (POST /customer/password-change)
+  // Input: currentPassword, newPassword (IDOR safe via session.user.id)
+  // -------------------------------------------------------------
+  const handleChangePassword = async (req: any, reply: any) => {
+    try {
+      const session = await userFromCookie(sessionTokenFromReq(req), "user");
+      if (!session) {
+        return reply.status(401).send({
+          error: { code: ErrorCodes.UNAUTHENTICATED, message: AuthResponses.errors.UNAUTHENTICATED.message },
+        });
+      }
+
+      const body = (req.body ?? {}) as {
+        currentPassword?: unknown;
+        newPassword?: unknown;
+      };
+
+      const result = await changeUserPassword({
+        userId: session.user.id,
+        currentPasswordRaw: body.currentPassword,
+        newPasswordRaw: body.newPassword,
+      });
+
+      return reply.status(200).send({
+        ok: true,
+        message: result.message,
+      });
+    } catch (err) {
+      return sendAuthError(reply, err, req);
+    }
+  };
+
+  app.post("/customer/password-change", handleChangePassword);
+  app.post("/customer/change-password", handleChangePassword);
+
+  // -------------------------------------------------------------
+  // 7c. RESET KATA SANDI
   // POST /auth/password-reset { email }
   // POST /auth/password-reset-validation { token }
   // POST /auth/password-reset-confirm { token, password }

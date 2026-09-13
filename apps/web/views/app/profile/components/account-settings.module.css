@@ -1,0 +1,146 @@
+.container {
+  max-width: 860px;
+  margin: 0 auto;
+  padding-block: var(--mantine-spacing-md);
+}
+
+.cardWrapper {
+  background: var(--mantine-color-dark-7);
+  border: 1px solid var(--mantine-color-dark-4);
+  border-radius: var(--mantine-radius-md);
+  overflow: hidden;
+}
+
+.headerSection {
+  padding: var(--mantine-spacing-lg) var(--mantine-spacing-xl);
+  border-bottom: 1px solid var(--mantine-color-dark-4);
+  background: var(--mantine-color-dark-8);
+}
+
+.title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--mantine-color-text);
+}
+
+.subTitle {
+  font-size: 0.875rem;
+  color: var(--mantine-color-dimmed);
+  margin-top: 4px;
+}
+
+.rowItem {
+  padding: var(--mantine-spacing-lg) var(--mantine-spacing-xl);
+  border-bottom: 1px solid var(--mantine-color-dark-4);
+  transition: background-color 0.15s ease;
+}
+
+.rowItem:last-child {
+  border-bottom: none;
+}
+
+.rowLabel {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--mantine-color-text);
+  margin-bottom: 4px;
+}
+
+.rowValueWrapper {
+  display: flex;
+  align-items: center;
+  gap: var(--mantine-spacing-xs);
+}
+
+.rowValue {
+  font-size: 0.95rem;
+  color: var(--mantine-color-gray-3);
+  word-break: break-word;
+}
+
+.rowEmptyValue {
+  font-size: 0.95rem;
+  color: var(--mantine-color-dimmed);
+  font-style: italic;
+}
+
+.editButton {
+  color: var(--mantine-color-dimmed);
+  transition: color 0.15s ease, transform 0.15s ease;
+}
+
+.editButton:hover {
+  color: var(--mantine-color-blue-4);
+  transform: scale(1.1);
+}
+
+.editFormWrapper {
+  margin-top: var(--mantine-spacing-xs);
+  display: flex;
+  flex-direction: column;
+  gap: var(--mantine-spacing-xs);
+  max-width: 480px;
+}
+
+.operatorBadgeGroup {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.passwordRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--mantine-spacing-md);
+  flex-wrap: wrap;
+}
+
+.passwordTextWrapper {
+  flex: 1;
+  min-width: 260px;
+}
+
+.passwordDescription {
+  font-size: 0.875rem;
+  color: var(--mantine-color-dimmed);
+  line-height: 1.45;
+  margin-top: 4px;
+}
+
+.resetBtn {
+  border: 1px solid var(--mantine-color-dark-3);
+  background: var(--mantine-color-dark-5);
+  font-weight: 500;
+  transition: all 0.15s ease;
+}
+
+.resetBtn:hover {
+  background: var(--mantine-color-dark-4);
+  border-color: var(--mantine-color-dark-2);
+}
+
+.alertBox {
+  margin-bottom: var(--mantine-spacing-md);
+}
+
+@media (max-width: 48em) {
+  .headerSection,
+  .rowItem {
+    padding: var(--mantine-spacing-md);
+  }
+
+  .passwordRow {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .resetBtn {
+    width: 100%;
+  }
+
+  .editFormWrapper {
+    max-width: 100%;
+  }
+}

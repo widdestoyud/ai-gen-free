@@ -18,6 +18,7 @@ import {
   getPasswordResetTokenTtlMs,
   evaluatePasswordResetRequest,
   type PasswordResetDenial,
+  validateIndonesianPhoneNumber,
 } from "@ai-gen-free/core";
 import { prisma } from "@ai-gen-free/db";
 import type IORedis from "ioredis";
@@ -684,6 +685,7 @@ export async function updateUserProfile(
     phoneNumber?: unknown;
     ktp?: unknown;
     address?: unknown;
+    email?: unknown;
   },
 ) {
   const updateData: {
@@ -691,12 +693,72 @@ export async function updateUserProfile(
     phoneNumber?: string;
     ktp?: string;
     address?: string;
+    email?: string;
   } = {};
 
-  if (typeof data.displayName === "string") updateData.displayName = data.displayName.trim();
-  if (typeof data.phoneNumber === "string") updateData.phoneNumber = data.phoneNumber.trim();
-  if (typeof data.ktp === "string") updateData.ktp = data.ktp.trim();
-  if (typeof data.address === "string") updateData.address = data.address.trim();
+  if (typeof data.email === "string" && data.email.trim().length > 0) {
+    const cleanEmail = parseEmailOrThrow(data.email);
+    if (!isAllowedEmailDomain(cleanEmail)) {
+      throw new AuthError(
+        AuthResponses.errors.INVALID_EMAIL_DOMAIN.code,
+        AuthResponses.errors.INVALID_EMAIL_DOMAIN.message,
+        AuthResponses.errors.INVALID_EMAIL_DOMAIN.status,
+      );
+    }
+    const existing = await prisma.user.findUnique({ where: { email: cleanEmail } });
+    if (existing && existing.id !== userId) {
+      throw new AuthError(
+        AuthResponses.errors.EMAIL_ALREADY_REGISTERED.code,
+        AuthResponses.errors.EMAIL_ALREADY_REGISTERED.message,
+        AuthResponses.errors.EMAIL_ALREADY_REGISTERED.status,
+      );
+    }
+    updateData.email = cleanEmail;
+  }
+
+  if (typeof data.displayName === "string") {
+    const clean = data.displayName.trim();
+    if (clean.length > 50) {
+      throw new AuthError(AuthResponses.errors.PROFILE_INVALID.code, "Nama tampilan maksimal 50 karakter.");
+    }
+    updateData.displayName = clean;
+  }
+
+  if (typeof data.phoneNumber === "string") {
+    const cleanPhone = data.phoneNumber.trim();
+    if (cleanPhone.length > 0) {
+      const phoneValidation = validateIndonesianPhoneNumber(cleanPhone);
+      if (!phoneValidation.valid) {
+        throw new AuthError(
+          AuthResponses.errors.PROFILE_INVALID.code,
+          phoneValidation.error ?? "Nomor telepon tidak valid.",
+        );
+      }
+      updateData.phoneNumber = phoneValidation.normalized!;
+    } else {
+      updateData.phoneNumber = "";
+    }
+  }
+
+  if (typeof data.ktp === "string") {
+    const cleanKtp = data.ktp.trim();
+    if (cleanKtp.length > 0) {
+      if (!/^\d{16}$/.test(cleanKtp)) {
+        throw new AuthError(AuthResponses.errors.PROFILE_INVALID.code, "Nomor KTP harus terdiri dari 16 digit angka.");
+      }
+      updateData.ktp = cleanKtp;
+    } else {
+      updateData.ktp = "";
+    }
+  }
+
+  if (typeof data.address === "string") {
+    const cleanAddr = data.address.trim();
+    if (cleanAddr.length > 255) {
+      throw new AuthError(AuthResponses.errors.PROFILE_INVALID.code, "Alamat maksimal 255 karakter.");
+    }
+    updateData.address = cleanAddr;
+  }
 
   const user = await prisma.user.update({
     where: { id: userId },
@@ -1306,6 +1368,75 @@ export async function confirmPasswordReset(opts: {
   ]);
 
   return { message: AuthResponses.success.PASSWORD_RESET_SUCCESS.message };
+}
+
+/**
+ * Ganti kata sandi oleh user terautentikasi (IDOR SAFE: identitas dari session.userId):
+ * - Memverifikasi kata sandi lama (currentPassword)
+ * - Memvalidasi format kata sandi baru (newPassword) min 8 karakter, 1 kapital, 1 digit
+ * - Menyimpan hash kata sandi baru
+ */
+export async function changeUserPassword(opts: {
+  userId: string;
+  currentPasswordRaw: unknown;
+  newPasswordRaw: unknown;
+}): Promise<{ message: string }> {
+  if (typeof opts.currentPasswordRaw !== "string" || !opts.currentPasswordRaw) {
+    throw new AuthError(
+      AuthResponses.errors.INVALID_CREDENTIALS.code,
+      "Kata sandi lama wajib diisi.",
+      400,
+    );
+  }
+
+  const passCheck = validatePassword(opts.newPasswordRaw);
+  if (!passCheck.valid) {
+    throw new AuthError(
+      AuthResponses.errors.WEAK_PASSWORD.code,
+      passCheck.message ?? AuthResponses.errors.WEAK_PASSWORD.message,
+      AuthResponses.errors.WEAK_PASSWORD.status,
+    );
+  }
+
+  const user = await prisma.user.findUnique({ where: { id: opts.userId } });
+  if (!user || !user.passwordHash) {
+    throw new AuthError(
+      AuthResponses.errors.UNAUTHENTICATED.code,
+      AuthResponses.errors.UNAUTHENTICATED.message,
+      401,
+    );
+  }
+
+  const validCurrent = await verifyPassword(opts.currentPasswordRaw, user.passwordHash);
+  if (!validCurrent) {
+    throw new AuthError(
+      AuthResponses.errors.INVALID_CREDENTIALS.code,
+      "Kata sandi lama yang Anda masukkan salah.",
+      400,
+    );
+  }
+
+  const isSame = await verifyPassword(opts.newPasswordRaw as string, user.passwordHash);
+  if (isSame) {
+    throw new AuthError(
+      AuthResponses.errors.WEAK_PASSWORD.code,
+      "Kata sandi baru tidak boleh sama dengan kata sandi lama.",
+      400,
+    );
+  }
+
+  const newPasswordHash = await hashPassword(opts.newPasswordRaw as string);
+  const now = new Date();
+
+  await prisma.user.update({
+    where: { id: user.id },
+    data: {
+      passwordHash: newPasswordHash,
+      passwordChangedAt: now,
+    },
+  });
+
+  return { message: AuthResponses.success.PASSWORD_CHANGED.message };
 }
 
 

@@ -23,6 +23,14 @@ export type {
   StoredObject,
 } from "./ports/storage.js";
 export { normalizeEmail, isEmailFormat, isDisposableEmail, isAllowedEmailDomain } from "./auth/email.js";
+export {
+  normalizeIndonesianPhoneNumber,
+  getIndonesianPhoneOperator,
+  validateIndonesianPhoneNumber,
+  INDONESIAN_OPERATOR_PREFIXES,
+  type IndonesianPhoneInfo,
+  type OperatorPrefixRule,
+} from "./auth/phone.js";
 export { hashSecret, safeEqualHex, randomOtp, randomToken } from "./auth/crypto.js";
 export { validatePassword, hashPassword, verifyPassword } from "./auth/password.js";
 export { RateLimitConfig, getOtpTtlMs, getPasswordResetTokenTtlMs, type RateLimitRule } from "./config/rate-limit.config.js";
