@@ -11,6 +11,7 @@ import { hasLiveOutput, type JobView } from "@/lib/job-status";
 import type { Model } from "../types";
 import { GenerateAspectMenu } from "./generate-aspect-menu";
 import { GenerateLibraryModal } from "./generate-library-modal";
+import { GenerateResultModal } from "./generate-result-modal";
 import { GenerateSkeleton } from "./generate-skeleton";
 import { ImageIcon, SparkleIcon, VideoIcon } from "./generate-icons";
 import { GenerateDurationMenu, GenerateResolutionMenu } from "./generate-video-menu";
@@ -48,7 +49,7 @@ export function GenerateStudio(props: {
                 <CooldownText until={ctrl.cooldownUntil} />
               </Alert>
             ) : null}
-            <div className={classes.previewCard}>
+            <div className={classes.previewCard} onClick={ctrl.openResultModal} role="button" tabIndex={0}>
               <div className={classes.stageMediaWrapper}>
                 {lastJob.output.contentType.includes("video") ||
                 lastJob.mode === "t2v" ||
@@ -229,6 +230,12 @@ export function GenerateStudio(props: {
         onToggleGeneration={ctrl.toggleGeneration}
         onToggleUpload={ctrl.toggleUpload}
         onUploadClick={ctrl.openFilePicker}
+      />
+
+      <GenerateResultModal
+        opened={ctrl.resultModalOpened}
+        onClose={ctrl.closeResultModal}
+        job={lastJob}
       />
     </div>
   );

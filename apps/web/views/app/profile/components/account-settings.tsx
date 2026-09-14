@@ -8,6 +8,7 @@ import {
   CopyButton,
   Group,
   PasswordInput,
+  Select,
   Stack,
   Text,
   TextInput,
@@ -17,6 +18,14 @@ import {
 import type { CustomerProfile } from "./customer-home";
 import { useAccountSettings } from "@/hooks/use-account-settings";
 import classes from "./account-settings.module.css";
+
+function formatGenderDisplay(gender?: string | null): string {
+  if (!gender) return "Belum diatur";
+  const lower = gender.toLowerCase();
+  if (lower === "male" || lower === "laki-laki" || lower === "pria") return "Laki-laki";
+  if (lower === "female" || lower === "perempuan" || lower === "wanita") return "Perempuan";
+  return gender;
+}
 
 function PencilIcon({ size = 15 }: { size?: number }) {
   return (
@@ -204,7 +213,67 @@ export function AccountSettings({ profile: initialProfile }: { profile: Customer
           )}
         </div>
 
-        {/* 4. NOMOR TELEPON */}
+        {/* 4. JENIS KELAMIN */}
+        <div className={classes.rowItem}>
+          <Text className={classes.rowLabel}>Jenis Kelamin</Text>
+          {ctrl.editingField === "gender" ? (
+            <div className={classes.editFormWrapper}>
+              <Select
+                value={ctrl.editValues.gender}
+                onChange={(val) => ctrl.setFieldValue("gender", val ?? "")}
+                placeholder="Pilih jenis kelamin"
+                data={[
+                  { value: "male", label: "Laki-laki" },
+                  { value: "female", label: "Perempuan" },
+                ]}
+                error={ctrl.validationErrors.gender}
+                size="sm"
+                disabled={ctrl.saving}
+                clearable
+              />
+              <Group gap="xs" mt={4}>
+                <Button
+                  size="xs"
+                  color="blue"
+                  onClick={() => ctrl.saveField("gender")}
+                  loading={ctrl.saving}
+                >
+                  Simpan
+                </Button>
+                <Button
+                  size="xs"
+                  variant="subtle"
+                  color="gray"
+                  onClick={ctrl.cancelEdit}
+                  disabled={ctrl.saving}
+                >
+                  Batal
+                </Button>
+              </Group>
+            </div>
+          ) : (
+            <div className={classes.rowValueWrapper}>
+              {ctrl.profile.gender ? (
+                <Text className={classes.rowValue}>{formatGenderDisplay(ctrl.profile.gender)}</Text>
+              ) : (
+                <Text className={classes.rowEmptyValue}>Belum diatur</Text>
+              )}
+              <Tooltip label="Ubah jenis kelamin" withArrow>
+                <ActionIcon
+                  variant="subtle"
+                  size="sm"
+                  onClick={() => ctrl.startEdit("gender")}
+                  className={classes.editButton}
+                  aria-label="Ubah Jenis Kelamin"
+                >
+                  <PencilIcon />
+                </ActionIcon>
+              </Tooltip>
+            </div>
+          )}
+        </div>
+
+        {/* 5. NOMOR TELEPON */}
         <div className={classes.rowItem}>
           <Text className={classes.rowLabel}>Nomor Telepon</Text>
           {ctrl.editingField === "phoneNumber" ? (
@@ -290,7 +359,7 @@ export function AccountSettings({ profile: initialProfile }: { profile: Customer
           )}
         </div>
 
-        {/* 5. ALAMAT */}
+        {/* 6. ALAMAT */}
         <div className={classes.rowItem}>
           <Text className={classes.rowLabel}>Alamat</Text>
           {ctrl.editingField === "address" ? (
@@ -348,7 +417,7 @@ export function AccountSettings({ profile: initialProfile }: { profile: Customer
           )}
         </div>
 
-        {/* 6. PASSWORD (GANTI KATA SANDI) */}
+        {/* 7. PASSWORD (GANTI KATA SANDI) */}
         <div className={classes.rowItem}>
           <Text className={classes.rowLabel}>Password</Text>
           {ctrl.isChangingPassword ? (

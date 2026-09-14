@@ -1,0 +1,117 @@
+.historyContainer {
+  margin-top: var(--mantine-spacing-xl);
+  background-color: var(--mantine-color-body);
+  border-radius: var(--mantine-radius-md);
+  border: 1px solid var(--mantine-color-default-border);
+  padding: var(--mantine-spacing-md) var(--mantine-spacing-lg);
+}
+
+.headerRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--mantine-spacing-sm);
+  margin-bottom: var(--mantine-spacing-md);
+}
+
+.title {
+  font-size: var(--mantine-font-size-lg);
+  font-weight: 600;
+  color: var(--mantine-color-text);
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: var(--mantine-spacing-xs);
+  flex-wrap: wrap;
+}
+
+.selectInput {
+  min-width: 140px;
+}
+
+.tableHeader {
+  color: var(--mantine-color-dimmed);
+  font-size: var(--mantine-font-size-sm);
+  font-weight: 500;
+  border-bottom: 1px solid var(--mantine-color-default-border);
+}
+
+.tableRow {
+  border-bottom: 1px solid var(--mantine-color-default-border);
+  transition: background-color 150ms ease;
+}
+
+.tableRow:last-child {
+  border-bottom: none;
+}
+
+.dateCell {
+  color: var(--mantine-color-dimmed);
+  font-size: var(--mantine-font-size-sm);
+  white-space: nowrap;
+}
+
+.sourceCell {
+  color: var(--mantine-color-text);
+  font-size: var(--mantine-font-size-sm);
+  font-weight: 500;
+}
+
+.amountNegative {
+  color: var(--mantine-color-red-6);
+  font-size: var(--mantine-font-size-sm);
+  font-weight: 600;
+}
+
+.amountPositive {
+  color: var(--mantine-color-teal-6);
+  font-size: var(--mantine-font-size-sm);
+  font-weight: 600;
+}
+
+.balanceCell {
+  color: var(--mantine-color-text);
+  font-size: var(--mantine-font-size-sm);
+  font-weight: 500;
+}
+
+.actionCell {
+  text-align: right;
+  width: 40px;
+}
+
+.detailRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--mantine-spacing-xs) 0;
+  border-bottom: 1px solid var(--mantine-color-default-border);
+}
+
+.detailRow:last-child {
+  border-bottom: none;
+}
+
+.detailLabel {
+  color: var(--mantine-color-dimmed);
+  font-size: var(--mantine-font-size-sm);
+}
+
+.detailValue {
+  color: var(--mantine-color-text);
+  font-size: var(--mantine-font-size-sm);
+  font-weight: 500;
+  text-align: right;
+}
+
+.mediaPreview {
+  width: 100%;
+  max-height: 260px;
+  border-radius: var(--mantine-radius-md);
+  object-fit: contain;
+  background-color: var(--mantine-color-dark-8);
+  margin-top: var(--mantine-spacing-xs);
+}

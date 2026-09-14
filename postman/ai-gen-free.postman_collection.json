@@ -648,7 +648,7 @@
               "host": ["{{baseUrl}}"],
               "path": ["jobs"]
             },
-            "description": "Submit generate generic (202 + job_id). BFF Next /api/jobs POST di-rewrite ke sini."
+            "description": "Submit generate generic (202 + job_id). BFF Next /api/generate POST di-rewrite ke sini."
           },
           "response": []
         },

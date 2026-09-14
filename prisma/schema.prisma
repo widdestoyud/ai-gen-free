@@ -75,6 +75,7 @@ model User {
   phoneNumber     String?
   ktp             String?
   address         String?
+  gender          String?
   lastDeviceId        String?
   lastLoginAt         DateTime?
   passwordChangedAt   DateTime?

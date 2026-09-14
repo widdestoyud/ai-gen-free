@@ -7,7 +7,7 @@ async function load() {
   const [wallet, catalog, jobs] = await Promise.all([
     fetchUserApi("/api/wallet"),
     fetchUserApi("/api/catalog/generate"),
-    fetchUserApi("/api/jobs"),
+    fetchUserApi("/api/library"),
   ]);
   if (!wallet || !wallet.ok) return null;
   const jobsBody = jobs?.ok ? ((await jobs.json()) as JobsListView) : { jobs: [] as JobView[], nextGenerateAt: null };

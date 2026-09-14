@@ -228,7 +228,7 @@ export async function registerAuthRoutes(
   // -------------------------------------------------------------
   // 6. PROFIL PELANGGAN (GET/PATCH /customer/profile)
   // IDOR SAFE: Identitas diambil secara mutlak dari cookie sesi sid
-  // Input update: displayName, phoneNumber, ktp, address
+  // Input update: displayName, phoneNumber, ktp, address, gender
   // -------------------------------------------------------------
   const handleGetProfile = async (req: any, reply: any) => {
     const session = await userFromCookie(sessionTokenFromReq(req), "user");
@@ -256,6 +256,7 @@ export async function registerAuthRoutes(
         phoneNumber?: unknown;
         ktp?: unknown;
         address?: unknown;
+        gender?: unknown;
         email?: unknown;
       };
 

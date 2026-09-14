@@ -26,7 +26,7 @@ export function JobClient({ initial }: { initial: JobView }) {
     let cancelled = false;
 
     async function refresh() {
-      const result = await requestJson<JobView>(`/api/jobs/${job.id}`);
+      const result = await requestJson<JobView>(`/api/generate/${job.id}`);
       if (!cancelled && result.ok) setJob(result.data);
     }
 

@@ -4,7 +4,7 @@ import { fetchUserApi } from "@/lib/server-api";
 import { JobPageView } from "@/views/jobs";
 
 async function load(id: string): Promise<JobView | null | "unauth"> {
-  const res = await fetchUserApi(`/api/jobs/${id}`);
+  const res = await fetchUserApi(`/api/generate/${id}`);
   if (!res) return "unauth";
   if (res.status === 404) return null;
   if (!res.ok) return "unauth";

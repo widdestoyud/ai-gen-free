@@ -34,10 +34,13 @@ export function mapLegacyPath(method: string, path: string): string {
   if (m === "GET" && path === "/catalog/generate") return "/customer/models";
   if (m === "GET" && path === "/catalog/topup") return "/customer/packages";
 
-  if (m === "GET" && (path === "/jobs" || path === "/library")) return "/customer/generated-lists";
-  const jobFile = m === "GET" ? path.match(/^\/jobs\/([^/]+)\/file$/) : null;
+  if (m === "POST" && (path === "/jobs" || path === "/generate")) return "/jobs";
+
+  if (m === "GET" && (path === "/jobs" || path === "/library" || path === "/generate")) return "/customer/generated-lists";
+  const jobFile = m === "GET" ? path.match(/^\/(?:jobs|generate)\/([^/]+)\/file$/) : null;
   if (jobFile) return `/customer/generated/${jobFile[1]}/file`;
-  const jobDetail = m === "GET" ? path.match(/^\/jobs\/([^/]+)$/) : null;
+  const jobDetail =
+    m === "GET" && !path.startsWith("/generate/siray/") ? path.match(/^\/(?:jobs|generate)\/([^/]+)$/) : null;
   if (jobDetail) return `/customer/generated/${jobDetail[1]}`;
 
   if (m === "POST" && path === "/admin/auth/logout") return "/admin/logout";

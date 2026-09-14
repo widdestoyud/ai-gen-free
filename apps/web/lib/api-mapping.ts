@@ -22,6 +22,30 @@ export const API_MAPPINGS: readonly ApiRouteMapping[] = [
   // 1. Media, Library & Jobs
   // -------------------------------------------------------------
   {
+    FE: "/api/generate",
+    BE: "/jobs",
+    method: "POST",
+    description: "Submit request job generate baru",
+  },
+  {
+    FE: "/api/generate",
+    BE: "/customer/generated-lists",
+    method: "GET",
+    description: "Daftar job generate pengguna",
+  },
+  {
+    FE: "/api/generate/:id",
+    BE: "/customer/generated/:id",
+    method: "GET",
+    description: "Detail data job generate spesifik",
+  },
+  {
+    FE: "/api/generate/:id/file",
+    BE: "/customer/generated/:id/file",
+    method: "GET",
+    description: "Unduh file biner hasil render job",
+  },
+  {
     FE: "/api/library",
     BE: "/customer/generated-lists",
     method: "GET",
@@ -31,25 +55,25 @@ export const API_MAPPINGS: readonly ApiRouteMapping[] = [
     FE: "/api/jobs",
     BE: "/customer/generated-lists",
     method: "GET",
-    description: "Daftar job generate pengguna",
+    description: "Daftar job generate pengguna (alias)",
   },
   {
     FE: "/api/jobs/:id",
     BE: "/customer/generated/:id",
     method: "GET",
-    description: "Detail data job generate spesifik",
+    description: "Detail data job generate spesifik (alias)",
   },
   {
     FE: "/api/jobs/:id/file",
     BE: "/customer/generated/:id/file",
     method: "GET",
-    description: "Unduh file biner hasil render job",
+    description: "Unduh file biner hasil render job (alias)",
   },
   {
     FE: "/api/jobs",
     BE: "/jobs",
     method: "POST",
-    description: "Submit request job generate gambar baru",
+    description: "Submit request job generate gambar baru (alias)",
   },
   {
     FE: "/api/generate/siray/:modelSlug",
@@ -353,6 +377,15 @@ export function resolveBackendPath(fePath: string, method = "GET"): string {
   }
 
   // 2. Cek pattern parameterized (misal :id)
+  // GET /api/generate/:id/file -> /customer/generated/:id/file
+  const generateFileMatch = m === "GET" ? path.match(/^\/api\/generate\/([^/]+)\/file$/) : null;
+  if (generateFileMatch) return `/customer/generated/${generateFileMatch[1]}/file` + search;
+
+  // GET /api/generate/:id -> /customer/generated/:id (kecuali endpoint adapter spesifik /api/generate/siray/...)
+  const generateDetailMatch =
+    m === "GET" && !path.startsWith("/api/generate/siray/") ? path.match(/^\/api\/generate\/([^/]+)$/) : null;
+  if (generateDetailMatch) return `/customer/generated/${generateDetailMatch[1]}` + search;
+
   // GET /api/jobs/:id/file -> /customer/generated/:id/file
   const jobFileMatch = m === "GET" ? path.match(/^\/api\/jobs\/([^/]+)\/file$/) : null;
   if (jobFileMatch) return `/customer/generated/${jobFileMatch[1]}/file` + search;

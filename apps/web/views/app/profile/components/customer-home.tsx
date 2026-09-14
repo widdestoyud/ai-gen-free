@@ -9,6 +9,7 @@ export type CustomerProfile = {
   phoneNumber: string | null;
   ktp: string | null;
   address: string | null;
+  gender: string | null;
 };
 
 export function CustomerHome({ profile }: { profile: CustomerProfile }) {
@@ -16,6 +17,16 @@ export function CustomerHome({ profile }: { profile: CustomerProfile }) {
     <Stack gap="sm">
       <Text>Masuk sebagai {profile.email}.</Text>
       {profile.displayName ? <Text>Nama: {profile.displayName}</Text> : null}
+      {profile.gender ? (
+        <Text>
+          Jenis Kelamin:{" "}
+          {profile.gender.toLowerCase() === "male"
+            ? "Laki-laki"
+            : profile.gender.toLowerCase() === "female"
+            ? "Perempuan"
+            : profile.gender}
+        </Text>
+      ) : null}
       {profile.phoneNumber ? <Text>Telepon: {profile.phoneNumber}</Text> : null}
       {profile.address ? <Text>Alamat: {profile.address}</Text> : null}
     </Stack>

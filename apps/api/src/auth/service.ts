@@ -655,6 +655,7 @@ export async function getUserProfile(userId: string) {
       phoneNumber: true,
       ktp: true,
       address: true,
+      gender: true,
       role: true,
       nextGenerateAt: true,
       emailVerifiedAt: true,
@@ -685,6 +686,7 @@ export async function updateUserProfile(
     phoneNumber?: unknown;
     ktp?: unknown;
     address?: unknown;
+    gender?: unknown;
     email?: unknown;
   },
 ) {
@@ -693,6 +695,7 @@ export async function updateUserProfile(
     phoneNumber?: string;
     ktp?: string;
     address?: string;
+    gender?: string;
     email?: string;
   } = {};
 
@@ -760,6 +763,14 @@ export async function updateUserProfile(
     updateData.address = cleanAddr;
   }
 
+  if (typeof data.gender === "string") {
+    const cleanGender = data.gender.trim();
+    if (cleanGender.length > 20) {
+      throw new AuthError(AuthResponses.errors.PROFILE_INVALID.code, "Jenis kelamin maksimal 20 karakter.");
+    }
+    updateData.gender = cleanGender;
+  }
+
   const user = await prisma.user.update({
     where: { id: userId },
     data: updateData,
@@ -770,6 +781,7 @@ export async function updateUserProfile(
       phoneNumber: true,
       ktp: true,
       address: true,
+      gender: true,
       role: true,
       emailVerifiedAt: true,
       createdAt: true,

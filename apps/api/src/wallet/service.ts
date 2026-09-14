@@ -275,6 +275,7 @@ export async function listLedger(userId: string) {
       amount: true,
       createdAt: true,
       invoiceId: true,
+      jobId: true,
     },
   });
   return rows.map((row) => ({
@@ -284,6 +285,7 @@ export async function listLedger(userId: string) {
     amount: asInt(row.amount),
     createdAt: row.createdAt.toISOString(),
     invoiceId: row.invoiceId,
+    jobId: row.jobId,
     label: ledgerLabel(row.type, row.status),
   }));
 }
@@ -294,7 +296,7 @@ function ledgerLabel(type: LedgerType, status: LedgerStatus): string {
   if (type === "capture" && status === "posted") return "Pemakaian generate";
   if (type === "release") return "Poin dikembalikan";
   if (type === "refund") return "Pengembalian";
-  if (type === "adjust") return "Penyesuaian admin";
+  if (type === "adjust") return "Isi saldo";
   return type;
 }
 

@@ -82,6 +82,7 @@ export function useGenerateStudio(props: {
   const [selectedRefs, setSelectedRefs] = useState<StudioRef[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  const [resultModalOpened, setResultModalOpened] = useState(false);
   const [lastGeneratedJob, setLastGeneratedJob] = useState<JobView | null>(null);
   const initialActive = props.jobs.find((j) => isJobActive(j.status));
   const [activeJobId, setActiveJobId] = useState<string | null>(initialActive?.id ?? null);
@@ -136,13 +137,13 @@ export function useGenerateStudio(props: {
     };
   }, [uploads]);
 
-  // Polling spesifik pada job yang sedang aktif / baru disubmit (/api/jobs/:id)
+  // Polling spesifik pada job yang sedang aktif / baru disubmit (/api/generate/:id)
   useEffect(() => {
     if (!activeJobId) return;
     let cancelled = false;
 
     async function pollJob() {
-      const result = await requestJson<JobView>(`/api/jobs/${activeJobId}`);
+      const result = await requestJson<JobView>(`/api/generate/${activeJobId}`);
       if (cancelled || !result.ok) return;
       const data = result.data;
       setActiveJob(data);
@@ -150,6 +151,7 @@ export function useGenerateStudio(props: {
       if (data.status === "succeeded") {
         if (hasLiveOutput(data.output)) {
           setLastGeneratedJob(data);
+          setResultModalOpened(true);
         }
         setCooldownUntil(data.nextGenerateAt ?? null);
         setActiveJobId(null);
@@ -197,7 +199,7 @@ export function useGenerateStudio(props: {
     if (delay == null) return;
     const timer = window.setTimeout(() => {
       void (async () => {
-        const result = await requestJson<JobsListView>("/api/jobs");
+        const result = await requestJson<JobsListView>("/api/library");
         if (result.ok) {
           setJobs(result.data.jobs);
           setCooldownUntil(result.data.nextGenerateAt ?? null);
@@ -233,7 +235,7 @@ export function useGenerateStudio(props: {
       params.refs = selectedRefs.map((r) => r.url);
     }
 
-    const result = await requestJson<{ job_id?: string; id?: string }>("/api/jobs", {
+    const result = await requestJson<{ job_id?: string; id?: string }>("/api/generate", {
       method: "POST",
       headers: { "Idempotency-Key": crypto.randomUUID() },
       body: JSON.stringify({
@@ -373,5 +375,8 @@ export function useGenerateStudio(props: {
     fileRef,
     openFilePicker,
     onFiles,
+    resultModalOpened,
+    openResultModal: () => setResultModalOpened(true),
+    closeResultModal: () => setResultModalOpened(false),
   };
 }

@@ -10,6 +10,8 @@ import { requestJson } from "@/lib/api";
 import { formatDateId, formatIdr } from "@/lib/format";
 import type { Invoice, LedgerRow, Package } from "../types";
 
+import { CreditHistory } from "./credit-history";
+
 export function WalletClient(props: {
   available: number;
   held: number;
@@ -106,17 +108,10 @@ export function WalletClient(props: {
         </ItemCard>
       ))}
 
-      <Title order={2} mt="lg">
-        Riwayat
-      </Title>
-      {props.entries.length === 0 ? <EmptyState>Belum ada transaksi poin.</EmptyState> : null}
-      <List>
-        {props.entries.map((e) => (
-          <List.Item key={e.id}>
-            {e.label} · {e.amount} · {formatDateId(e.createdAt)}
-          </List.Item>
-        ))}
-      </List>
+      <CreditHistory
+        entries={props.entries}
+        currentBalance={props.available}
+      />
     </div>
   );
 }

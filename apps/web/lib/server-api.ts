@@ -66,6 +66,7 @@ export async function loadCustomerProfile() {
         phoneNumber: string | null;
         ktp: string | null;
         address: string | null;
+        gender: string | null;
       };
     };
   } catch {

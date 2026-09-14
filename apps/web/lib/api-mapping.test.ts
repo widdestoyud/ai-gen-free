@@ -10,6 +10,10 @@ test("API_MAPPINGS contains library mapping", () => {
 });
 
 test("resolveBackendPath maps FE paths to BE canonical paths", () => {
+  assert.equal(resolveBackendPath("/api/generate", "POST"), "/jobs");
+  assert.equal(resolveBackendPath("/api/generate", "GET"), "/customer/generated-lists");
+  assert.equal(resolveBackendPath("/api/generate/cmu1efgfz0001qz0zntv0iy2z", "GET"), "/customer/generated/cmu1efgfz0001qz0zntv0iy2z");
+  assert.equal(resolveBackendPath("/api/generate/job123/file", "GET"), "/customer/generated/job123/file");
   assert.equal(resolveBackendPath("/api/library", "GET"), "/customer/generated-lists");
   assert.equal(resolveBackendPath("/api/jobs", "GET"), "/customer/generated-lists");
   assert.equal(resolveBackendPath("/api/jobs/job123", "GET"), "/customer/generated/job123");

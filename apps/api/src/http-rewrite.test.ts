@@ -18,10 +18,14 @@ test("strips /api prefix then maps legacy customer paths", () => {
   assert.equal(rewriteRequestUrl("/api/wallet", "GET"), "/customer/coin");
   assert.equal(rewriteRequestUrl("/api/wallet/ledger", "GET"), "/customer/coin/ledger");
   assert.equal(rewriteRequestUrl("/api/jobs", "GET"), "/customer/generated-lists");
+  assert.equal(rewriteRequestUrl("/api/generate", "GET"), "/customer/generated-lists");
   assert.equal(rewriteRequestUrl("/api/library", "GET"), "/customer/generated-lists");
   assert.equal(rewriteRequestUrl("/api/jobs/abc123", "GET"), "/customer/generated/abc123");
+  assert.equal(rewriteRequestUrl("/api/generate/cmu1efgfz0001qz0zntv0iy2z", "GET"), "/customer/generated/cmu1efgfz0001qz0zntv0iy2z");
   assert.equal(rewriteRequestUrl("/api/jobs/abc123/file", "GET"), "/customer/generated/abc123/file");
+  assert.equal(rewriteRequestUrl("/api/generate/abc123/file", "GET"), "/customer/generated/abc123/file");
   assert.equal(rewriteRequestUrl("/api/jobs", "POST"), "/jobs");
+  assert.equal(rewriteRequestUrl("/api/generate", "POST"), "/jobs");
   assert.equal(
     rewriteRequestUrl("/api/generate/siray/seedream-5.0-pro-t2i-spicy", "POST"),
     "/generate/siray/seedream-5.0-pro-t2i-spicy",

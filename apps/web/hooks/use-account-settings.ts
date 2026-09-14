@@ -9,12 +9,14 @@ import {
 import { requestJson } from "@/lib/api";
 import type { CustomerProfile } from "@/views/app/profile/components/customer-home";
 
-export type EditableField = "displayName" | "phoneNumber" | "address" | "ktp";
+export type EditableField = "displayName" | "phoneNumber" | "address" | "ktp" | "gender";
 
 function getFieldSuccessMessage(field: EditableField): string {
   switch (field) {
     case "displayName":
       return "Username berhasil diubah.";
+    case "gender":
+      return "Jenis kelamin berhasil diubah.";
     case "phoneNumber":
       return "Nomor telepon berhasil diubah.";
     case "address":
@@ -37,6 +39,7 @@ export interface AccountSettingsState {
   editingField: EditableField | null;
   editValues: {
     displayName: string;
+    gender: string;
     phoneNumber: string;
     address: string;
     ktp: string;
@@ -71,6 +74,7 @@ export function useAccountSettings(initialProfile: CustomerProfile): AccountSett
   const [editingField, setEditingField] = useState<EditableField | null>(null);
   const [editValues, setEditValues] = useState({
     displayName: initialProfile.displayName ?? "",
+    gender: initialProfile.gender ?? "",
     phoneNumber: initialProfile.phoneNumber ?? "",
     address: initialProfile.address ?? "",
     ktp: initialProfile.ktp ?? "",
@@ -126,6 +130,13 @@ export function useAccountSettings(initialProfile: CustomerProfile): AccountSett
     if (field === "displayName") {
       if (trimmed.length > 50) {
         return "Nama tampilan maksimal 50 karakter.";
+      }
+      return undefined;
+    }
+
+    if (field === "gender") {
+      if (trimmed.length > 20) {
+        return "Jenis kelamin maksimal 20 karakter.";
       }
       return undefined;
     }
