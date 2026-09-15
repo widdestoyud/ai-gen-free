@@ -4,6 +4,8 @@ import { ErrorCodes, type ObjectStorage } from "@ai-gen-free/core";
 import { AuthError, userFromCookie } from "../auth/service.js";
 import {
   approveInvoice,
+  cancelInvoiceForAdmin,
+  cancelInvoiceForUser,
   computeBalance,
   createInvoice,
   getInvoiceForUser,
@@ -159,6 +161,30 @@ export async function registerWalletRoutes(app: FastifyInstance, deps: { storage
     }
   });
 
+  app.post("/invoices/:id/cancel", async (req, reply) => {
+    const session = await requireUser(req, reply);
+    if (!session) return;
+    try {
+      const { id } = req.params as { id: string };
+      const body = (req.body ?? {}) as { reason?: unknown };
+      return await cancelInvoiceForUser(session.userId, id, body.reason);
+    } catch (err) {
+      return sendError(reply, err);
+    }
+  });
+
+  app.post("/customer/invoices/:id/cancel", async (req, reply) => {
+    const session = await requireUser(req, reply);
+    if (!session) return;
+    try {
+      const { id } = req.params as { id: string };
+      const body = (req.body ?? {}) as { reason?: unknown };
+      return await cancelInvoiceForUser(session.userId, id, body.reason);
+    } catch (err) {
+      return sendError(reply, err);
+    }
+  });
+
   app.get("/admin/notifications", async (req, reply) => {
     const session = await requireAdmin(req, reply);
     if (!session) return;
@@ -215,6 +241,18 @@ export async function registerWalletRoutes(app: FastifyInstance, deps: { storage
       const { id } = req.params as { id: string };
       const body = (req.body ?? {}) as { reason?: unknown };
       return await rejectInvoice(id, session.userId, body.reason);
+    } catch (err) {
+      return sendError(reply, err);
+    }
+  });
+
+  app.post("/admin/invoices/:id/cancel", async (req, reply) => {
+    const session = await requireAdmin(req, reply);
+    if (!session) return;
+    try {
+      const { id } = req.params as { id: string };
+      const body = (req.body ?? {}) as { reason?: unknown };
+      return await cancelInvoiceForAdmin(id, session.userId, body.reason);
     } catch (err) {
       return sendError(reply, err);
     }

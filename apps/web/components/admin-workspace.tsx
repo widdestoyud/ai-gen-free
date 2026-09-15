@@ -1,27 +1,31 @@
 "use client";
 
-import { AppShell, Burger, Group, NavLink, Stack, Title } from "@mantine/core";
+import { AppShell, Badge, Burger, Group, NavLink, Stack, Title } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import { LogoutConfirmModal } from "./logout-confirm-modal";
-import { useLogoutConfirm } from "@/hooks/use-logout-confirm";
+import { useAdminLogoutConfirm } from "@/hooks/use-admin-logout-confirm";
 import classes from "./app-workspace.module.css";
 
-const NAV = [
-  { href: "/app/generate", label: "Generate" },
-  { href: "/app/library", label: "Library" },
-  { href: "/app/profile", label: "Profile" },
-  { href: "/app/usage", label: "Usage" },
-  { href: "/app/billing", label: "Billing" },
-  { href: "/app/order", label: "Order" },
+const ADMIN_NAV = [
+  { href: "/admin", label: "Kurasi", matchExact: true },
+  { href: "/admin/settings", label: "Cooldown", matchExact: false },
+  { href: "/admin/users", label: "User", matchExact: false },
+  { href: "/admin/jobs", label: "Job", matchExact: false },
+  { href: "/admin/audit", label: "Audit", matchExact: false },
 ];
 
-export function AppWorkspace({ children }: { children: ReactNode }) {
+export function AdminWorkspace({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [opened, { toggle }] = useDisclosure();
-  const logout = useLogoutConfirm();
+  const logout = useAdminLogoutConfirm();
+
+  const isNavActive = (href: string, matchExact?: boolean) => {
+    if (matchExact) return pathname === href;
+    return pathname === href || pathname.startsWith(`${href}/`);
+  };
 
   return (
     <>
@@ -34,9 +38,14 @@ export function AppWorkspace({ children }: { children: ReactNode }) {
           <Group h="100%" px="md" justify="space-between">
             <Group gap="sm">
               <Burger opened={opened} onClick={toggle} hiddenFrom="sm" size="sm" />
-              <Title order={4} className={classes.brand}>
-                ai-gen-free
-              </Title>
+              <Group gap="xs">
+                <Title order={4} className={classes.brand}>
+                  ai-gen-free
+                </Title>
+                <Badge size="xs" variant="light" color="blue">
+                  Admin
+                </Badge>
+              </Group>
             </Group>
           </Group>
         </AppShell.Header>
@@ -44,13 +53,13 @@ export function AppWorkspace({ children }: { children: ReactNode }) {
         <AppShell.Navbar className={classes.navbar} p="sm">
           <Stack justify="space-between" h="100%">
             <Stack gap={4}>
-              {NAV.map((item) => (
+              {ADMIN_NAV.map((item) => (
                 <NavLink
                   key={item.href}
                   component={Link}
                   href={item.href}
                   label={item.label}
-                  active={pathname === item.href}
+                  active={isNavActive(item.href, item.matchExact)}
                   className={classes.nav}
                 />
               ))}

@@ -1,0 +1,139 @@
+.historyContainer {
+  margin-top: var(--mantine-spacing-md);
+  background-color: var(--mantine-color-body);
+  border-radius: var(--mantine-radius-md);
+  border: 1px solid var(--mantine-color-default-border);
+  padding: var(--mantine-spacing-md) var(--mantine-spacing-lg);
+}
+
+.headerRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--mantine-spacing-sm);
+  margin-bottom: var(--mantine-spacing-md);
+}
+
+.title {
+  font-size: var(--mantine-font-size-lg);
+  font-weight: 600;
+  color: var(--mantine-color-text);
+}
+
+.subtitle {
+  font-size: var(--mantine-font-size-xs);
+  color: var(--mantine-color-dimmed);
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: var(--mantine-spacing-xs);
+  flex-wrap: wrap;
+}
+
+.searchInput {
+  min-width: 180px;
+}
+
+.selectInput {
+  min-width: 130px;
+}
+
+.tableHeader {
+  color: var(--mantine-color-dimmed);
+  font-size: var(--mantine-font-size-sm);
+  font-weight: 500;
+  border-bottom: 1px solid var(--mantine-color-default-border);
+}
+
+.tableRow {
+  border-bottom: 1px solid var(--mantine-color-default-border);
+  transition: background-color 150ms ease;
+}
+
+.tableRow:last-child {
+  border-bottom: none;
+}
+
+.tableRow:hover {
+  background-color: var(--mantine-color-dark-7);
+}
+
+.userCell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-width: 220px;
+}
+
+.userEmail {
+  color: var(--mantine-color-text);
+  font-size: var(--mantine-font-size-sm);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.jobIdText {
+  color: var(--mantine-color-dimmed);
+  font-size: var(--mantine-font-size-xs);
+  font-family: var(--mantine-font-family-monospace);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.promptCell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-width: 320px;
+}
+
+.promptText {
+  color: var(--mantine-color-text);
+  font-size: var(--mantine-font-size-sm);
+  line-height: 1.4;
+}
+
+.modelMeta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.modelIdText {
+  color: var(--mantine-color-dimmed);
+  font-size: var(--mantine-font-size-xs);
+  font-family: var(--mantine-font-family-monospace);
+}
+
+.dateCell {
+  color: var(--mantine-color-dimmed);
+  font-size: var(--mantine-font-size-sm);
+  white-space: nowrap;
+}
+
+.costCell {
+  color: var(--mantine-color-text);
+  font-size: var(--mantine-font-size-sm);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.actionCell {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.paginationRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: var(--mantine-spacing-md);
+  padding-top: var(--mantine-spacing-sm);
+  border-top: 1px solid var(--mantine-color-default-border);
+}

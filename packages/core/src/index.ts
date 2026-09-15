@@ -22,6 +22,14 @@ export type {
   PutObjectInput,
   StoredObject,
 } from "./ports/storage.js";
+export type {
+  PaymentGatewayPort,
+  PaymentGatewayDriver,
+  CreatePaymentInput,
+  CreatePaymentResult,
+  NotificationVerifyResult,
+  PaymentStatusResult,
+} from "./ports/payment-gateway.js";
 export { normalizeEmail, isEmailFormat, isDisposableEmail, isAllowedEmailDomain } from "./auth/email.js";
 export {
   normalizeIndonesianPhoneNumber,

@@ -30,6 +30,9 @@ importers:
       '@ai-gen-free/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@ai-gen-free/providers-midtrans':
+        specifier: workspace:*
+        version: link:../../packages/providers-midtrans
       '@ai-gen-free/storage':
         specifier: workspace:*
         version: link:../../packages/storage
@@ -145,6 +148,18 @@ importers:
       '@prisma/client':
         specifier: ^6.16.1
         version: 6.19.3(prisma@6.19.3(typescript@5.9.3))(typescript@5.9.3)
+
+  packages/providers-doku:
+    dependencies:
+      '@ai-gen-free/core':
+        specifier: workspace:*
+        version: link:../core
+
+  packages/providers-midtrans:
+    dependencies:
+      '@ai-gen-free/core':
+        specifier: workspace:*
+        version: link:../core
 
   packages/providers-siray:
     dependencies:

@@ -21,14 +21,13 @@ export default async function AdminJobPage({ params }: { params: Promise<{ id: s
   if (job === "error") return <AdminUnauth />;
   if (!job) {
     return (
-      <AdminPageShell title="Job">
+      <AdminPageShell title="Detail Job" backHref="/admin/jobs" backLabel="← Kembali ke daftar job">
         <Text>Job tidak ditemukan.</Text>
-        <AppLink href="/admin/jobs">Kembali ke daftar</AppLink>
       </AdminPageShell>
     );
   }
   return (
-    <AdminPageShell title="Job">
+    <AdminPageShell title="Detail Job" backHref="/admin/jobs" backLabel="← Kembali ke daftar job">
       <AdminJobDetail job={job} />
     </AdminPageShell>
   );

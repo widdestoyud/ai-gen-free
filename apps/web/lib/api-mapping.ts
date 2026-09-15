@@ -261,6 +261,18 @@ export const API_MAPPINGS: readonly ApiRouteMapping[] = [
     method: "POST",
     description: "Unggah bukti transfer pembayaran invoice",
   },
+  {
+    FE: "/api/invoices/:id/cancel",
+    BE: "/invoices/:id/cancel",
+    method: "POST",
+    description: "Batalkan tagihan invoice yang belum dibayar oleh pelanggan",
+  },
+  {
+    FE: "/api/customer/invoices/:id/cancel",
+    BE: "/invoices/:id/cancel",
+    method: "POST",
+    description: "Batalkan tagihan invoice pelanggan (kanonik)",
+  },
 
   // -------------------------------------------------------------
   // 5. Admin Portal
@@ -342,6 +354,12 @@ export const API_MAPPINGS: readonly ApiRouteMapping[] = [
     BE: "/admin/invoices/:id/reject",
     method: "POST",
     description: "Tolak invoice pembayaran",
+  },
+  {
+    FE: "/api/admin/invoices/:id/cancel",
+    BE: "/admin/invoices/:id/cancel",
+    method: "POST",
+    description: "Batalkan tagihan invoice oleh admin",
   },
   {
     FE: "/api/admin/notifications",
@@ -439,7 +457,41 @@ export const API_MAPPINGS: readonly ApiRouteMapping[] = [
   },
 
   // -------------------------------------------------------------
-  // 7. System & Health
+  // 7. Payment Gateway (Midtrans)
+  // -------------------------------------------------------------
+  {
+    FE: "/api/invoices/:id/pay",
+    BE: "/invoices/:id/pay",
+    method: "POST",
+    description: "Initiate pembayaran Midtrans Snap untuk invoice",
+  },
+  {
+    FE: "/api/invoices/:id/payment-status",
+    BE: "/invoices/:id/payment-status",
+    method: "GET",
+    description: "Cek status pembayaran invoice dari Midtrans",
+  },
+  {
+    FE: "/api/invoices/:id/payment-info",
+    BE: "/invoices/:id/payment-info",
+    method: "GET",
+    description: "Detail invoice dengan info pembayaran Midtrans",
+  },
+  {
+    FE: "/api/payment/methods",
+    BE: "/payment/methods",
+    method: "GET",
+    description: "Daftar metode pembayaran yang tersedia",
+  },
+  {
+    FE: "/api/webhooks/midtrans",
+    BE: "/webhooks/midtrans",
+    method: "POST",
+    description: "Webhook untuk menerima notifikasi dari Midtrans",
+  },
+
+  // -------------------------------------------------------------
+  // 8. System & Health
   // -------------------------------------------------------------
   {
     FE: "/api/health",
@@ -513,9 +565,15 @@ export function resolveBackendPath(fePath: string, method = "GET"): string {
   const invoiceRejectMatch = m === "POST" ? path.match(/^\/api\/admin\/invoices\/([^/]+)\/reject$/) : null;
   if (invoiceRejectMatch) return `/admin/invoices/${invoiceRejectMatch[1]}/reject` + search;
 
+  const invoiceCancelMatch = m === "POST" ? path.match(/^\/api\/admin\/invoices\/([^/]+)\/cancel$/) : null;
+  if (invoiceCancelMatch) return `/admin/invoices/${invoiceCancelMatch[1]}/cancel` + search;
+
   // Invoices user
   const userInvoiceProof = m === "POST" ? path.match(/^\/api\/invoices\/([^/]+)\/proof$/) : null;
   if (userInvoiceProof) return `/invoices/${userInvoiceProof[1]}/proof` + search;
+
+  const userInvoiceCancel = m === "POST" ? path.match(/^\/api\/(?:customer\/)?invoices\/([^/]+)\/cancel$/) : null;
+  if (userInvoiceCancel) return `/invoices/${userInvoiceCancel[1]}/cancel` + search;
 
   const userInvoiceDetail = m === "GET" ? path.match(/^\/api\/invoices\/([^/]+)$/) : null;
   if (userInvoiceDetail) return `/invoices/${userInvoiceDetail[1]}` + search;

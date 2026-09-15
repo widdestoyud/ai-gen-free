@@ -1,24 +1,13 @@
 "use client";
 
-import { Button, Group, Text } from "@mantine/core";
-import { useRouter } from "next/navigation";
+import { Group, Title } from "@mantine/core";
 import type { ReactNode } from "react";
-import { logoutAdmin } from "@/lib/auth-actions";
 import { AppLink } from "@/components/app-link";
 import { PageShell } from "@/components/page-shell";
-
-const LINKS = [
-  { href: "/admin", label: "Kurasi" },
-  { href: "/admin/settings", label: "Cooldown" },
-  { href: "/admin/users", label: "User" },
-  { href: "/admin/jobs", label: "Job" },
-  { href: "/admin/audit", label: "Audit" },
-];
 
 export function AdminUnauth() {
   return (
     <PageShell title="Admin">
-      <Text>Sesi admin belum ada.</Text>
       <AppLink href="/admin">Masuk sebagai admin</AppLink>
     </PageShell>
   );
@@ -27,37 +16,26 @@ export function AdminUnauth() {
 export function AdminPageShell({
   title,
   home,
+  backHref,
+  backLabel,
   children,
 }: {
   title: string;
   home?: boolean;
+  backHref?: string;
+  backLabel?: string;
   children: ReactNode;
 }) {
-  const router = useRouter();
+  const returnHref = backHref ?? (home ? undefined : "/admin");
+  const returnLabel = backLabel ?? "← Kembali ke kurasi";
+
   return (
-    <PageShell title={title} size="lg" backHref={home ? undefined : "/admin"} backLabel="← Admin">
-      <Group gap="sm" justify="space-between">
-        <Group gap="sm">
-          {LINKS.map((link) => (
-            <AppLink key={link.href} href={link.href}>
-              {link.label}
-            </AppLink>
-          ))}
-        </Group>
-        <Button
-          type="button"
-          variant="default"
-          size="xs"
-          onClick={async () => {
-            await logoutAdmin();
-            router.push("/admin");
-            router.refresh();
-          }}
-        >
-          Keluar
-        </Button>
+    <div>
+      <Group justify="space-between" align="center" mb="md">
+        <Title order={2}>{title}</Title>
+        {returnHref ? <AppLink href={returnHref}>{returnLabel}</AppLink> : null}
       </Group>
       {children}
-    </PageShell>
+    </div>
   );
 }

@@ -6,8 +6,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 enum UserRole {
@@ -245,11 +246,23 @@ model Invoice {
   reviewedByAdminId   String?
   paidAt              DateTime?
   paidByAdminId       String?
+  
+  /// Payment Gateway fields
+  paymentMethod       String?       /// "manual" | "midtrans"
+  paymentGateway      String?       /// "midtrans-snap"
+  gatewayToken        String?       /// token dari gateway (Snap token)
+  gatewaySessionId    String?       /// session id / transaction id
+  gatewayPaymentUrl   String?       /// URL checkout page / snap redirect url
+  gatewayExpiredAt    DateTime?     /// expired date dari gateway
+  gatewayPaymentChannel String?     /// channel yang dipilih (BCA VA, QRIS, GoPay, dll)
+  gatewayPaymentType    String?     /// payment type (bank_transfer, qris, gopay, dll)
+  
   createdAt           DateTime      @default(now())
   updatedAt           DateTime      @updatedAt
   ledgerEntries       LedgerEntry[]
 
   @@index([status, proofSubmittedAt])
+  @@index([gatewayToken])
 }
 
 model AppSetting {

@@ -1,0 +1,116 @@
+.orderContainer {
+  margin-top: var(--mantine-spacing-md);
+}
+
+.sectionTitle {
+  font-size: var(--mantine-font-size-lg);
+  font-weight: 600;
+  color: var(--mantine-color-text);
+  margin-bottom: var(--mantine-spacing-xs);
+}
+
+.sectionSubtitle {
+  font-size: var(--mantine-font-size-sm);
+  color: var(--mantine-color-dimmed);
+  margin-bottom: var(--mantine-spacing-md);
+}
+
+.packagesGrid {
+  margin-bottom: var(--mantine-spacing-xl);
+}
+
+.packageCard {
+  border-radius: var(--mantine-radius-md);
+  border: 1px solid var(--mantine-color-default-border);
+  background-color: var(--mantine-color-body);
+  transition: transform 150ms ease, border-color 150ms ease;
+}
+
+.packageCard:hover {
+  transform: translateY(-2px);
+  border-color: var(--mantine-color-blue-6);
+}
+
+.tableContainer {
+  background-color: var(--mantine-color-body);
+  border-radius: var(--mantine-radius-md);
+  border: 1px solid var(--mantine-color-default-border);
+  padding: var(--mantine-spacing-md) var(--mantine-spacing-lg);
+  margin-top: var(--mantine-spacing-lg);
+}
+
+.tableHeaderRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--mantine-spacing-sm);
+  margin-bottom: var(--mantine-spacing-md);
+}
+
+.tableHeader {
+  color: var(--mantine-color-dimmed);
+  font-size: var(--mantine-font-size-sm);
+  font-weight: 500;
+  border-bottom: 1px solid var(--mantine-color-default-border);
+}
+
+.tableRow {
+  border-bottom: 1px solid var(--mantine-color-default-border);
+  transition: background-color 150ms ease;
+}
+
+.tableRow:last-child {
+  border-bottom: none;
+}
+
+.tableRow:hover {
+  background-color: var(--mantine-color-dark-7);
+}
+
+.codeCell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.uniqueCode {
+  color: var(--mantine-color-text);
+  font-size: var(--mantine-font-size-sm);
+  font-weight: 600;
+}
+
+.invoiceIdText {
+  color: var(--mantine-color-dimmed);
+  font-size: var(--mantine-font-size-xs);
+  font-family: var(--mantine-font-family-monospace);
+}
+
+.amountCell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.amountValue {
+  color: var(--mantine-color-text);
+  font-size: var(--mantine-font-size-sm);
+  font-weight: 600;
+}
+
+.pointsValue {
+  color: var(--mantine-color-teal-6);
+  font-size: var(--mantine-font-size-xs);
+  font-weight: 500;
+}
+
+.dateCell {
+  color: var(--mantine-color-dimmed);
+  font-size: var(--mantine-font-size-sm);
+  white-space: nowrap;
+}
+
+.actionCell {
+  text-align: right;
+  white-space: nowrap;
+}

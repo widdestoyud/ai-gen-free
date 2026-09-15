@@ -21,14 +21,13 @@ export default async function AdminUserPage({ params }: { params: Promise<{ id: 
   if (user === "error") return <AdminUnauth />;
   if (!user) {
     return (
-      <AdminPageShell title="User">
+      <AdminPageShell title="Detail User" backHref="/admin/users" backLabel="← Kembali ke daftar user">
         <Text>User tidak ditemukan.</Text>
-        <AppLink href="/admin/users">Kembali ke daftar</AppLink>
       </AdminPageShell>
     );
   }
   return (
-    <AdminPageShell title="User">
+    <AdminPageShell title="Detail User" backHref="/admin/users" backLabel="← Kembali ke daftar user">
       <AdminUserDetail user={user} />
     </AdminPageShell>
   );

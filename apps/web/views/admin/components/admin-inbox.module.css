@@ -1,0 +1,121 @@
+.inboxContainer {
+  margin-top: var(--mantine-spacing-md);
+  background-color: var(--mantine-color-body);
+  border-radius: var(--mantine-radius-md);
+  border: 1px solid var(--mantine-color-default-border);
+  padding: var(--mantine-spacing-md) var(--mantine-spacing-lg);
+}
+
+.headerRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--mantine-spacing-sm);
+  margin-bottom: var(--mantine-spacing-md);
+}
+
+.title {
+  font-size: var(--mantine-font-size-lg);
+  font-weight: 600;
+  color: var(--mantine-color-text);
+}
+
+.subtitle {
+  font-size: var(--mantine-font-size-xs);
+  color: var(--mantine-color-dimmed);
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: var(--mantine-spacing-xs);
+  flex-wrap: wrap;
+}
+
+.searchInput {
+  min-width: 220px;
+}
+
+.tableHeader {
+  color: var(--mantine-color-dimmed);
+  font-size: var(--mantine-font-size-sm);
+  font-weight: 500;
+  border-bottom: 1px solid var(--mantine-color-default-border);
+}
+
+.tableRow {
+  border-bottom: 1px solid var(--mantine-color-default-border);
+  transition: background-color 150ms ease;
+}
+
+.tableRow:last-child {
+  border-bottom: none;
+}
+
+.tableRow:hover {
+  background-color: var(--mantine-color-dark-7);
+}
+
+.codeCell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.uniqueCode {
+  color: var(--mantine-color-text);
+  font-size: var(--mantine-font-size-sm);
+  font-weight: 600;
+}
+
+.userEmail {
+  color: var(--mantine-color-dimmed);
+  font-size: var(--mantine-font-size-xs);
+}
+
+.amountCell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.amountValue {
+  color: var(--mantine-color-text);
+  font-size: var(--mantine-font-size-sm);
+  font-weight: 600;
+}
+
+.pointsValue {
+  color: var(--mantine-color-teal-6);
+  font-size: var(--mantine-font-size-xs);
+  font-weight: 500;
+}
+
+.dateCell {
+  color: var(--mantine-color-dimmed);
+  font-size: var(--mantine-font-size-sm);
+  white-space: nowrap;
+}
+
+.actionCell {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.previewImage {
+  max-width: 100%;
+  max-height: 500px;
+  object-fit: contain;
+  border-radius: var(--mantine-radius-md);
+  margin-top: var(--mantine-spacing-sm);
+}
+
+.summaryFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: var(--mantine-spacing-md);
+  padding-top: var(--mantine-spacing-sm);
+  border-top: 1px solid var(--mantine-color-default-border);
+}

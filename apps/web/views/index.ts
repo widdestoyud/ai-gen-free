@@ -21,6 +21,7 @@ export * from "./app/generate";
 export * from "./app/library";
 export * from "./app/profile";
 export * from "./app/billing";
+export * from "./app/order";
 export * from "./app/usage";
 export * from "./jobs";
 export * from "./admin";

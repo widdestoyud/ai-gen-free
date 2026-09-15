@@ -14,12 +14,11 @@ export function AdminHomeView({
   if (!me) return <AdminLoginForm />;
 
   return (
-    <AdminPageShell title="Admin" home>
-      <Text>Masuk sebagai {me.user.email}.</Text>
-      <Text>
-        Notifikasi kurasi: <strong>{inbox.pendingCount}</strong> bukti menunggu.
+    <AdminPageShell title="Kurasi" home>
+      <Text size="sm" c="dimmed" mb="xs">
+        Masuk sebagai <strong>{me.user.email}</strong> · Notifikasi: <strong>{inbox.pendingCount}</strong> bukti menunggu kurasi.
       </Text>
-      <Text c="dimmed">
+      <Text size="sm" c="dimmed" mb="md">
         Hanya bukti yang diunggah di dashboard yang boleh dikurasi. Screenshot chat tidak mengkredit poin.
       </Text>
       <AdminInbox items={inbox.items} />

@@ -263,6 +263,81 @@ export async function rejectInvoice(invoiceId: string, adminUserId: string, reas
   return serializeInvoice(updated, false);
 }
 
+export async function cancelInvoiceForUser(userId: string, invoiceId: string, reasonRaw?: unknown) {
+  const reason = typeof reasonRaw === "string" && reasonRaw.trim().length > 0 ? reasonRaw.trim() : undefined;
+  const existing = await prisma.invoice.findFirst({ where: { id: invoiceId, userId } });
+  if (!existing) throw new AuthError(ErrorCodes.NOT_FOUND, "Invoice tidak ditemukan", 404);
+
+  if (existing.status === "paid") {
+    throw new AuthError(ErrorCodes.INVOICE_NOT_PAYABLE, "Invoice yang sudah dibayar tidak dapat dibatalkan", 400);
+  }
+  if (existing.status === "expired") {
+    throw new AuthError(ErrorCodes.INVOICE_NOT_PAYABLE, "Invoice sudah kedaluwarsa dan tidak dapat dibatalkan", 400);
+  }
+  if (existing.status === "canceled") {
+    return serializeInvoice(existing, false);
+  }
+
+  const updated = await prisma.invoice.update({
+    where: { id: existing.id },
+    data: {
+      status: "canceled",
+      reviewNote: reason ? `Dibatalkan oleh pelanggan: ${reason}` : (existing.reviewNote ?? "Dibatalkan oleh pelanggan"),
+    },
+  });
+
+  await prisma.auditLog.create({
+    data: {
+      actorId: userId,
+      action: "invoice.canceled",
+      target: existing.id,
+      meta: {
+        previousStatus: existing.status,
+        reason: reason ?? null,
+      },
+    },
+  });
+
+  return serializeInvoice(updated, false);
+}
+
+export async function cancelInvoiceForAdmin(invoiceId: string, adminUserId: string, reasonRaw?: unknown) {
+  const reason = typeof reasonRaw === "string" && reasonRaw.trim().length > 0 ? reasonRaw.trim() : undefined;
+  const existing = await prisma.invoice.findUnique({ where: { id: invoiceId } });
+  if (!existing) throw new AuthError(ErrorCodes.NOT_FOUND, "Invoice tidak ditemukan", 404);
+
+  if (existing.status === "paid") {
+    throw new AuthError(ErrorCodes.INVOICE_NOT_PAYABLE, "Invoice yang sudah dibayar tidak dapat dibatalkan", 400);
+  }
+  if (existing.status === "canceled") {
+    return serializeInvoice(existing, false);
+  }
+
+  const updated = await prisma.invoice.update({
+    where: { id: existing.id },
+    data: {
+      status: "canceled",
+      reviewedAt: new Date(),
+      reviewedByAdminId: adminUserId,
+      reviewNote: reason ? `Dibatalkan oleh admin: ${reason}` : (existing.reviewNote ?? "Dibatalkan oleh admin"),
+    },
+  });
+
+  await prisma.auditLog.create({
+    data: {
+      actorId: adminUserId,
+      action: "invoice.admin_canceled",
+      target: existing.id,
+      meta: {
+        previousStatus: existing.status,
+        reason: reason ?? null,
+      },
+    },
+  });
+
+  return serializeInvoice(updated, false);
+}
+
 export async function listLedger(userId: string) {
   const rows = await prisma.ledgerEntry.findMany({
     where: { userId },

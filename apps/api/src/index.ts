@@ -13,8 +13,10 @@ import { registerAdminRoutes } from "./routes/admin.js";
 import { registerJobRoutes } from "./routes/jobs.js";
 import { registerWalletRoutes } from "./routes/wallet.js";
 import { registerUploadRoutes } from "./routes/uploads.js";
+import { registerPaymentRoutes } from "./routes/payment.js";
 import { syncUploadsFromStorage } from "./uploads/service.js";
 import { rewriteRequestUrl } from "./http-rewrite.js";
+import { createMidtransPaymentGateway } from "./wallet/midtrans-factory.js";
 
 import { randomBytes } from "node:crypto";
 
@@ -169,6 +171,14 @@ await registerWalletRoutes(app, { storage });
 await registerJobRoutes(app, { storage, queue });
 await registerAdminRoutes(app, { storage, redis });
 await registerUploadRoutes(app, { storage, redis });
+
+// Payment routes (Midtrans integration)
+const paymentGateway = createMidtransPaymentGateway(app.log);
+await registerPaymentRoutes(app, {
+  paymentGateway,
+  callbackBaseUrl: origin,
+  paymentDueMinutes: 60,
+});
 
 const shutdown = async () => {
   await app.close();

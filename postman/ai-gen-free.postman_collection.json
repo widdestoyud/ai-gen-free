@@ -821,7 +821,130 @@
                 "{{uploadId}}"
               ]
             },
-            "description": "Mengubah alias/nama kustom untuk gambar unggahan pelanggan."
+        {
+          "name": "POST /invoices",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200 || pm.response.code === 201) {",
+                  "    var json = pm.response.json();",
+                  "    if (json.id) {",
+                  "        pm.environment.set(\"invoiceId\", json.id);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-session-token",
+                "value": "{{userSessionToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"packageId\": \"p20\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/invoices",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "invoices"
+              ]
+            },
+            "description": "Membuat invoice baru untuk pembelian paket koin (p20, p50, p100)."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /invoices",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-session-token",
+                "value": "{{userSessionToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/invoices",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "invoices"
+              ]
+            },
+            "description": "Daftar invoice pembelian koin milik pelanggan."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /invoices/:id",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-session-token",
+                "value": "{{userSessionToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/invoices/{{invoiceId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "invoices",
+                "{{invoiceId}}"
+              ]
+            },
+            "description": "Detail tagihan invoice spesifik pelanggan beserta petunjuk pembayaran."
+          },
+          "response": []
+        },
+        {
+          "name": "POST /invoices/:id/cancel",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-session-token",
+                "value": "{{userSessionToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Ingin mengganti metode pembayaran lain\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/invoices/{{invoiceId}}/cancel",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "invoices",
+                "{{invoiceId}}",
+                "cancel"
+              ]
+            },
+            "description": "Membatalkan pesanan/tagihan invoice yang belum dibayar oleh pelanggan."
           },
           "response": []
         },
@@ -1559,7 +1682,171 @@
                 "sync"
               ]
             },
-            "description": "Sinkronisasi otomatis gambar dari object storage R2 ke tabel database Upload."
+        {
+          "name": "GET /admin/notifications",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-session-token",
+                "value": "{{adminSessionToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/notifications",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "notifications"
+              ]
+            },
+            "description": "Daftar invoice berstatus awaiting_review yang menunggu kurasi/persetujuan admin."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /admin/invoices",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-session-token",
+                "value": "{{adminSessionToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/invoices",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "invoices"
+              ]
+            },
+            "description": "Daftar seluruh invoice pembelian koin di sistem untuk admin."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /admin/invoices/:id/proof",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-session-token",
+                "value": "{{adminSessionToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/invoices/{{invoiceId}}/proof",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "invoices",
+                "{{invoiceId}}",
+                "proof"
+              ]
+            },
+            "description": "Mendapatkan signed URL bukti transfer invoice untuk admin."
+          },
+          "response": []
+        },
+        {
+          "name": "POST /admin/invoices/:id/approve",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-session-token",
+                "value": "{{adminSessionToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/invoices/{{invoiceId}}/approve",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "invoices",
+                "{{invoiceId}}",
+                "approve"
+              ]
+            },
+            "description": "Menyetujui invoice dan mengkreditkan poin ke wallet pelanggan."
+          },
+          "response": []
+        },
+        {
+          "name": "POST /admin/invoices/:id/reject",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-session-token",
+                "value": "{{adminSessionToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Bukti transfer buram/tidak terbaca\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/invoices/{{invoiceId}}/reject",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "invoices",
+                "{{invoiceId}}",
+                "reject"
+              ]
+            },
+            "description": "Menolak bukti transfer invoice dengan alasan penolakan."
+          },
+          "response": []
+        },
+        {
+          "name": "POST /admin/invoices/:id/cancel",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-session-token",
+                "value": "{{adminSessionToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Dibatalkan atas permintaan pelanggan via support\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/invoices/{{invoiceId}}/cancel",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "invoices",
+                "{{invoiceId}}",
+                "cancel"
+              ]
+            },
+            "description": "Membatalkan invoice oleh admin."
           },
           "response": []
         },
@@ -1584,6 +1871,146 @@
               ]
             },
             "description": "Mencabut sesi admin."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "payment",
+      "item": [
+        {
+          "name": "GET /payment/methods",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-session-token",
+                "value": "{{userSessionToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/payment/methods",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "payment",
+                "methods"
+              ]
+            },
+            "description": "Mendapatkan daftar metode pembayaran yang tersedia (manual / midtrans)."
+          },
+          "response": []
+        },
+        {
+          "name": "POST /invoices/:id/pay",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-session-token",
+                "value": "{{userSessionToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customerEmail\": \"customer@gmail.com\",\n  \"customerName\": \"Customer Name\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/invoices/{{invoiceId}}/pay",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "invoices",
+                "{{invoiceId}}",
+                "pay"
+              ]
+            },
+            "description": "Inisiasi pembayaran Midtrans Snap untuk invoice pelanggan. Mengembalikan paymentUrl dan Snap token."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /invoices/:id/payment-status",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-session-token",
+                "value": "{{userSessionToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/invoices/{{invoiceId}}/payment-status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "invoices",
+                "{{invoiceId}}",
+                "payment-status"
+              ]
+            },
+            "description": "Mengecek status pembayaran invoice secara langsung ke Midtrans Core API."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /invoices/:id/payment-info",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-session-token",
+                "value": "{{userSessionToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/invoices/{{invoiceId}}/payment-info",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "invoices",
+                "{{invoiceId}}",
+                "payment-info"
+              ]
+            },
+            "description": "Mengambil detail invoice beserta sesi aktif payment gateway."
+          },
+          "response": []
+        },
+        {
+          "name": "POST /webhooks/midtrans",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"transaction_time\": \"2026-09-15 17:00:00\",\n  \"transaction_status\": \"settlement\",\n  \"transaction_id\": \"midtrans-txn-12345\",\n  \"status_message\": \"midtrans payment notification\",\n  \"status_code\": \"200\",\n  \"signature_key\": \"calculated-sha512-hash\",\n  \"payment_type\": \"bank_transfer\",\n  \"order_id\": \"INV-TEST-001\",\n  \"gross_amount\": \"50000.00\",\n  \"fraud_status\": \"accept\",\n  \"currency\": \"IDR\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/webhooks/midtrans",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "webhooks",
+                "midtrans"
+              ]
+            },
+            "description": "Webhook notification dari Midtrans HTTP Notification (diverifikasi dengan SHA-512 signature key)."
           },
           "response": []
         }
