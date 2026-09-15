@@ -41,4 +41,9 @@ export {
   type PasswordResetGate,
   type PasswordResetUserSnapshot,
 } from "./auth/password-reset.js";
+export {
+  UploadConfig,
+  type UploadRateLimitRule,
+  type AllowedUploadMimeType,
+} from "./config/upload.config.js";
 

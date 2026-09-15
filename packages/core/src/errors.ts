@@ -40,6 +40,7 @@ export const ErrorCodes = {
   VALIDATION_ERROR: "E002",
   NOT_FOUND: "E003",
   SYSTEM_RATE_LIMITED: "E004",
+  UPLOAD_STREAM_ERROR: "E005",
 } as const;
 
 /** Terminal Job.errorCode values written by the worker — not HTTP submit codes. */

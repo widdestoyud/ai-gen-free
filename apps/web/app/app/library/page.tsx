@@ -12,8 +12,8 @@ export default async function AppLibraryPage() {
 
   return (
     <LibraryPageView
-      initialJobs={data.jobs}
-      nextGenerateAt={data.nextGenerateAt}
+      initialItems={data.items}
+      initialTotal={data.total}
     />
   );
 }

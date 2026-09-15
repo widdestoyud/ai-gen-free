@@ -240,7 +240,7 @@ export function CreditHistory(props: {
         </div>
 
         {filteredEntries.length === 0 ? (
-          <EmptyState>Belum ada data riwayat transaksi.</EmptyState>
+          <EmptyState minHeight={220}>Belum ada data riwayat transaksi.</EmptyState>
         ) : (
           <Table verticalSpacing="sm" horizontalSpacing="md">
             <Table.Thead className={classes.tableHeader}>

@@ -93,6 +93,7 @@ model User {
   auditLogs           AuditLog[]               @relation("AuditActor")
   verificationTokens  EmailVerificationToken[]
   passwordResetTokens PasswordResetToken[]
+  uploads             Upload[]
 }
 
 model EmailVerificationToken {
@@ -176,6 +177,7 @@ model Job {
   finishedAt     DateTime?
   nextGenerateAt DateTime?
   idempotencyKey String?
+  alias          String?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
@@ -281,3 +283,26 @@ model AuditLog {
 
   @@index([createdAt])
 }
+
+model Upload {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  actor       String    @default("customer")
+  alias       String?
+  storageKey  String
+  contentType String    @default("image/webp")
+  bytes       Int
+  width       Int
+  height      Int
+  expiresAt   DateTime
+  deletedAt   DateTime?
+  purgedAt    DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([userId, actor, deletedAt, createdAt])
+  @@index([expiresAt, purgedAt])
+}
+
+

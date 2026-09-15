@@ -27,6 +27,9 @@ export type JobOutputView = {
   contentType: string;
   availableUntil: string;
   signedExpiresAt?: string | null;
+  sizeBytes?: number | null;
+  width?: number | null;
+  height?: number | null;
 };
 
 export type JobView = {

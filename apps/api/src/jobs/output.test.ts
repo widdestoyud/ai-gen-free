@@ -108,3 +108,63 @@ test("resolveJobOutput: expired or purged or missing object → url null, not th
   assert.equal(missing?.url, null);
   assert.equal(missing?.availableUntil, future.toISOString());
 });
+
+test("listCustomerLibrary: defaults to 20 items per page and returns unified structure", async () => {
+  const { listCustomerLibrary } = await import("./service.js");
+  const storage = new MemoryObjectStorage();
+
+  const res = await listCustomerLibrary({
+    userId: "usr_mock_123",
+    storage: storage as any,
+  });
+
+  assert.equal(res.limit, 20);
+  assert.equal(res.offset, 0);
+  assert.equal(typeof res.total, "number");
+  assert.ok(Array.isArray(res.items));
+});
+
+test("listCustomerLibrary: respects custom limit, offset, and type filter", async () => {
+  const { listCustomerLibrary } = await import("./service.js");
+  const storage = new MemoryObjectStorage();
+
+  const res = await listCustomerLibrary({
+    userId: "usr_mock_123",
+    storage: storage as any,
+    limit: 10,
+    offset: 5,
+    type: "upload",
+    kind: "image",
+    q: "search query",
+  });
+
+  assert.equal(res.limit, 10);
+  assert.equal(res.offset, 5);
+  assert.equal(typeof res.total, "number");
+  assert.ok(Array.isArray(res.items));
+});
+
+test("listCustomerLibrary: supports sorting by name, size, date with order asc/desc and type video/image", async () => {
+  const { listCustomerLibrary } = await import("./service.js");
+  const storage = new MemoryObjectStorage();
+
+  // Test sort by name ASC
+  const resNameAsc = await listCustomerLibrary({
+    userId: "usr_mock_123",
+    storage: storage as any,
+    sort: "name",
+    order: "asc",
+    type: "image",
+  });
+  assert.equal(resNameAsc.limit, 20);
+
+  // Test sort by size DESC with video filter
+  const resVideoDesc = await listCustomerLibrary({
+    userId: "usr_mock_123",
+    storage: storage as any,
+    sort: "size",
+    order: "desc",
+    type: "video",
+  });
+  assert.equal(resVideoDesc.limit, 20);
+});

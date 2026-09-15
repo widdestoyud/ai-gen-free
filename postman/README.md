@@ -70,7 +70,12 @@ Jangan impor folder `postman/postman/` atau file `.yaml` hasil export app — it
 - `POST /admin/login`: Body `{ "username": "admin123", "password": "AdminPassword123!" }`. Login admin via username & password.
 - `GET /admin/customer/list`: Header/Cookie `sid_admin`. Melihat seluruh daftar pengguna customer/user.
 - `PUT /admin/settings/generate_cooldown_seconds`: Body `{ "value": 3600 }`. Mengubah durasi cooldown generator global.
-- `POST /admin/logout`: Mencabut sesi admin dan menghapus cookie `sid_admin`.
+### 9. Image Uploads Sementara (`POST/GET /customer/uploads` & `POST/GET /admin/uploads`)
+- `POST /customer/uploads`: Upload file gambar pelanggan (form-data `file`). Memeriksa format `png, jpg, jpeg, webp` (max 5 MB), mengompresi ke WebP menggunakan sharp (menjaga orientasi & rasio potrait/landscape), dan menyimpannya di storage sementara.
+- `GET /customer/uploads`: Menampilkan daftar gambar yang diunggah pelanggan (mendukung query parameter pagination `limit` & `offset`). Terpisah mutlak dari hasil generate AI di `/customer/generated-lists`.
+- `POST /admin/uploads`: Upload file gambar admin (form-data `file`) ke direktori storage admin.
+- `GET /admin/uploads`: Menampilkan daftar seluruh unggahan gambar aktif untuk admin.
+
 
 
 

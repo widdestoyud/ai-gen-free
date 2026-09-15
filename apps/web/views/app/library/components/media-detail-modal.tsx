@@ -5,17 +5,14 @@ import {
   Badge,
   Button,
   CopyButton,
-  Group,
   Modal,
   ScrollArea,
-  Stack,
-  Text,
   Tooltip,
-  UnstyledButton,
 } from "@mantine/core";
 import { useEffect } from "react";
-import type { JobView } from "@/lib/job-status";
-import classes from "./library-view.module.css";
+import type { LibraryItem } from "@/hooks/use-library";
+import { formatBytes } from "@/lib/format";
+import classes from "./media-detail-modal.module.css";
 
 function DownloadIcon({ size = 16 }: { size?: number }) {
   return (
@@ -36,7 +33,7 @@ function DownloadIcon({ size = 16 }: { size?: number }) {
   );
 }
 
-function CopyIcon({ size = 15 }: { size?: number }) {
+function CopyIcon({ size = 14 }: { size?: number }) {
   return (
     <svg
       width={size}
@@ -54,7 +51,7 @@ function CopyIcon({ size = 15 }: { size?: number }) {
   );
 }
 
-function CheckIcon({ size = 15 }: { size?: number }) {
+function CheckIcon({ size = 14 }: { size?: number }) {
   return (
     <svg
       width={size}
@@ -105,61 +102,83 @@ function ChevronRightIcon({ size = 20 }: { size?: number }) {
   );
 }
 
-function formatModeLabel(mode?: string): string {
-  if (!mode) return "Text-To-Image";
-  const m = mode.toLowerCase();
-  if (m === "t2i") return "Text-To-Image";
-  if (m === "i2i") return "Image-To-Image";
-  if (m === "t2v") return "Text-To-Video";
-  if (m === "i2v") return "Image-To-Video";
-  return mode.toUpperCase();
+function formatModalDate(iso?: string | null): string {
+  if (!iso) return "-";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "-";
+  const day = d.getDate();
+  const monthNames = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
+  const month = monthNames[d.getMonth()] || "";
+  const year = d.getFullYear();
+  const hours = String(d.getHours()).padStart(2, "0");
+  const mins = String(d.getMinutes()).padStart(2, "0");
+  return `${day} ${month} ${year}, ${hours}.${mins}`;
+}
+
+function formatModalDateShort(iso?: string | null): string {
+  if (!iso) return "-";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "-";
+  const day = d.getDate();
+  const monthNames = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
+  const month = monthNames[d.getMonth()] || "";
+  const year = d.getFullYear();
+  return `${day} ${month} ${year}`;
+}
+
+function getModeLabel(item: LibraryItem): string {
+  if (item.type === "upload") return "UPLOAD MEDIA";
+  if (item.kind === "video") return "TEXT-TO-VIDEO";
+  return "TEXT-TO-IMAGE";
+}
+
+function getStatusLabel(item: LibraryItem): string {
+  if (item.type === "upload") return "READY";
+  if (item.status === "succeeded") return "COMPLETED";
+  return item.status.toUpperCase();
 }
 
 export function MediaDetailModal({
   opened,
   onClose,
-  job,
-  jobs,
-  onSelectJob,
+  item,
+  items,
+  onSelectItem,
 }: {
   opened: boolean;
   onClose: () => void;
-  job: JobView | null;
-  jobs: JobView[];
-  onSelectJob: (job: JobView) => void;
+  item: LibraryItem | null;
+  items: LibraryItem[];
+  onSelectItem: (item: LibraryItem) => void;
 }) {
-  const currentIndex = jobs.findIndex((j) => j.id === job?.id);
+  const currentIndex = items.findIndex((i) => i.id === item?.id);
   const hasPrev = currentIndex > 0;
-  const hasNext = currentIndex >= 0 && currentIndex < jobs.length - 1;
+  const hasNext = currentIndex >= 0 && currentIndex < items.length - 1;
 
   useEffect(() => {
     if (!opened) return;
     function handleKeyDown(e: KeyboardEvent) {
       if (e.key === "ArrowLeft" && hasPrev) {
-        onSelectJob(jobs[currentIndex - 1]!);
+        onSelectItem(items[currentIndex - 1]!);
       } else if (e.key === "ArrowRight" && hasNext) {
-        onSelectJob(jobs[currentIndex + 1]!);
+        onSelectItem(items[currentIndex + 1]!);
       }
     }
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [opened, currentIndex, hasPrev, hasNext, jobs, onSelectJob]);
+  }, [opened, currentIndex, hasPrev, hasNext, items, onSelectItem]);
 
-  if (!job) return null;
+  if (!item) return null;
 
-  const isVideo =
-    job.mode?.includes("video") || job.output?.contentType.startsWith("video/");
-  const modalTitle =
-    currentIndex >= 0
-      ? `Media ${currentIndex + 1} dari ${jobs.length}`
-      : "Detail Media";
+  const isVideo = item.kind === "video" || item.mime_type.startsWith("video/");
+  const isGenerated = item.type === "generated";
+  const displayLabel = item.prompt || item.alias || item.id;
 
   return (
     <Modal
       opened={opened}
       onClose={onClose}
-      title={modalTitle}
-      size="90%"
+      size="960px"
       centered
       classNames={{
         content: classes.modalContentFull,
@@ -173,7 +192,7 @@ export function MediaDetailModal({
           <div className={classes.mediaViewerWrapper}>
             {isVideo ? (
               <video
-                src={job.output?.url ?? ""}
+                src={item.url ?? ""}
                 controls
                 autoPlay
                 loop
@@ -181,204 +200,162 @@ export function MediaDetailModal({
               />
             ) : (
               <img
-                src={job.output?.url ?? ""}
-                alt={job.prompt}
+                src={item.url ?? ""}
+                alt={displayLabel}
                 className={classes.detailMedia}
               />
             )}
 
-            {/* Navigasi Prev & Next */}
+            {/* Tombol Navigasi Prev / Next */}
             {hasPrev ? (
-              <ActionIcon
-                variant="filled"
-                size="lg"
-                radius="xl"
+              <button
+                type="button"
                 className={classes.navArrowLeft}
-                onClick={() => onSelectJob(jobs[currentIndex - 1]!)}
+                onClick={() => onSelectItem(items[currentIndex - 1]!)}
                 aria-label="Media Sebelumnya"
               >
-                <ChevronLeftIcon />
-              </ActionIcon>
+                <ChevronLeftIcon size={18} />
+              </button>
             ) : null}
 
             {hasNext ? (
-              <ActionIcon
-                variant="filled"
-                size="lg"
-                radius="xl"
+              <button
+                type="button"
                 className={classes.navArrowRight}
-                onClick={() => onSelectJob(jobs[currentIndex + 1]!)}
-                aria-label="Media Berikutnya"
+                onClick={() => onSelectItem(items[currentIndex + 1]!)}
+                aria-label="Media Selanjutnya"
               >
-                <ChevronRightIcon />
-              </ActionIcon>
+                <ChevronRightIcon size={18} />
+              </button>
             ) : null}
           </div>
-
-          {/* Carousel Thumbnail di Bawah Media */}
-          {jobs.length > 1 ? (
-            <div className={classes.modalThumbnailBar}>
-              <ScrollArea type="never" scrollbars="x" offsetScrollbars>
-                <Group gap="xs" wrap="nowrap" justify="center" p={8}>
-                  {jobs.map((item, idx) => {
-                    const isItemVideo =
-                      item.mode?.includes("video") ||
-                      item.output?.contentType.startsWith("video/");
-                    const isSelected = item.id === job.id;
-                    return (
-                      <UnstyledButton
-                        key={item.id}
-                        className={`${classes.modalThumbButton} ${isSelected ? classes.modalThumbSelected : ""}`}
-                        onClick={() => onSelectJob(item)}
-                        aria-label={`Pilih media ${idx + 1}`}
-                      >
-                        {isItemVideo ? (
-                          <video
-                            src={item.output?.url ?? ""}
-                            className={classes.modalThumbImg}
-                            muted
-                            playsInline
-                          />
-                        ) : (
-                          <img
-                            src={item.output?.url ?? ""}
-                            alt=""
-                            className={classes.modalThumbImg}
-                          />
-                        )}
-                      </UnstyledButton>
-                    );
-                  })}
-                </Group>
-              </ScrollArea>
-            </div>
-          ) : null}
         </div>
 
         {/* Kolom Kanan: Detail & Aksi Media */}
         <div className={classes.detailInfoSidebar}>
           <ScrollArea type="hover" className={classes.sidebarScroll}>
-            <Stack gap="md" p="md">
+            <div className={classes.sidebarContent}>
               {/* Status & Mode Badges */}
-              <Group justify="space-between" align="center">
-                <Badge variant="light" color="blue" size="md" radius="sm">
-                  {formatModeLabel(job.mode)}
+              <div className={classes.badgesRow}>
+                <Badge className={classes.modeBadge}>
+                  {getModeLabel(item)}
                 </Badge>
-                <Badge variant="light" color="green" size="md" radius="sm">
-                  Completed
+                <Badge className={classes.statusBadge}>
+                  {getStatusLabel(item)}
                 </Badge>
-              </Group>
+              </div>
 
-              {/* Tombol Aksi Utama (Download) */}
-              {job.output?.url ? (
+              {/* Tombol Aksi Download (Hanya untuk Generated Media) */}
+              {isGenerated && item.url ? (
                 <Button
                   component="a"
-                  href={job.output.url}
+                  href={item.url}
                   target="_blank"
-                  download={`ai-gen-${job.id}`}
+                  download={`media-${item.id}`}
                   variant="filled"
-                  color="dark.4"
-                  size="md"
-                  radius="md"
                   fullWidth
-                  mt="xs"
-                  leftSection={<DownloadIcon size={18} />}
+                  leftSection={<DownloadIcon size={16} />}
                   className={classes.primaryDownloadBtn}
                 >
                   Download
                 </Button>
               ) : null}
 
-              {/* Box Prompt */}
-              <div className={classes.promptSection}>
-                <Group justify="space-between" align="center" mb={6}>
-                  <Text size="sm" fw={700} c="dimmed" tt="uppercase" lts={0.5}>
-                    prompt
-                  </Text>
-                  <CopyButton value={job.prompt} timeout={2000}>
-                    {({ copied, copy }) => (
-                      <Tooltip label={copied ? "Tersalin" : "Salin prompt"} withArrow position="left">
-                        <ActionIcon
-                          variant="subtle"
-                          color={copied ? "teal" : "gray"}
-                          size="sm"
-                          onClick={copy}
-                          aria-label="Salin teks prompt"
-                        >
-                          {copied ? <CheckIcon size={14} /> : <CopyIcon size={14} />}
-                        </ActionIcon>
-                      </Tooltip>
-                    )}
-                  </CopyButton>
-                </Group>
-                <Text size="sm" className={classes.promptParagraph}>
-                  {job.prompt}
-                </Text>
-              </div>
+              {/* Box Prompt (Hanya untuk Generated Media yang memiliki Prompt) */}
+              {isGenerated && item.prompt ? (
+                <div className={classes.promptSection}>
+                  <div className={classes.promptHeader}>
+                    <span className={classes.promptHeading}>PROMPT</span>
+                    <CopyButton value={item.prompt} timeout={2000}>
+                      {({ copied, copy }) => (
+                        <Tooltip label={copied ? "Tersalin" : "Salin teks"} withArrow position="left">
+                          <ActionIcon
+                            variant="subtle"
+                            color={copied ? "teal" : "gray"}
+                            size="xs"
+                            onClick={copy}
+                            aria-label="Salin teks prompt"
+                          >
+                            {copied ? <CheckIcon size={14} /> : <CopyIcon size={14} />}
+                          </ActionIcon>
+                        </Tooltip>
+                      )}
+                    </CopyButton>
+                  </div>
+                  <div className={classes.promptParagraph}>
+                    {item.prompt}
+                  </div>
+                </div>
+              ) : null}
 
               {/* Spesifikasi & Metadata Gambar */}
               <div className={classes.metaProperties}>
-                <div className={classes.metaRow}>
-                  <Text size="xs" c="dimmed">
-                    Biaya
-                  </Text>
-                  <Text size="xs" fw={600}>
-                    {job.cost} Poin
-                  </Text>
-                </div>
-
-                {job.createdAt ? (
+                {isGenerated && typeof item.cost === "number" ? (
                   <div className={classes.metaRow}>
-                    <Text size="xs" c="dimmed">
-                      Dibuat
-                    </Text>
-                    <Text size="xs" fw={500}>
-                      {new Date(job.createdAt).toLocaleString("id-ID", {
-                        dateStyle: "medium",
-                        timeStyle: "short",
-                      })}
-                    </Text>
+                    <span className={classes.metaLabel}>Biaya</span>
+                    <span className={classes.metaValueBold}>{item.cost} Poin</span>
                   </div>
                 ) : null}
 
-                {job.output?.availableUntil ? (
+                {item.width && item.height ? (
                   <div className={classes.metaRow}>
-                    <Text size="xs" c="dimmed">
-                      Masa Berlaku
-                    </Text>
-                    <Text size="xs" fw={500}>
-                      {new Date(job.output.availableUntil).toLocaleDateString("id-ID", {
-                        dateStyle: "medium",
-                      })}
-                    </Text>
+                    <span className={classes.metaLabel}>Dimensi</span>
+                    <span className={classes.metaValue}>
+                      {item.width} × {item.height} px
+                    </span>
+                  </div>
+                ) : null}
+
+                {item.size_bytes ? (
+                  <div className={classes.metaRow}>
+                    <span className={classes.metaLabel}>Ukuran Berkas</span>
+                    <span className={classes.metaValue}>
+                      {formatBytes(item.size_bytes)}
+                    </span>
+                  </div>
+                ) : null}
+
+                {item.created_at ? (
+                  <div className={classes.metaRow}>
+                    <span className={classes.metaLabel}>Dibuat</span>
+                    <span className={classes.metaValue}>
+                      {formatModalDate(item.created_at)}
+                    </span>
+                  </div>
+                ) : null}
+
+                {item.expires_at ? (
+                  <div className={classes.metaRow}>
+                    <span className={classes.metaLabel}>Masa Berlaku</span>
+                    <span className={classes.metaValue}>
+                      {formatModalDateShort(item.expires_at)}
+                    </span>
                   </div>
                 ) : null}
               </div>
-            </Stack>
+            </div>
           </ScrollArea>
 
           {/* Footer ID */}
           <div className={classes.sidebarFooter}>
-            <Group justify="space-between" align="center">
-              <Text size="xs" c="dimmed" ff="monospace" lineClamp={1}>
-                ID: {job.id}
-              </Text>
-              <CopyButton value={job.id} timeout={2000}>
-                {({ copied, copy }) => (
-                  <Tooltip label={copied ? "ID Tersalin" : "Salin ID"} withArrow position="left">
-                    <ActionIcon
-                      variant="subtle"
-                      color={copied ? "teal" : "gray"}
-                      size="xs"
-                      onClick={copy}
-                      aria-label="Salin ID job"
-                    >
-                      {copied ? <CheckIcon size={13} /> : <CopyIcon size={13} />}
-                    </ActionIcon>
-                  </Tooltip>
-                )}
-              </CopyButton>
-            </Group>
+            <span className={classes.footerIdText}>
+              ID: {item.id}
+            </span>
+            <CopyButton value={item.id} timeout={2000}>
+              {({ copied, copy }) => (
+                <Tooltip label={copied ? "ID Tersalin" : "Salin ID"} withArrow position="left">
+                  <ActionIcon
+                    variant="subtle"
+                    color={copied ? "teal" : "gray"}
+                    size="xs"
+                    onClick={copy}
+                    aria-label="Salin ID"
+                  >
+                    {copied ? <CheckIcon size={13} /> : <CopyIcon size={13} />}
+                  </ActionIcon>
+                </Tooltip>
+              )}
+            </CopyButton>
           </div>
         </div>
       </div>

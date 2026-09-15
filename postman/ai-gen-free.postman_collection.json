@@ -526,6 +526,64 @@
           "response": []
         },
         {
+          "name": "GET /customer/library",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-session-token",
+                "value": "{{userSessionToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/customer/library?limit=20&offset=0",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "customer",
+                "library"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "offset",
+                  "value": "0"
+                },
+                {
+                  "key": "type",
+                  "value": "all",
+                  "description": "all | image | video | upload | generated",
+                  "disabled": true
+                },
+                {
+                  "key": "sort",
+                  "value": "date",
+                  "description": "date | name | size | cost",
+                  "disabled": true
+                },
+                {
+                  "key": "order",
+                  "value": "desc",
+                  "description": "desc | asc",
+                  "disabled": true
+                },
+                {
+                  "key": "q",
+                  "value": "",
+                  "description": "Pencarian teks alias/prompt/id",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Daftar gabungan seluruh media pelanggan (generated image/video dan uploaded images) dengan filter type (image/video/upload/generated), sort (date/name/size/cost), order (desc/asc), dan batas 20 item per halaman."
+          },
+          "response": []
+        },
+        {
           "name": "GET /customer/generated/:jobId",
           "request": {
             "method": "GET",
@@ -547,6 +605,39 @@
               ]
             },
             "description": "Detail job. HTTP 200. Gagal kebijakan Siray: status=failed, errorCode=W002, errorMessage (bukan 4xx). output.url = /api/jobs/:id/file."
+          },
+          "response": []
+        },
+        {
+          "name": "PATCH /customer/generated/:jobId",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-session-token",
+                "value": "{{userSessionToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"alias\": \"Gambar Pemandangan Gunung\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/customer/generated/{{jobId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "customer",
+                "generated",
+                "{{jobId}}"
+              ]
+            },
+            "description": "Mengubah alias/nama kustom untuk gambar hasil generate milik pelanggan."
           },
           "response": []
         },
@@ -573,6 +664,164 @@
               ]
             },
             "description": "Stream file hasil generate milik pemanggil (WebP di storage aplikasi). Orang lain 404."
+          },
+          "response": []
+        },
+        {
+          "name": "POST /customer/uploads",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-session-token",
+                "value": "{{userSessionToken}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "description": "Berkas gambar (PNG, JPG, JPEG, WebP) maksimal 5 MB"
+                },
+                {
+                  "key": "alias",
+                  "value": "Foto Produk A",
+                  "type": "text",
+                  "description": "Alias opsional untuk berkas gambar (maksimal 100 karakter)"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/customer/uploads",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "customer",
+                "uploads"
+              ]
+            },
+            "description": "Upload gambar sementara pelanggan. Mengompres ke WebP dan menjaga rasio potrait/landscape."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /customer/uploads",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-session-token",
+                "value": "{{userSessionToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/customer/uploads?limit=50&offset=0",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "customer",
+                "uploads"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "50"
+                },
+                {
+                  "key": "offset",
+                  "value": "0"
+                }
+              ]
+            },
+            "description": "Daftar seluruh gambar yang diunggah pelanggan (aktif/tidak dihapus). Berbeda dari hasil generate AI."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /customer/uploads/:id/file",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-session-token",
+                "value": "{{userSessionToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/customer/uploads/{{uploadId}}/file",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "customer",
+                "uploads",
+                "{{uploadId}}",
+                "file"
+              ]
+            },
+            "description": "Stream biner berkas gambar upload pelanggan same-origin tanpa ekspos URL signed R2."
+          },
+          "response": []
+        },
+        {
+          "name": "DELETE /customer/uploads/:id",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "x-session-token",
+                "value": "{{userSessionToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/customer/uploads/{{uploadId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "customer",
+                "uploads",
+                "{{uploadId}}"
+              ]
+            },
+            "description": "Soft delete berkas gambar unggahan pelanggan. Gambar yang dihapus tidak akan muncul pada daftar unggahan."
+          },
+          "response": []
+        },
+        {
+          "name": "PATCH /customer/uploads/:id",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-session-token",
+                "value": "{{userSessionToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"alias\": \"Foto Referensi Karakter\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/customer/uploads/{{uploadId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "customer",
+                "uploads",
+                "{{uploadId}}"
+              ]
+            },
+            "description": "Mengubah alias/nama kustom untuk gambar unggahan pelanggan."
           },
           "response": []
         },
@@ -1128,6 +1377,189 @@
               ]
             },
             "description": "Ubah costPoints, enabled, atau displayName satu model catalog."
+          },
+          "response": []
+        },
+        {
+          "name": "POST /admin/uploads",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-session-token",
+                "value": "{{adminSessionToken}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "description": "Berkas gambar (PNG, JPG, JPEG, WebP) maksimal 5 MB"
+                },
+                {
+                  "key": "alias",
+                  "value": "Asset Hero Banner",
+                  "type": "text",
+                  "description": "Alias opsional untuk berkas gambar admin"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/uploads",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "uploads"
+              ]
+            },
+            "description": "Upload gambar sementara admin. Mengompres ke WebP dan menyimpan di folder uploads/admin/."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /admin/uploads",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-session-token",
+                "value": "{{adminSessionToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/uploads?limit=50&offset=0",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "uploads"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "50"
+                },
+                {
+                  "key": "offset",
+                  "value": "0"
+                }
+              ]
+            },
+            "description": "Daftar seluruh gambar yang diunggah (aktif/tidak dihapus) untuk admin."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /admin/uploads/:id/file",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-session-token",
+                "value": "{{adminSessionToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/uploads/{{uploadId}}/file",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "uploads",
+                "{{uploadId}}",
+                "file"
+              ]
+            },
+            "description": "Stream biner berkas gambar upload admin."
+          },
+          "response": []
+        },
+        {
+          "name": "DELETE /admin/uploads/:id",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "x-session-token",
+                "value": "{{adminSessionToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/uploads/{{uploadId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "uploads",
+                "{{uploadId}}"
+              ]
+            },
+            "description": "Soft delete berkas gambar unggahan oleh admin."
+          },
+          "response": []
+        },
+        {
+          "name": "PATCH /admin/uploads/:id",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-session-token",
+                "value": "{{adminSessionToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"alias\": \"Banner Promosi Baru\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/uploads/{{uploadId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "uploads",
+                "{{uploadId}}"
+              ]
+            },
+            "description": "Mengubah alias/nama berkas gambar oleh admin."
+          },
+          "response": []
+        },
+        {
+          "name": "POST /admin/uploads/sync",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-session-token",
+                "value": "{{adminSessionToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/uploads/sync",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "uploads",
+                "sync"
+              ]
+            },
+            "description": "Sinkronisasi otomatis gambar dari object storage R2 ke tabel database Upload."
           },
           "response": []
         },

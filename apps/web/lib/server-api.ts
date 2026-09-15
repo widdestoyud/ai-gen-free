@@ -76,11 +76,29 @@ export async function loadCustomerProfile() {
 
 export async function loadLibrary() {
   try {
-    const res = await fetchUserApi("/api/library");
+    const res = await fetchUserApi("/api/library?type=all&limit=30&offset=0");
     if (!res || !res.ok) return null;
     return (await res.json()) as {
-      jobs: import("./job-status").JobView[];
-      nextGenerateAt: string | null;
+      total: number;
+      limit: number;
+      offset: number;
+      items: Array<{
+        id: string;
+        type: "generated" | "upload";
+        kind: "image" | "video";
+        alias?: string | null;
+        prompt?: string | null;
+        model_id?: string | null;
+        cost?: number | null;
+        status: string;
+        url: string | null;
+        mime_type: string;
+        width?: number | null;
+        height?: number | null;
+        size_bytes?: number | null;
+        created_at: string;
+        expires_at?: string | null;
+      }>;
     };
   } catch {
     return null;

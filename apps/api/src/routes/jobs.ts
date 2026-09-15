@@ -7,7 +7,15 @@ import { userFromCookie } from "../auth/service.js";
 import { sendError } from "../http.js";
 import { listEnabledModels } from "../jobs/catalog.js";
 import { resolveSirayGenerateSlug, sirayGenerateParamsFromBody } from "../jobs/siray-generate.js";
-import { getJobForUser, getJobOutputFileForUser, listJobsForUser, submitJob } from "../jobs/service.js";
+import {
+  getJobForUser,
+  getJobOutputFileForUser,
+  listCustomerLibrary,
+  listJobsForUser,
+  submitJob,
+  updateJobAliasForUser,
+} from "../jobs/service.js";
+import { parseOptionalInt } from "../admin/parse.js";
 
 async function assertGenerateReady(storage: ObjectStorage): Promise<void> {
   await prisma.$queryRaw`SELECT 1`;
@@ -100,14 +108,50 @@ export async function registerJobRoutes(
     }
   });
 
-  const handleListJobs = async (req: any, reply: any) => {
+  // GET /customer/generated-lists (Khusus daftar pekerjaan generate AI)
+  app.get("/customer/generated-lists", async (req: any, reply: any) => {
     const session = await requireUser(req, reply);
     if (!session) return;
     return await listJobsForUser({ userId: session.userId, storage: deps.storage });
-  };
+  });
 
-  app.get("/customer/generated-lists", handleListJobs);
-  app.get("/customer/library", handleListJobs);
+  // GET /customer/library (Daftar gabungan generated image/video dan uploaded images, default 20 per halaman)
+  app.get("/customer/library", async (req: any, reply: any) => {
+    const session = await requireUser(req, reply);
+    if (!session) return;
+    try {
+      const q = (req.query ?? {}) as {
+        limit?: unknown;
+        offset?: unknown;
+        type?: unknown;
+        kind?: unknown;
+        sort?: unknown;
+        sortBy?: unknown;
+        order?: unknown;
+        q?: unknown;
+      };
+      const limit = parseOptionalInt(q.limit, 20);
+      const offset = parseOptionalInt(q.offset, 0);
+      const type = typeof q.type === "string" ? q.type : typeof q.kind === "string" ? q.kind : "all";
+      const sort = typeof q.sort === "string" ? q.sort : typeof q.sortBy === "string" ? q.sortBy : "date";
+      const order = typeof q.order === "string" ? q.order : "desc";
+      const search = typeof q.q === "string" ? q.q.trim() : undefined;
+
+      const data = await listCustomerLibrary({
+        userId: session.userId,
+        storage: deps.storage,
+        limit,
+        offset,
+        type,
+        sort,
+        order,
+        q: search,
+      });
+      return reply.status(200).send(data);
+    } catch (err) {
+      return sendError(reply, err);
+    }
+  });
 
   app.get("/customer/generated/:jobId", async (req, reply) => {
     const session = await requireUser(req, reply);
@@ -115,6 +159,23 @@ export async function registerJobRoutes(
     try {
       const { jobId } = req.params as { jobId: string };
       return await getJobForUser({ userId: session.userId, id: jobId, storage: deps.storage });
+    } catch (err) {
+      return sendError(reply, err);
+    }
+  });
+
+  app.patch("/customer/generated/:jobId", async (req, reply) => {
+    const session = await requireUser(req, reply);
+    if (!session) return;
+    try {
+      const { jobId } = req.params as { jobId: string };
+      const body = (req.body ?? {}) as { alias?: unknown };
+      return await updateJobAliasForUser({
+        userId: session.userId,
+        id: jobId,
+        rawAlias: body.alias,
+        storage: deps.storage,
+      });
     } catch (err) {
       return sendError(reply, err);
     }

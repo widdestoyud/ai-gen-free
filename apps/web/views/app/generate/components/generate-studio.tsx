@@ -1,19 +1,19 @@
 "use client";
 
-import { ActionIcon, Alert, Button, Group, Paper, Text, Textarea, UnstyledButton } from "@mantine/core";
+import { ActionIcon, Alert, Button, Group, Paper, Progress, Text, Textarea, UnstyledButton } from "@mantine/core";
 import { AppLink } from "@/components/app-link";
 import { CooldownText } from "@/components/cooldown-text";
 import { EmptyState } from "@/components/empty-state";
 import { ErrorAlert } from "@/components/error-alert";
 import { WaitAlert } from "@/components/wait-alert";
-import { useGenerateStudio } from "@/hooks/use-generate-studio";
+import { useGenerateStudio, type StudioUpload } from "@/hooks/use-generate-studio";
 import { hasLiveOutput, type JobView } from "@/lib/job-status";
 import type { Model } from "../types";
 import { GenerateAspectMenu } from "./generate-aspect-menu";
 import { GenerateLibraryModal } from "./generate-library-modal";
 import { GenerateResultModal } from "./generate-result-modal";
 import { GenerateSkeleton } from "./generate-skeleton";
-import { ImageIcon, SparkleIcon, VideoIcon } from "./generate-icons";
+import { CloseIcon, ImageIcon, SparkleIcon, VideoIcon } from "./generate-icons";
 import { GenerateDurationMenu, GenerateResolutionMenu } from "./generate-video-menu";
 import classes from "./generate-studio.module.css";
 
@@ -29,6 +29,8 @@ export function GenerateStudio(props: {
   models: Model[];
   jobs: JobView[];
   nextGenerateAt: string | null;
+  initialUploads?: StudioUpload[];
+  initialUploadsTotal?: number;
 }) {
   const ctrl = useGenerateStudio(props);
   const lastJob = ctrl.lastGeneratedJob;
@@ -98,17 +100,79 @@ export function GenerateStudio(props: {
           <Paper className={classes.composer} radius="xl" p="md" withBorder>
             {ctrl.selectedRefs.length > 0 ? (
               <Group gap="xs" mb="sm">
-                {ctrl.selectedRefs.map((item) => (
-                  <UnstyledButton key={item.id} onClick={() => ctrl.removeRef(item.id)}>
-                    <img src={item.url} alt="" className={classes.thumb} />
-                  </UnstyledButton>
-                ))}
+                {ctrl.selectedRefs.map((item, idx) => {
+                  const tagLabel = item.alias && item.alias.trim().length > 0 ? `@${item.alias.trim()}` : `@image${idx + 1}`;
+                  return (
+                    <div key={item.id} className={classes.thumbWrapper}>
+                      <UnstyledButton
+                        type="button"
+                        onClick={() => !item.uploading && ctrl.insertImageTag(idx)}
+                        className={classes.thumbInner}
+                        aria-label={`Pilih selector ${tagLabel}`}
+                      >
+                        <img
+                          src={item.url}
+                          alt=""
+                          className={`${classes.thumb} ${item.uploading ? classes.thumbBlur : ""}`}
+                        />
+                        {item.uploading ? (
+                          <div className={classes.thumbProgressOverlay}>
+                            <Progress
+                              value={item.progress ?? 0}
+                              size="xs"
+                              radius="xl"
+                              color="blue"
+                              animated
+                              className={classes.thumbProgressBar}
+                            />
+                          </div>
+                        ) : null}
+                      </UnstyledButton>
+                      {!item.uploading ? (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            ctrl.removeRef(item.id);
+                          }}
+                          className={classes.thumbCloseBtn}
+                          aria-label="Hapus gambar referensi"
+                        >
+                          <CloseIcon size={10} />
+                        </button>
+                      ) : null}
+                    </div>
+                  );
+                })}
               </Group>
             ) : null}
+            {ctrl.mentionOpen && ctrl.selectedRefs.length > 0 ? (
+              <div className={classes.mentionDropdown}>
+                {ctrl.selectedRefs.map((item, idx) => {
+                  const tagLabel = item.alias && item.alias.trim().length > 0 ? `@${item.alias.trim()}` : `@image${idx + 1}`;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      className={`${classes.mentionItem} ${idx === ctrl.mentionIndex ? classes.mentionItemActive : ""}`}
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        ctrl.selectMention(idx);
+                      }}
+                    >
+                      <img src={item.url} alt="" className={classes.mentionThumb} />
+                      <span className={classes.mentionLabel}>{tagLabel}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            ) : null}
             <Textarea
+              ref={ctrl.textareaRef}
               placeholder="Type to imagine"
               value={ctrl.prompt}
-              onChange={(e) => ctrl.setPrompt(e.currentTarget.value)}
+              onChange={(e) => ctrl.handlePromptChange(e.currentTarget.value, e.currentTarget.selectionStart)}
+              onKeyDown={ctrl.handlePromptKeyDown}
               autosize
               minRows={ctrl.prompt.trim() ? 3 : 1}
               maxRows={8}
@@ -226,10 +290,15 @@ export function GenerateStudio(props: {
         onTab={ctrl.setLibraryTab}
         generations={ctrl.gallery}
         uploads={ctrl.uploads}
+        uploadPage={ctrl.uploadPage}
+        uploadTotal={ctrl.uploadTotal}
+        onUploadPageChange={ctrl.onUploadPageChange}
         isSelected={ctrl.isSelected}
         onToggleGeneration={ctrl.toggleGeneration}
         onToggleUpload={ctrl.toggleUpload}
         onUploadClick={ctrl.openFilePicker}
+        onDeleteUpload={ctrl.deleteUpload}
+        onUpdateAlias={ctrl.updateUploadAlias}
       />
 
       <GenerateResultModal

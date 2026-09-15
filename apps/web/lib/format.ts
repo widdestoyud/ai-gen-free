@@ -27,3 +27,44 @@ export function formatDurationId(totalSeconds: number): string {
   if (m > 0) return `${m} menit`;
   return `${sec} detik`;
 }
+
+export function resolveUploadUrl(url: string | null | undefined, id?: string): string {
+  if (!url) return id ? `/api/customer-uploads/${id}/file` : "";
+  if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("blob:") || url.startsWith("data:")) {
+    return url;
+  }
+  if (url.startsWith("/customer/uploads/")) {
+    return `/api${url}`;
+  }
+  if (url.startsWith("/admin/uploads/")) {
+    return `/api${url}`;
+  }
+  if (url.startsWith("/api/")) {
+    return url;
+  }
+  return url.startsWith("/") ? `/api${url}` : `/api/${url}`;
+}
+
+export function formatRelativeTime(iso?: string | null): string {
+  if (!iso) return "";
+  const t = new Date(iso).getTime();
+  if (Number.isNaN(t)) return "";
+  const diffSec = Math.max(0, Math.floor((Date.now() - t) / 1000));
+  if (diffSec < 60) return "Just now";
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffHour = Math.floor(diffMin / 60);
+  if (diffHour < 24) return `${diffHour}h ago`;
+  const diffDays = Math.floor(diffHour / 24);
+  if (diffDays === 1) return "Yesterday";
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return new Date(iso).toLocaleDateString("id-ID", { month: "short", day: "numeric" });
+}
+
+export function formatBytes(bytes?: number | null): string {
+  if (!bytes || bytes <= 0) return "";
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+

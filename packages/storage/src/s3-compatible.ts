@@ -3,6 +3,7 @@ import {
   DeleteObjectCommand,
   GetObjectCommand,
   HeadBucketCommand,
+  ListObjectsV2Command,
   PutObjectCommand,
   S3Client,
 } from "@aws-sdk/client-s3";
@@ -74,6 +75,23 @@ export class S3CompatibleStorage implements ObjectStorage {
     return getSignedUrl(this.signing, new GetObjectCommand({ Bucket: this.bucket, Key: key }), {
       expiresIn: expiresSeconds,
     });
+  }
+
+  async list(prefix?: string): Promise<Array<{ key: string; size?: number; lastModified?: Date }>> {
+    await this.ensureBucket();
+    const res = await this.internal.send(
+      new ListObjectsV2Command({
+        Bucket: this.bucket,
+        Prefix: prefix,
+      }),
+    );
+    return (res.Contents ?? [])
+      .map((item) => ({
+        key: item.Key ?? "",
+        size: item.Size,
+        lastModified: item.LastModified,
+      }))
+      .filter((item) => item.key.length > 0);
   }
 
   private async ensureBucket(): Promise<void> {

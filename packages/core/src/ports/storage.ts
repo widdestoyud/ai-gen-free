@@ -20,6 +20,7 @@ export interface ObjectStorage {
   get(key: string): Promise<StoredObject>;
   delete(key: string): Promise<void>;
   signGetUrl(key: string, expiresSeconds?: number): Promise<string>;
+  list?(prefix?: string): Promise<Array<{ key: string; size?: number; lastModified?: Date }>>;
 }
 
 export type ObjectStorageDriver = "minio" | "s3" | "r2" | "memory" | (string & {});

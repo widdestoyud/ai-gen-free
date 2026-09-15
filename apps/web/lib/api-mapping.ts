@@ -36,8 +36,14 @@ export const API_MAPPINGS: readonly ApiRouteMapping[] = [
   {
     FE: "/api/generate/:id",
     BE: "/customer/generated/:id",
-    method: "GET",
-    description: "Detail data job generate spesifik",
+    method: "ALL",
+    description: "Detail data job generate spesifik dan update alias (PATCH)",
+  },
+  {
+    FE: "/api/customer/generated/:id",
+    BE: "/customer/generated/:id",
+    method: "ALL",
+    description: "Detail data job generate spesifik dan update alias (kanonik)",
   },
   {
     FE: "/api/generate/:id/file",
@@ -47,9 +53,15 @@ export const API_MAPPINGS: readonly ApiRouteMapping[] = [
   },
   {
     FE: "/api/library",
-    BE: "/customer/generated-lists",
+    BE: "/customer/library",
     method: "GET",
-    description: "Daftar riwayat seluruh media yang telah di-render pelanggan",
+    description: "Daftar riwayat seluruh media (generated image/video dan uploaded images) pelanggan dengan batas 20 per halaman",
+  },
+  {
+    FE: "/api/customer/library",
+    BE: "/customer/library",
+    method: "GET",
+    description: "Daftar riwayat seluruh media pelanggan (kanonik)",
   },
   {
     FE: "/api/jobs",
@@ -60,8 +72,8 @@ export const API_MAPPINGS: readonly ApiRouteMapping[] = [
   {
     FE: "/api/jobs/:id",
     BE: "/customer/generated/:id",
-    method: "GET",
-    description: "Detail data job generate spesifik (alias)",
+    method: "ALL",
+    description: "Detail data job generate spesifik dan update alias (alias)",
   },
   {
     FE: "/api/jobs/:id/file",
@@ -345,7 +357,89 @@ export const API_MAPPINGS: readonly ApiRouteMapping[] = [
   },
 
   // -------------------------------------------------------------
-  // 6. System & Health
+  // 6. Uploads (Pelanggan & Admin)
+  // -------------------------------------------------------------
+  {
+    FE: "/api/customer-uploads",
+    BE: "/customer/uploads",
+    method: "POST",
+    description: "Unggah gambar referensi pelanggan (multipart/form-data)",
+  },
+  {
+    FE: "/api/customer-uploads/:id",
+    BE: "/customer/uploads/:id",
+    method: "ALL",
+    description: "Operasi berkas gambar spesifik pelanggan (DELETE soft delete, PATCH update alias)",
+  },
+  {
+    FE: "/api/customer-uploads/:id/file",
+    BE: "/customer/uploads/:id/file",
+    method: "GET",
+    description: "Stream berkas gambar upload pelanggan",
+  },
+  {
+    FE: "/api/customer-images",
+    BE: "/customer/uploads",
+    method: "GET",
+    description: "Daftar riwayat berkas gambar unggahan pelanggan",
+  },
+  {
+    FE: "/api/customer-images/:id",
+    BE: "/customer/uploads/:id",
+    method: "ALL",
+    description: "Operasi berkas gambar spesifik pelanggan (alias)",
+  },
+  {
+    FE: "/api/customer-images/:id/file",
+    BE: "/customer/uploads/:id/file",
+    method: "GET",
+    description: "Stream berkas gambar upload pelanggan (alias)",
+  },
+  {
+    FE: "/api/customer/uploads",
+    BE: "/customer/uploads",
+    method: "ALL",
+    description: "Unggah (POST) dan daftar (GET) riwayat berkas gambar pelanggan (kanonik)",
+  },
+  {
+    FE: "/api/customer/uploads/:id",
+    BE: "/customer/uploads/:id",
+    method: "ALL",
+    description: "Operasi berkas gambar spesifik pelanggan (DELETE soft delete, PATCH update alias)",
+  },
+  {
+    FE: "/api/customer/uploads/:id/file",
+    BE: "/customer/uploads/:id/file",
+    method: "GET",
+    description: "Stream berkas gambar upload pelanggan (kanonik)",
+  },
+  {
+    FE: "/api/admin/uploads",
+    BE: "/admin/uploads",
+    method: "ALL",
+    description: "Unggah (POST) dan daftar (GET) gambar admin",
+  },
+  {
+    FE: "/api/admin/uploads/:id",
+    BE: "/admin/uploads/:id",
+    method: "ALL",
+    description: "Operasi berkas gambar spesifik admin (DELETE soft delete, PATCH update alias)",
+  },
+  {
+    FE: "/api/admin/uploads/:id/file",
+    BE: "/admin/uploads/:id/file",
+    method: "GET",
+    description: "Stream berkas gambar upload admin",
+  },
+  {
+    FE: "/api/admin/uploads/sync",
+    BE: "/admin/uploads/sync",
+    method: "POST",
+    description: "Sinkronisasi berkas gambar dari object storage ke database",
+  },
+
+  // -------------------------------------------------------------
+  // 7. System & Health
   // -------------------------------------------------------------
   {
     FE: "/api/health",
@@ -425,6 +519,23 @@ export function resolveBackendPath(fePath: string, method = "GET"): string {
 
   const userInvoiceDetail = m === "GET" ? path.match(/^\/api\/invoices\/([^/]+)$/) : null;
   if (userInvoiceDetail) return `/invoices/${userInvoiceDetail[1]}` + search;
+
+  // Upload file streaming user & admin
+  const customerUploadsFileMatch = m === "GET" ? path.match(/^\/api\/customer-uploads\/([^/]+)\/file$/) : null;
+  if (customerUploadsFileMatch) return `/customer/uploads/${customerUploadsFileMatch[1]}/file` + search;
+
+  const customerImagesFileMatch = m === "GET" ? path.match(/^\/api\/customer-images\/([^/]+)\/file$/) : null;
+  if (customerImagesFileMatch) return `/customer/uploads/${customerImagesFileMatch[1]}/file` + search;
+
+  const customerUploadFileMatch = m === "GET" ? path.match(/^\/api\/customer\/uploads\/([^/]+)\/file$/) : null;
+  if (customerUploadFileMatch) return `/customer/uploads/${customerUploadFileMatch[1]}/file` + search;
+
+  const adminUploadFileMatch = m === "GET" ? path.match(/^\/api\/admin\/uploads\/([^/]+)\/file$/) : null;
+  if (adminUploadFileMatch) return `/admin/uploads/${adminUploadFileMatch[1]}/file` + search;
+
+  // Operasi spesifik upload user (/api/customer-uploads/:id, /api/customer-images/:id, /api/customer/uploads/:id)
+  const customerUploadDetailMatch = path.match(/^\/api\/(?:customer-uploads|customer-images|customer\/uploads)\/([^/]+)$/);
+  if (customerUploadDetailMatch) return `/customer/uploads/${customerUploadDetailMatch[1]}` + search;
 
   // Fallback: strip /api jika diawali /api/
   if (path !== "/api/health" && path.startsWith("/api/")) {

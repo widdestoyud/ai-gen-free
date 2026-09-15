@@ -1,134 +1,309 @@
 "use client";
 
 import {
+  ActionIcon,
   Button,
-  SegmentedControl,
+  Menu,
   Stack,
   Text,
-  Title,
+  TextInput,
   UnstyledButton,
 } from "@mantine/core";
 import Link from "next/link";
 import { EmptyState } from "@/components/empty-state";
-import { WaitAlert } from "@/components/wait-alert";
-import { useLibrary, type MediaFilter } from "@/hooks/use-library";
-import type { JobView } from "@/lib/job-status";
+import { useLibrary, type LibraryItem, type LibraryTab } from "@/hooks/use-library";
+import { formatBytes, formatRelativeTime } from "@/lib/format";
+import {
+  CheckIcon,
+  CloseIcon,
+  FilterSlidersIcon,
+  MediaStackIcon,
+  SearchIcon,
+  VideoIcon,
+} from "./library-icons";
 import { MediaDetailModal } from "./media-detail-modal";
 import classes from "./library-view.module.css";
 
-function MediaStackIcon() {
-  return (
-    <svg
-      width="15"
-      height="15"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <rect width="18" height="18" x="3" y="3" rx="2" />
-      <path d="M7 3v18" />
-      <path d="M3 7.5h4" />
-      <path d="M3 12h18" />
-    </svg>
-  );
-}
+const TABS: Array<{ label: string; value: LibraryTab }> = [
+  { label: "All", value: "all" },
+  { label: "Generations", value: "generations" },
+  { label: "Uploaded media", value: "uploads" },
+];
 
-function VideoIcon() {
-  return (
-    <svg
-      width="15"
-      height="15"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="m10 8 6 4-6 4V8Z" />
-      <rect width="20" height="16" x="2" y="4" rx="2" />
-    </svg>
-  );
+function getMediaTitle(item: LibraryItem): string {
+  if (item.alias) return item.alias;
+  if (item.prompt) {
+    return item.kind === "video"
+      ? `${item.prompt.slice(0, 32)}.mp4`
+      : item.prompt;
+  }
+  return item.kind === "video" ? "uploaded_video.mp4" : "uploaded_image.webp";
 }
 
 export function LibraryView(props: {
-  initialJobs: JobView[];
-  nextGenerateAt?: string | null;
+  initialItems?: LibraryItem[];
+  initialTotal?: number;
 }) {
   const ctrl = useLibrary(props);
 
   return (
     <div className={classes.container}>
-      <div className={classes.headerRow}>
-        <Title order={2} className={classes.title}>
-          Media
-        </Title>
-        {ctrl.succeededJobs.length > 0 ? (
-          <SegmentedControl
-            value={ctrl.filter}
-            onChange={(val) => ctrl.setFilter(val as MediaFilter)}
-            data={[
-              { label: `Semua (${ctrl.counts.all})`, value: "all" },
-              { label: `Gambar (${ctrl.counts.images})`, value: "images" },
-              { label: `Video (${ctrl.counts.videos})`, value: "videos" },
-            ]}
-            size="xs"
-            radius="md"
+      {/* Top Bar: Tabs, Search, Filter Menu, Upload Button */}
+      <div className={classes.topBar}>
+        <div className={classes.tabsRow}>
+          {TABS.map((t) => (
+            <button
+              key={t.value}
+              type="button"
+              className={`${classes.tabBtn} ${ctrl.tab === t.value ? classes.tabBtnActive : ""}`}
+              onClick={() => ctrl.setTab(t.value)}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        <div className={classes.actionsRow}>
+          <TextInput
+            placeholder="Search"
+            value={ctrl.search}
+            onChange={(e) => ctrl.setSearch(e.currentTarget.value)}
+            leftSection={<SearchIcon size={15} />}
+            rightSection={
+              ctrl.search ? (
+                <ActionIcon
+                  size="xs"
+                  variant="subtle"
+                  onClick={() => ctrl.setSearch("")}
+                  aria-label="Bersihkan pencarian"
+                >
+                  <CloseIcon size={12} />
+                </ActionIcon>
+              ) : null
+            }
+            className={classes.searchInput}
           />
-        ) : null}
+
+          {/* Filter & Sort Dropdown Menu */}
+          <Menu shadow="md" width={220} position="bottom-end">
+            <Menu.Target>
+              <button
+                type="button"
+                className={classes.iconBtn}
+                aria-label="Opsi Tampilan dan Urutan"
+              >
+                <FilterSlidersIcon size={16} />
+              </button>
+            </Menu.Target>
+
+            <Menu.Dropdown>
+              <Menu.Label>View</Menu.Label>
+              <Menu.Item
+                onClick={() => ctrl.setViewMode("grid")}
+                rightSection={ctrl.viewMode === "grid" ? <CheckIcon size={13} /> : null}
+              >
+                Grid
+              </Menu.Item>
+              <Menu.Item
+                onClick={() => ctrl.setViewMode("list")}
+                rightSection={ctrl.viewMode === "list" ? <CheckIcon size={13} /> : null}
+              >
+                List
+              </Menu.Item>
+
+              <Menu.Divider />
+
+              <Menu.Label>Sort by</Menu.Label>
+              <Menu.Item
+                onClick={() => ctrl.setSortBy("date")}
+                rightSection={ctrl.sortBy === "date" ? <CheckIcon size={13} /> : null}
+              >
+                Date created
+              </Menu.Item>
+              <Menu.Item
+                onClick={() => ctrl.setSortBy("name")}
+                rightSection={ctrl.sortBy === "name" ? <CheckIcon size={13} /> : null}
+              >
+                Name
+              </Menu.Item>
+              <Menu.Item
+                onClick={() => ctrl.setSortBy("size")}
+                rightSection={ctrl.sortBy === "size" ? <CheckIcon size={13} /> : null}
+              >
+                File size
+              </Menu.Item>
+
+              <Menu.Divider />
+
+              <Menu.Label>Order</Menu.Label>
+              <Menu.Item
+                onClick={() => ctrl.setSortOrder("newest")}
+                rightSection={ctrl.sortOrder === "newest" ? <CheckIcon size={13} /> : null}
+              >
+                Newest
+              </Menu.Item>
+              <Menu.Item
+                onClick={() => ctrl.setSortOrder("oldest")}
+                rightSection={ctrl.sortOrder === "oldest" ? <CheckIcon size={13} /> : null}
+              >
+                Oldest
+              </Menu.Item>
+
+              <Menu.Divider />
+
+              <Menu.Label>Show Only</Menu.Label>
+              <Menu.Item
+                onClick={() => ctrl.setShowOnly("all")}
+                rightSection={ctrl.showOnly === "all" ? <CheckIcon size={13} /> : null}
+              >
+                All
+              </Menu.Item>
+              <Menu.Item
+                onClick={() => ctrl.setShowOnly("images")}
+                rightSection={ctrl.showOnly === "images" ? <CheckIcon size={13} /> : null}
+              >
+                Images
+              </Menu.Item>
+              <Menu.Item
+                onClick={() => ctrl.setShowOnly("videos")}
+                rightSection={ctrl.showOnly === "videos" ? <CheckIcon size={13} /> : null}
+              >
+                Videos
+              </Menu.Item>
+            </Menu.Dropdown>
+          </Menu>
+
+          <button
+            type="button"
+            className={classes.uploadBtn}
+            onClick={ctrl.openFilePicker}
+            disabled={ctrl.isUploading}
+          >
+            {ctrl.isUploading ? "Uploading..." : "Upload files"}
+          </button>
+
+          <input
+            ref={ctrl.fileInputRef}
+            type="file"
+            multiple
+            accept="image/*,video/*"
+            className={classes.hiddenInput}
+            onChange={(e) => void ctrl.handleFileInputChange(e)}
+          />
+        </div>
       </div>
 
-      {ctrl.active ? (
-        <WaitAlert message="Sedang memproses render baru di latar belakang..." />
-      ) : null}
-
-      {ctrl.filteredJobs.length === 0 ? (
-        <EmptyState>
+      {ctrl.items.length === 0 ? (
+        <EmptyState minHeight={320}>
           <Stack align="center" gap="xs">
-            <Text>Belum ada media yang di-render.</Text>
+            <Text c="dimmed">
+              {ctrl.search
+                ? `Tidak ada media yang cocok dengan kata kunci "${ctrl.search}".`
+                : ctrl.tab === "uploads"
+                  ? "Belum ada berkas media yang diunggah."
+                  : "Belum ada media hasil generate."}
+            </Text>
             <Button component={Link} href="/app/generate" variant="light" size="xs">
               Mulai Generate
             </Button>
           </Stack>
         </EmptyState>
-      ) : (
+      ) : ctrl.viewMode === "grid" ? (
+        /* Flat Grid View without date grouping */
         <div className={classes.grid}>
-          {ctrl.filteredJobs.map((job) => {
+          {ctrl.items.map((item) => {
             const isVideo =
-              job.mode?.includes("video") ||
-              job.output?.contentType.startsWith("video/");
+              item.kind === "video" || item.mime_type.startsWith("video/");
+            const timeStr = formatRelativeTime(item.created_at);
+            const sizeStr = formatBytes(item.size_bytes);
+            const title = getMediaTitle(item);
+
+            return (
+              <div
+                key={item.id}
+                className={classes.cardWrapper}
+                onClick={() => ctrl.openPreview(item)}
+                role="button"
+                tabIndex={0}
+              >
+                <div className={classes.mediaThumbBox}>
+                  {isVideo ? (
+                    <video
+                      src={item.url ?? ""}
+                      className={classes.video}
+                      muted
+                      playsInline
+                      loop
+                      onMouseOver={(e) => void e.currentTarget.play().catch(() => {})}
+                      onMouseOut={(e) => e.currentTarget.pause()}
+                    />
+                  ) : (
+                    <img
+                      src={item.url ?? ""}
+                      alt={item.prompt || item.alias || title}
+                      loading="lazy"
+                      className={classes.image}
+                    />
+                  )}
+                  <div className={classes.overlayIcon}>
+                    {isVideo ? <VideoIcon /> : <MediaStackIcon />}
+                  </div>
+                </div>
+
+                <div className={classes.cardMeta}>
+                  <div className={classes.cardTitle} title={item.prompt || title}>
+                    {title}
+                  </div>
+                  <div className={classes.cardSub}>
+                    {timeStr}
+                    {sizeStr ? ` · ${sizeStr}` : ""}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        /* List View */
+        <div className={classes.listContainer}>
+          {ctrl.items.map((item) => {
+            const isVideo =
+              item.kind === "video" || item.mime_type.startsWith("video/");
+            const timeStr = formatRelativeTime(item.created_at);
+            const sizeStr = formatBytes(item.size_bytes);
+            const title = getMediaTitle(item);
+
             return (
               <UnstyledButton
-                key={job.id}
-                className={classes.card}
-                onClick={() => ctrl.openPreview(job)}
+                key={item.id}
+                className={classes.listRow}
+                onClick={() => ctrl.openPreview(item)}
               >
-                {isVideo ? (
-                  <video
-                    src={job.output?.url ?? ""}
-                    className={classes.video}
-                    muted
-                    playsInline
-                    loop
-                    onMouseOver={(e) => void e.currentTarget.play().catch(() => {})}
-                    onMouseOut={(e) => e.currentTarget.pause()}
-                  />
-                ) : (
-                  <img
-                    src={job.output?.url ?? ""}
-                    alt={job.prompt}
-                    loading="lazy"
-                    className={classes.image}
-                  />
-                )}
-                <div className={classes.overlayIcon}>
-                  {isVideo ? <VideoIcon /> : <MediaStackIcon />}
+                <div className={classes.listLeft}>
+                  {isVideo ? (
+                    <video
+                      src={item.url ?? ""}
+                      className={classes.listThumb}
+                      muted
+                      playsInline
+                    />
+                  ) : (
+                    <img
+                      src={item.url ?? ""}
+                      alt={item.prompt || item.alias || title}
+                      loading="lazy"
+                      className={classes.listThumb}
+                    />
+                  )}
+                  <Stack gap={2} className={classes.listTextCol}>
+                    <div className={classes.listTitle}>{title}</div>
+                    <div className={classes.listSub}>{item.prompt || item.alias || item.id}</div>
+                  </Stack>
                 </div>
-                <div className={classes.hoverPrompt}>
-                  <div className={classes.promptText}>{job.prompt}</div>
+
+                <div className={classes.listRight}>
+                  {sizeStr ? <span>{sizeStr}</span> : null}
+                  <span>{timeStr}</span>
                 </div>
               </UnstyledButton>
             );
@@ -139,9 +314,9 @@ export function LibraryView(props: {
       <MediaDetailModal
         opened={ctrl.previewOpened}
         onClose={ctrl.closePreview}
-        job={ctrl.selectedJob}
-        jobs={ctrl.filteredJobs}
-        onSelectJob={ctrl.openPreview}
+        item={ctrl.selectedItem}
+        items={ctrl.items}
+        onSelectItem={ctrl.openPreview}
       />
     </div>
   );

@@ -1,8 +1,31 @@
 "use client";
 
-import { Text } from "@mantine/core";
+import { Center, Text, type MantineSpacing } from "@mantine/core";
 import type { ReactNode } from "react";
 
-export function EmptyState({ children }: { children: ReactNode }) {
-  return <Text c="dimmed">{children}</Text>;
+export interface EmptyStateProps {
+  children: ReactNode;
+  minHeight?: number | string;
+  py?: MantineSpacing;
+  className?: string;
 }
+
+export function EmptyState({
+  children,
+  minHeight = 160,
+  py = "xl",
+  className,
+}: EmptyStateProps) {
+  return (
+    <Center mih={minHeight} py={py} px="md" w="100%" className={className}>
+      {typeof children === "string" || typeof children === "number" || Array.isArray(children) ? (
+        <Text c="dimmed" ta="center">
+          {children}
+        </Text>
+      ) : (
+        children
+      )}
+    </Center>
+  );
+}
+

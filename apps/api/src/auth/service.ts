@@ -31,6 +31,7 @@ export class AuthError extends Error {
     public readonly status = 400,
   ) {
     super(message);
+    this.name = "AuthError";
   }
 }
 

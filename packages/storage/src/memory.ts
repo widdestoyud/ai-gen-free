@@ -28,4 +28,15 @@ export class MemoryObjectStorage implements ObjectStorage {
     const b64 = Buffer.from(found.body).toString("base64");
     return `data:${found.contentType};base64,${b64}#expires=${expiresAt}`;
   }
+
+  async list(prefix?: string): Promise<Array<{ key: string; size?: number; lastModified?: Date }>> {
+    const items: Array<{ key: string; size?: number; lastModified?: Date }> = [];
+    for (const [key, obj] of this.objects.entries()) {
+      if (!prefix || key.startsWith(prefix)) {
+        items.push({ key, size: obj.body.length, lastModified: new Date() });
+      }
+    }
+    return items;
+  }
 }
+
