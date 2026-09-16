@@ -68,6 +68,8 @@ export interface PaymentStatusResult {
   status?: "SUCCESS" | "FAILED" | "PENDING" | "EXPIRED";
   paymentChannel?: string;
   paidAt?: Date;
+  qrString?: string;
+  qrUrl?: string;
   error?: string;
 }
 

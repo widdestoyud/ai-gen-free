@@ -28,9 +28,70 @@
   background: var(--mantine-color-dark-6);
 }
 
+.textareaWrapper {
+  position: relative;
+  width: 100%;
+}
+
+.highlightBackdrop {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  overflow: hidden;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: inherit;
+  font-size: var(--mantine-font-size-md);
+  line-height: 1.55;
+  padding: 0;
+  color: var(--mantine-color-text);
+  box-sizing: border-box;
+}
+
 .textarea {
-  background: transparent;
-  border: none;
+  position: relative;
+  width: 100%;
+  background: transparent !important;
+  color: transparent !important;
+  caret-color: var(--mantine-color-white);
+  font-family: inherit;
+  font-size: var(--mantine-font-size-md);
+  line-height: 1.55;
+  padding: 0 !important;
+  border: none !important;
+  box-sizing: border-box;
+}
+
+.textarea::placeholder {
+  color: var(--mantine-color-dimmed) !important;
+}
+
+.textarea::selection {
+  background: rgba(51, 154, 240, 0.35);
+  color: transparent;
+}
+
+.mentionTagActive {
+  color: #40c057 !important;
+  background: rgba(64, 192, 87, 0.25);
+  border-radius: 2px;
+  padding: 0 !important;
+  margin: 0 !important;
+  font-weight: inherit !important;
+  text-decoration: none;
+}
+
+.mentionTagDeleted {
+  color: #ff6b6b !important;
+  background: rgba(255, 107, 107, 0.25);
+  border-radius: 2px;
+  padding: 0 !important;
+  margin: 0 !important;
+  font-weight: inherit !important;
+  text-decoration: line-through #ff6b6b;
 }
 
 .thumbWrapper {

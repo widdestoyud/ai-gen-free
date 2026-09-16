@@ -16,6 +16,16 @@ declare global {
           onClose?: () => void;
         },
       ) => void;
+      embed: (
+        token: string,
+        options: {
+          embedId: string;
+          onSuccess?: (result: unknown) => void;
+          onPending?: (result: unknown) => void;
+          onError?: (result: unknown) => void;
+          onClose?: () => void;
+        },
+      ) => void;
     };
   }
 }
@@ -234,6 +244,86 @@ export function usePayment() {
   );
 
   /**
+   * Embed Midtrans Snap inside a DOM container (renders inline, not popup).
+   * Use this to render Snap inside a Mantine Modal.
+   * Returns the PaymentResult after initiating, caller must provide embedId.
+   */
+  const embedSnap = useCallback(
+    async (
+      invoiceId: string,
+      embedId: string,
+      opts?: {
+        customerEmail?: string;
+        customerName?: string;
+        customerPhone?: string;
+        onSuccess?: (result: unknown) => void;
+        onPending?: (result: unknown) => void;
+        onError?: (result: unknown) => void;
+        onClose?: () => void;
+      },
+    ): Promise<PaymentResult | null> => {
+      const result = await initiatePayment(invoiceId, opts);
+      if (!result) return null;
+
+      if (result.tokenId) {
+        await ensureSnapScriptLoaded(result.clientKey, result.snapUrl);
+
+        if (window.snap?.embed) {
+          window.snap.embed(result.tokenId, {
+            embedId,
+            onSuccess: (res) => {
+              opts?.onSuccess?.(res);
+              router.refresh();
+            },
+            onPending: (res) => {
+              opts?.onPending?.(res);
+              router.refresh();
+            },
+            onError: (err) => {
+              opts?.onError?.(err);
+              setError("Pembayaran tidak berhasil diselesaikan.");
+              router.refresh();
+            },
+            onClose: () => {
+              opts?.onClose?.();
+              router.refresh();
+            },
+          });
+          return result;
+        }
+
+        // Fallback to popup if embed is not available
+        if (window.snap?.pay) {
+          window.snap.pay(result.tokenId, {
+            onSuccess: (res) => {
+              opts?.onSuccess?.(res);
+              router.refresh();
+            },
+            onPending: (res) => {
+              opts?.onPending?.(res);
+              router.refresh();
+            },
+            onError: (err) => {
+              opts?.onError?.(err);
+              setError("Pembayaran tidak berhasil diselesaikan.");
+              router.refresh();
+            },
+            onClose: () => {
+              opts?.onClose?.();
+              router.refresh();
+            },
+          });
+          return result;
+        }
+      }
+
+      setError("Snap pembayaran tidak tersedia. Silakan coba lagi.");
+      return result;
+    },
+    [initiatePayment, router],
+  );
+
+  /**
    * Alias for backward compatibility: opens Snap popup modal by default
    */
   const payAndRedirect = payWithSnap;
@@ -291,6 +381,7 @@ export function usePayment() {
     checkPaymentStatus,
     redirectToPayment,
     payWithSnap,
+    embedSnap,
     payAndRedirect,
     pollPaymentStatus,
     clearError,

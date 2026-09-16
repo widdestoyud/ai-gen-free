@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState, useEffect, useCallback } from "react";
 import { EmptyState } from "@/components/empty-state";
 import { ErrorAlert } from "@/components/error-alert";
+import { SnapPaymentModal } from "@/components/snap-payment-modal";
 import { ItemCard } from "@/components/item-card";
 import { requestJson } from "@/lib/api";
 import { formatDateId, formatIdr } from "@/lib/format";
@@ -25,7 +26,7 @@ function InvoiceCard({
   inv: Invoice;
   busy: boolean;
   onUpload: (invoiceId: string, file: File) => void;
-  onPayGateway: (invoiceId: string) => void;
+  onPayGateway: (invoiceId: string, invoiceCode: string) => void;
   onCancel?: (invoiceId: string) => void;
   gatewayEnabled: boolean;
   payingInvoiceId: string | null;
@@ -87,7 +88,7 @@ function InvoiceCard({
                 color="blue"
                 disabled={busy || isPaying}
                 leftSection={isPaying ? <Loader size="xs" /> : null}
-                onClick={() => onPayGateway(inv.id)}
+                onClick={() => onPayGateway(inv.id, inv.uniqueCode)}
               >
                 {isPaying
                   ? "Memproses..."
@@ -145,8 +146,10 @@ export function WalletClient(props: {
   const [gatewayEnabled, setGatewayEnabled] = useState(false);
   const [payingInvoiceId, setPayingInvoiceId] = useState<string | null>(null);
 
+  // Snap Payment Modal state
+  const [snapInvoice, setSnapInvoice] = useState<{ id: string; code: string } | null>(null);
+
   const {
-    payAndRedirect,
     getPaymentMethods,
     error: paymentError,
     clearError: clearPaymentError,
@@ -162,8 +165,9 @@ export function WalletClient(props: {
 
   async function buy(packageId: string) {
     setError("");
+    clearPaymentError();
     setBusy(true);
-    const result = await requestJson("/api/invoices", {
+    const result = await requestJson<{ id: string; uniqueCode: string }>("/api/invoices", {
       method: "POST",
       body: JSON.stringify({ packageId }),
     });
@@ -172,6 +176,12 @@ export function WalletClient(props: {
       setError(result.message);
       return;
     }
+
+    // Jika online gateway aktif, langsung buka modal pembayaran Snap
+    if (gatewayEnabled && result.data?.id && result.data?.uniqueCode) {
+      setSnapInvoice({ id: result.data.id, code: result.data.uniqueCode });
+    }
+
     router.refresh();
   }
 
@@ -207,19 +217,11 @@ export function WalletClient(props: {
     router.refresh();
   }
 
-  const handlePayGateway = useCallback(async (invoiceId: string) => {
+  const handlePayGateway = useCallback((invoiceId: string, invoiceCode: string) => {
     setError("");
     clearPaymentError();
-    setPayingInvoiceId(invoiceId);
-    setBusy(true);
-
-    try {
-      await payAndRedirect(invoiceId);
-    } finally {
-      setBusy(false);
-      setPayingInvoiceId(null);
-    }
-  }, [payAndRedirect, clearPaymentError]);
+    setSnapInvoice({ id: invoiceId, code: invoiceCode });
+  }, [clearPaymentError]);
 
   const displayError = error || paymentError;
 
@@ -275,6 +277,30 @@ export function WalletClient(props: {
           payingInvoiceId={payingInvoiceId}
         />
       ))}
+
+      {/* Modal Pembayaran Midtrans Snap (Embed) */}
+      {snapInvoice && (
+        <SnapPaymentModal
+          opened={Boolean(snapInvoice)}
+          onClose={() => {
+            setSnapInvoice(null);
+            router.refresh();
+          }}
+          invoiceId={snapInvoice.id}
+          invoiceCode={snapInvoice.code}
+          onSuccess={() => {
+            setSnapInvoice(null);
+            router.refresh();
+          }}
+          onPending={() => {
+            setSnapInvoice(null);
+            router.refresh();
+          }}
+          onError={() => {
+            router.refresh();
+          }}
+        />
+      )}
 
       <CreditHistory
         entries={props.entries}

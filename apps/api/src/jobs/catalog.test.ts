@@ -18,12 +18,22 @@ const dummy: CatalogRow = {
   costPoints: 10,
 };
 
+const sirayEdit: CatalogRow = {
+  mode: "i2i",
+  modelId: "openai/gpt-image-2-edit",
+  displayName: "GPT Image 2 Edit",
+  providerId: "siray",
+  costPoints: 10,
+};
+
 test("omitted modelId uses the only enabled model", () => {
   assert.equal(pickEnabledModel([siray], "t2i", undefined).providerId, "siray");
+  assert.equal(pickEnabledModel([sirayEdit], "i2i", undefined).providerId, "siray");
 });
 
 test("explicit modelId must match an enabled row", () => {
   assert.equal(pickEnabledModel([siray, dummy], "t2i", "dummy-t2i").providerId, "dummy");
+  assert.equal(pickEnabledModel([sirayEdit], "i2i", "openai/gpt-image-2-edit").modelId, "openai/gpt-image-2-edit");
   assert.throws(
     () => pickEnabledModel([siray], "t2i", "dummy-t2i"),
     (err: unknown) => err instanceof AppError && err.code === ErrorCodes.VALIDATION_ERROR,
@@ -41,7 +51,7 @@ test("0 or >1 enabled models require modelId", () => {
   );
 });
 
-test("non-t2i is VALIDATION_ERROR", () => {
+test("unsupported mode is VALIDATION_ERROR", () => {
   assert.throws(
     () => pickEnabledModel([siray], "t2v", undefined),
     (err: unknown) => err instanceof AppError && err.code === ErrorCodes.VALIDATION_ERROR,
@@ -50,6 +60,7 @@ test("non-t2i is VALIDATION_ERROR", () => {
 
 test("displayName fallback from map", () => {
   assert.equal(humanDisplayName("black-forest-labs/flux-1.1-pro-t2i", ""), "Flux 1.1 Pro");
+  assert.equal(humanDisplayName("openai/gpt-image-2-edit", ""), "GPT Image 2 Edit");
   assert.equal(humanDisplayName("bytedance/seedream-5.0-pro-t2i-spicy", ""), "Seedream 5.0 Pro Spicy");
   assert.equal(humanDisplayName("dummy-t2i", "Dummy"), "Dummy");
 });

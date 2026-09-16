@@ -100,6 +100,40 @@ test("submit supports openai/gpt-image-2-t2i parameters (n, size, quality, outpu
   });
 });
 
+test("submit supports openai/gpt-image-2-edit with image reference", async () => {
+  const calls: { url: string; init?: RequestInit }[] = [];
+  const provider = new SirayProvider({
+    token: "secret",
+    apiBase: "https://api.siray.ai",
+    fetch: async (url, init) => {
+      calls.push({ url: String(url), init });
+      return jsonResponse(200, { code: "success", data: { task_id: "image_gpt2_edit" } });
+    },
+  });
+  const editInput: CanonicalGenerateInput = {
+    mode: "i2i",
+    modelId: "openai/gpt-image-2-edit",
+    prompt: "ubah latar belakang menjadi pantai tropis",
+    params: {
+      image: "https://storage.example.com/uploads/input1.webp",
+      refs: ["https://storage.example.com/uploads/input1.webp"],
+      aspectRatio: "1:1",
+      quality: "high",
+    },
+    inputFiles: [],
+  };
+  const handle = await provider.submit(editInput);
+  assert.equal(handle.providerJobId, "image_gpt2_edit");
+  assert.deepEqual(JSON.parse(String(calls[0]?.init?.body)), {
+    model: "openai/gpt-image-2-edit",
+    prompt: "ubah latar belakang menjadi pantai tropis",
+    image: "https://storage.example.com/uploads/input1.webp",
+    images: ["https://storage.example.com/uploads/input1.webp"],
+    aspect_ratio: "1:1",
+    quality: "high",
+  });
+});
+
 test("submit seedream t2i spicy uses required size and omits gpt-only fields", async () => {
   const calls: { url: string; init?: RequestInit }[] = [];
   const provider = new SirayProvider({

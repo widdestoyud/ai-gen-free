@@ -2,26 +2,41 @@ import { Text } from "@mantine/core";
 import { AdminLoginForm } from "./components/admin-login-form";
 import { AdminPageShell } from "./components/admin-page-shell";
 import { AdminInbox } from "./components/admin-inbox";
-import type { InboxItem } from "@/app/admin/page";
+import type { AdminInvoiceItem } from "@/app/admin/page";
 
 export function AdminHomeView({
   me,
   inbox,
+  allInvoices = [],
 }: {
   me: { user: { id: string; email: string; role: string } } | null;
-  inbox: { pendingCount: number; items: InboxItem[] };
+  inbox: {
+    pendingCount: number;
+    openCount: number;
+    items: AdminInvoiceItem[];
+    openItems: AdminInvoiceItem[];
+  };
+  allInvoices?: AdminInvoiceItem[];
 }) {
   if (!me) return <AdminLoginForm />;
 
   return (
-    <AdminPageShell title="Kurasi" home>
+    <AdminPageShell title="Pesanan & Kurasi" home>
       <Text size="sm" c="dimmed" mb="xs">
-        Masuk sebagai <strong>{me.user.email}</strong> · Notifikasi: <strong>{inbox.pendingCount}</strong> bukti menunggu kurasi.
+        Masuk sebagai <strong>{me.user.email}</strong> · Menunggu Kurasi:{" "}
+        <strong>{inbox.pendingCount}</strong> bukti · Pesanan Sedang Open:{" "}
+        <strong>{inbox.openCount}</strong> order.
       </Text>
       <Text size="sm" c="dimmed" mb="md">
-        Hanya bukti yang diunggah di dashboard yang boleh dikurasi. Screenshot chat tidak mengkredit poin.
+        Pantau pesanan open/aktif serta kurasi bukti pembayaran transfer manual di bawah ini.
       </Text>
-      <AdminInbox items={inbox.items} />
+      <AdminInbox
+        items={inbox.items}
+        openItems={inbox.openItems}
+        allInvoices={allInvoices}
+        pendingCount={inbox.pendingCount}
+        openCount={inbox.openCount}
+      />
     </AdminPageShell>
   );
 }

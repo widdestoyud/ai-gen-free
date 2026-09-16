@@ -586,3 +586,74 @@ test("dummy fail uses release without cooldown", async () => {
   assert.equal(store.job.status, "failed");
   assert.equal(store.job.nextGenerateAt, null);
 });
+
+test("resolves input image references to base64 data URLs before provider submit", async () => {
+  const storage = new MemoryObjectStorage();
+  // Simpan binary upload ke storage
+  await storage.put({
+    key: "uploads/customer/user1/up_123456.webp",
+    body: PNG_1X1,
+    contentType: "image/png",
+  });
+  // Simpan binary job output sebelumnya ke storage
+  await storage.put({
+    key: "outputs/user1/cmu3vozbv0001qm0zelsvv07q.webp",
+    body: PNG_1X1,
+    contentType: "image/png",
+  });
+
+  let submittedParams: Record<string, unknown> | null = null;
+  const provider: GenerationProvider = {
+    id: "siray",
+    capabilities: ["i2i", "t2i"] as const,
+    async submit(req) {
+      submittedParams = req.params;
+      return { providerId: "siray", providerJobId: "task-edit-1" };
+    },
+    async getStatus() {
+      return { state: "succeeded", progress: 100, outputUrls: ["https://example.com/out.png"] };
+    },
+  };
+
+  const store = memoryStore(
+    baseJob({
+      mode: "i2i",
+      modelId: "openai/gpt-image-2-edit",
+      prompt: "saya ingin @image1 dan @image2",
+      params: {
+        aspectRatio: "3:2",
+        refs: [
+          "/api/jobs/cmu3vozbv0001qm0zelsvv07q/file",
+          "/customer/uploads/up_123456/file",
+        ],
+      },
+    }),
+  );
+
+  await processGenerateJob({
+    jobId: "job1",
+    providers: new Map([["siray", provider]]),
+    storage,
+    store,
+    fetchBytes: async () => ({ body: PNG_1X1, contentType: "image/png" }),
+    optimizeImage: async (b) => b,
+    wallet: {
+      async captureJob() {
+        return {};
+      },
+      async releaseJob() {
+        return {};
+      },
+    },
+    sleep: async () => {},
+  });
+
+  assert.equal(store.job.status, "succeeded");
+  assert.ok(submittedParams !== null);
+  const p = submittedParams as Record<string, unknown>;
+  assert.ok(typeof p.image === "string" && (p.image as string).startsWith("data:image/png;base64,"));
+  assert.ok(Array.isArray(p.images) && p.images.length === 2);
+  assert.ok((p.images[0] as string).startsWith("data:image/png;base64,"));
+  assert.ok((p.images[1] as string).startsWith("data:image/png;base64,"));
+});
+

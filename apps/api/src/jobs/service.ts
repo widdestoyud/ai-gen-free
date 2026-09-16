@@ -158,6 +158,7 @@ export interface CustomerLibraryItem {
   size_bytes: number | null;
   created_at: string;
   expires_at: string | null;
+  params?: Record<string, unknown> | null;
 }
 
 export interface ListCustomerLibraryResult {
@@ -283,6 +284,7 @@ export async function listCustomerLibrary(opts: {
           size_bytes: asset?.bytes ?? null,
           created_at: row.createdAt.toISOString(),
           expires_at: asset?.expiresAt ? asset.expiresAt.toISOString() : null,
+          params: (row.params as Record<string, unknown>) ?? null,
         });
       }
     } catch {
@@ -534,6 +536,7 @@ async function serializeJob(
     finishedAt: Date | null;
     nextGenerateAt: Date | null;
     alias?: string | null;
+    params?: Prisma.JsonValue;
     assets: { storageKey: string; contentType: string; expiresAt: Date; purgedAt: Date | null }[];
   },
   storage: ObjectStorage,
@@ -546,6 +549,7 @@ async function serializeJob(
     mode: job.mode,
     modelId: job.modelId,
     prompt: job.prompt,
+    params: (job.params as Record<string, unknown>) ?? {},
     cost: Number(job.cost),
     progressPct: job.progressPct,
     errorCode: job.status === "failed" ? job.errorCode : null,

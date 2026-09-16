@@ -20,7 +20,23 @@ import type { JobView } from "@/lib/job-status";
 import type { StudioUpload } from "@/hooks/use-generate-studio";
 import classes from "./generate-studio.module.css";
 
-const UPLOADS_PER_PAGE = 9;
+const UPLOADS_PER_PAGE = 15;
+
+type ZoomableItem = {
+  id: string;
+  url: string;
+  name: string;
+  alias?: string | null;
+  width?: number | null;
+  height?: number | null;
+  kind?: "generation" | "upload";
+};
+
+type EditableItem = {
+  id: string;
+  alias?: string | null;
+  kind: "generation" | "upload";
+};
 
 export function GenerateLibraryModal({
   opened,
@@ -53,10 +69,10 @@ export function GenerateLibraryModal({
   onToggleUpload: (item: StudioUpload) => void;
   onUploadClick: () => void;
   onDeleteUpload?: (id: string) => Promise<boolean>;
-  onUpdateAlias?: (id: string, alias: string) => Promise<boolean>;
+  onUpdateAlias?: (id: string, alias: string, kind?: "generation" | "upload") => Promise<boolean>;
 }) {
-  const [zoomedItem, setZoomedItem] = useState<StudioUpload | null>(null);
-  const [editingItem, setEditingItem] = useState<StudioUpload | null>(null);
+  const [zoomedItem, setZoomedItem] = useState<ZoomableItem | null>(null);
+  const [editingItem, setEditingItem] = useState<EditableItem | null>(null);
   const [aliasInput, setAliasInput] = useState("");
   const [isSavingAlias, setIsSavingAlias] = useState(false);
   const [deletingItem, setDeletingItem] = useState<StudioUpload | null>(null);
@@ -71,7 +87,7 @@ export function GenerateLibraryModal({
   async function handleSaveAlias() {
     if (!editingItem || !onUpdateAlias) return;
     setIsSavingAlias(true);
-    await onUpdateAlias(editingItem.id, aliasInput);
+    await onUpdateAlias(editingItem.id, aliasInput, editingItem.kind);
     setIsSavingAlias(false);
     setEditingItem(null);
   }
@@ -117,32 +133,83 @@ export function GenerateLibraryModal({
               <SimpleGrid cols={{ base: 2, sm: 3, md: 5 }} spacing="xs" className={classes.libraryGrid}>
                 {generations.map((job) => {
                   const selected = isSelected(job.id);
+                  const url = job.output?.url ?? "";
                   return (
-                    <UnstyledButton
-                      key={job.id}
-                      onClick={() => onToggleGeneration(job)}
-                      className={classes.tileWrapper}
-                      aria-label={job.prompt}
-                    >
-                      <img
-                        src={job.output?.url ?? ""}
-                        alt={job.prompt}
-                        className={selected ? classes.tileDimmed : undefined}
-                      />
-                      {selected ? (
-                        <div className={classes.tileCheckOverlay}>
-                          <div className={classes.tileCheckBadge}>
-                            <CheckIcon size={14} />
+                    <div key={job.id} className={classes.tileWrapper}>
+                      <UnstyledButton
+                        onClick={() => onToggleGeneration(job)}
+                        className={classes.tileButton}
+                        aria-label={job.prompt}
+                      >
+                        <img
+                          src={url}
+                          alt={job.prompt}
+                          className={selected ? classes.tileDimmed : undefined}
+                        />
+                        {selected ? (
+                          <div className={classes.tileCheckOverlay}>
+                            <div className={classes.tileCheckBadge}>
+                              <CheckIcon size={14} />
+                            </div>
                           </div>
+                        ) : null}
+                      </UnstyledButton>
+
+                      {job.alias ? (
+                        <div className={classes.tileAliasBadge}>
+                          @{job.alias}
                         </div>
                       ) : null}
-                    </UnstyledButton>
+
+                      <div className={classes.tileActionsOverlay}>
+                        <Tooltip label="Perbesar" withArrow position="top">
+                          <button
+                            type="button"
+                            className={classes.tileActionBtn}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setZoomedItem({
+                                id: job.id,
+                                url,
+                                name: `Generation #${job.id.slice(0, 8)}`,
+                                alias: job.alias,
+                                width: job.output?.width,
+                                height: job.output?.height,
+                                kind: "generation",
+                              });
+                            }}
+                            aria-label="Perbesar gambar"
+                          >
+                            <ZoomIcon size={13} />
+                          </button>
+                        </Tooltip>
+
+                        <Tooltip label="Ubah Alias (@)" withArrow position="top">
+                          <button
+                            type="button"
+                            className={classes.tileActionBtn}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditingItem({
+                                id: job.id,
+                                alias: job.alias ?? "",
+                                kind: "generation",
+                              });
+                              setAliasInput(job.alias ?? "");
+                            }}
+                            aria-label="Ubah alias gambar"
+                          >
+                            <PencilIcon size={13} />
+                          </button>
+                        </Tooltip>
+                      </div>
+                    </div>
                   );
                 })}
               </SimpleGrid>
             ) : (
               <>
-                <SimpleGrid cols={{ base: 2, sm: 3, md: 3 }} spacing="xs" className={classes.libraryGrid}>
+                <SimpleGrid cols={{ base: 2, sm: 3, md: 5 }} spacing="xs" className={classes.libraryGrid}>
                   {uploads.map((item) => {
                     const selected = isSelected(item.id);
                     return (
@@ -195,7 +262,15 @@ export function GenerateLibraryModal({
                                 className={classes.tileActionBtn}
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  setZoomedItem(item);
+                                  setZoomedItem({
+                                    id: item.id,
+                                    url: item.url,
+                                    name: item.name,
+                                    alias: item.alias,
+                                    width: item.width,
+                                    height: item.height,
+                                    kind: "upload",
+                                  });
                                 }}
                                 aria-label="Perbesar gambar"
                               >
@@ -209,7 +284,11 @@ export function GenerateLibraryModal({
                                 className={classes.tileActionBtn}
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  setEditingItem(item);
+                                  setEditingItem({
+                                    id: item.id,
+                                    alias: item.alias ?? "",
+                                    kind: "upload",
+                                  });
                                   setAliasInput(item.alias ?? "");
                                 }}
                                 aria-label="Ubah alias gambar"

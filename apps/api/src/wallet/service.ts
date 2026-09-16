@@ -4,9 +4,38 @@ import { ErrorCodes, type ObjectStorage } from "@ai-gen-free/core";
 import { prisma } from "@ai-gen-free/db";
 import { computeBalance, refreshWalletCache } from "@ai-gen-free/wallet";
 import { AuthError } from "../auth/service.js";
-import { findPackage, qrisInstructions, TOPUP_PACKAGES } from "./catalog.js";
+import {
+  findPackage,
+  listPackages,
+  listStaticPackages,
+  listAdminPackages,
+  getAdminPackage,
+  createAdminPackage,
+  updateAdminPackage,
+  deleteAdminPackage,
+  qrisInstructions,
+  TOPUP_PACKAGES,
+  type TopupPackage,
+  type CreatePackageInput,
+  type UpdatePackageInput,
+} from "./catalog.js";
 
-export { computeBalance, refreshWalletCache };
+export {
+  computeBalance,
+  refreshWalletCache,
+  listPackages,
+  listStaticPackages,
+  findPackage,
+  listAdminPackages,
+  getAdminPackage,
+  createAdminPackage,
+  updateAdminPackage,
+  deleteAdminPackage,
+  TOPUP_PACKAGES,
+  type TopupPackage,
+  type CreatePackageInput,
+  type UpdatePackageInput,
+};
 
 const ALLOWED_PROOF = new Set(["image/jpeg", "image/png", "image/webp", "application/pdf"]);
 const MAX_PROOF_BYTES = 5 * 1024 * 1024;
@@ -15,12 +44,8 @@ function asInt(value: Prisma.Decimal | number): number {
   return typeof value === "number" ? value : Number(value);
 }
 
-export function listPackages() {
-  return TOPUP_PACKAGES;
-}
-
 export async function createInvoice(userId: string, packageId: unknown) {
-  const pack = findPackage(packageId);
+  const pack = await findPackage(packageId);
   if (!pack) {
     throw new AuthError(ErrorCodes.VALIDATION_ERROR, "Paket tidak dikenal");
   }
@@ -65,27 +90,47 @@ export async function listAdminInvoices() {
 }
 
 export async function listNotifications() {
-  const where = { status: "awaiting_review" as const };
-  const [pendingCount, rows] = await Promise.all([
-    prisma.invoice.count({ where }),
+  const whereReview = { status: "awaiting_review" as const };
+  const whereOpen = { status: "unpaid" as const };
+
+  const [pendingCount, openCount, reviewRows, openRows] = await Promise.all([
+    prisma.invoice.count({ where: whereReview }),
+    prisma.invoice.count({ where: whereOpen }),
     prisma.invoice.findMany({
-      where,
+      where: whereReview,
       orderBy: { proofSubmittedAt: "desc" },
       take: 50,
       include: { user: { select: { email: true } } },
     }),
+    prisma.invoice.findMany({
+      where: whereOpen,
+      orderBy: { createdAt: "desc" },
+      take: 50,
+      include: { user: { select: { email: true } } },
+    }),
   ]);
+
+  const mapItem = (row: typeof reviewRows[0]) => ({
+    invoiceId: row.id,
+    uniqueCode: row.uniqueCode,
+    email: row.user.email,
+    amountIdr: asInt(row.amountIdr),
+    points: asInt(row.points),
+    proofSubmittedAt: row.proofSubmittedAt?.toISOString() ?? null,
+    status: row.status,
+    statusLabel: statusLabel(row.status),
+    paymentMethod: row.paymentMethod ?? null,
+    paymentGateway: row.paymentGateway ?? null,
+    gatewayPaymentChannel: row.gatewayPaymentChannel ?? null,
+    gatewayExpiredAt: row.gatewayExpiredAt?.toISOString() ?? null,
+    createdAt: row.createdAt.toISOString(),
+  });
+
   return {
     pendingCount,
-    items: rows.map((row) => ({
-      invoiceId: row.id,
-      uniqueCode: row.uniqueCode,
-      email: row.user.email,
-      amountIdr: asInt(row.amountIdr),
-      points: asInt(row.points),
-      proofSubmittedAt: row.proofSubmittedAt?.toISOString() ?? null,
-      status: row.status,
-    })),
+    openCount,
+    items: reviewRows.map(mapItem),
+    openItems: openRows.map(mapItem),
   };
 }
 
@@ -387,6 +432,10 @@ function serializeInvoice(
     proofStorageKey?: string | null;
     proofSubmittedAt?: Date | null;
     reviewNote?: string | null;
+    paymentMethod?: string | null;
+    paymentGateway?: string | null;
+    gatewayPaymentChannel?: string | null;
+    gatewayExpiredAt?: Date | null;
   },
   withInstructions: boolean,
 ) {
@@ -403,6 +452,10 @@ function serializeInvoice(
     proofSubmittedAt: invoice.proofSubmittedAt?.toISOString() ?? null,
     reviewNote: invoice.reviewNote ?? null,
     statusLabel: statusLabel(invoice.status),
+    paymentMethod: invoice.paymentMethod ?? null,
+    paymentGateway: invoice.paymentGateway ?? null,
+    gatewayPaymentChannel: invoice.gatewayPaymentChannel ?? null,
+    gatewayExpiredAt: invoice.gatewayExpiredAt?.toISOString() ?? null,
     instructions: withInstructions ? qrisInstructions(invoice.uniqueCode, amountIdr) : undefined,
   };
 }

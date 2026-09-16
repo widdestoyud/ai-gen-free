@@ -35,6 +35,7 @@ export type JobOutputView = {
 export type JobView = {
   id: string;
   status: string;
+  alias?: string | null;
   mode?: string;
   modelId?: string;
   prompt: string;
@@ -46,6 +47,7 @@ export type JobView = {
   createdAt?: string;
   finishedAt?: string | null;
   nextGenerateAt: string | null;
+  params?: Record<string, unknown>;
   output: JobOutputView | null;
 };
 
@@ -94,3 +96,65 @@ export type JobsListView = {
   jobs: JobView[];
   nextGenerateAt: string | null;
 };
+
+export type ReferenceImageItem = {
+  tag: string;
+  url: string;
+};
+
+export function extractReferenceImages(params?: Record<string, unknown> | null, prompt?: string): ReferenceImageItem[] {
+  if (!params && !prompt) return [];
+  const results: ReferenceImageItem[] = [];
+  const seenUrls = new Set<string>();
+
+  // 1. Dari params.refs
+  if (params && Array.isArray(params.refs)) {
+    params.refs.forEach((refItem, idx) => {
+      let url = "";
+      let tag = `@image${idx + 1}`;
+      if (typeof refItem === "string" && refItem.trim()) {
+        url = refItem.trim();
+      } else if (typeof refItem === "object" && refItem !== null) {
+        const obj = refItem as { url?: unknown; tag?: unknown; alias?: unknown };
+        if (typeof obj.url === "string" && obj.url.trim()) {
+          url = obj.url.trim();
+        }
+        if (typeof obj.tag === "string" && obj.tag.trim()) {
+          tag = obj.tag.trim().startsWith("@") ? obj.tag.trim() : `@${obj.tag.trim()}`;
+        } else if (typeof obj.alias === "string" && obj.alias.trim()) {
+          tag = `@${obj.alias.trim()}`;
+        }
+      }
+
+      if (url && !seenUrls.has(url)) {
+        seenUrls.add(url);
+        results.push({ tag, url });
+      }
+    });
+  }
+
+  // 2. Dari params.images jika refs kosong
+  if (results.length === 0 && params && Array.isArray(params.images)) {
+    params.images.forEach((img, idx) => {
+      if (typeof img === "string" && img.trim()) {
+        const url = img.trim();
+        if (!seenUrls.has(url)) {
+          seenUrls.add(url);
+          results.push({ tag: `@image${idx + 1}`, url });
+        }
+      }
+    });
+  }
+
+  // 3. Dari params.image jika single image
+  if (results.length === 0 && params && typeof params.image === "string" && params.image.trim()) {
+    const url = params.image.trim();
+    if (!seenUrls.has(url)) {
+      seenUrls.add(url);
+      results.push({ tag: "@image1", url });
+    }
+  }
+
+  return results;
+}
+

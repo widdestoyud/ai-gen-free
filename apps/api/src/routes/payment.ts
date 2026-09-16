@@ -27,6 +27,7 @@ async function requireUser(
 ) {
   const token =
     (typeof req.cookies?.sid === "string" && req.cookies.sid.trim().length > 0 ? req.cookies.sid.trim() : undefined) ??
+    (typeof req.cookies?.sid_admin === "string" && req.cookies.sid_admin.trim().length > 0 ? req.cookies.sid_admin.trim() : undefined) ??
     (typeof req.headers["x-session-token"] === "string" && (req.headers["x-session-token"] as string).trim().length > 0
       ? (req.headers["x-session-token"] as string).trim()
       : undefined) ??
@@ -34,9 +35,43 @@ async function requireUser(
       ? (req.headers["authorization"] as string).slice(7).trim()
       : undefined);
 
-  const session = await userFromCookie(token, "user");
+  let session = await userFromCookie(token, "user");
+  if (!session) {
+    session = await userFromCookie(token, "admin");
+  }
   if (!session) {
     reply.status(401).send({ error: { code: ErrorCodes.UNAUTHENTICATED, message: "Silakan masuk" } });
+    return null;
+  }
+  return session;
+}
+
+async function requireAdmin(
+  req: { cookies: Record<string, string | undefined>; headers: Record<string, unknown> },
+  reply: { status: (n: number) => { send: (b: unknown) => unknown } },
+) {
+  const token =
+    (typeof req.cookies?.sid_admin === "string" && req.cookies.sid_admin.trim().length > 0 ? req.cookies.sid_admin.trim() : undefined) ??
+    (typeof req.cookies?.sid === "string" && req.cookies.sid.trim().length > 0 ? req.cookies.sid.trim() : undefined) ??
+    (typeof req.headers["x-admin-token"] === "string" && (req.headers["x-admin-token"] as string).trim().length > 0
+      ? (req.headers["x-admin-token"] as string).trim()
+      : undefined) ??
+    (typeof req.headers["x-session-token"] === "string" && (req.headers["x-session-token"] as string).trim().length > 0
+      ? (req.headers["x-session-token"] as string).trim()
+      : undefined) ??
+    (typeof req.headers["authorization"] === "string" && (req.headers["authorization"] as string).toLowerCase().startsWith("bearer ")
+      ? (req.headers["authorization"] as string).slice(7).trim()
+      : undefined);
+
+  let session = await userFromCookie(token, "admin");
+  if (!session) {
+    session = await userFromCookie(token, "user");
+  }
+
+  if (!session || session.user.role !== "admin") {
+    reply.status(401).send({
+      error: { code: ErrorCodes.UNAUTHENTICATED, message: "Silakan masuk sebagai admin" },
+    });
     return null;
   }
   return session;
@@ -111,6 +146,28 @@ export async function registerPaymentRoutes(app: FastifyInstance, deps: PaymentR
 
       const result = await checkPaymentStatus(serviceDeps, {
         userId: session.userId,
+        invoiceId: id,
+      });
+
+      return result;
+    } catch (err) {
+      return sendError(reply, err);
+    }
+  });
+
+  /**
+   * GET /admin/invoices/:id/payment-status
+   * Check payment status dari Midtrans untuk admin
+   */
+  app.get("/admin/invoices/:id/payment-status", async (req, reply) => {
+    const session = await requireAdmin(req, reply);
+    if (!session) return;
+
+    try {
+      const serviceDeps = requirePaymentGateway();
+      const { id } = req.params as { id: string };
+
+      const result = await checkPaymentStatus(serviceDeps, {
         invoiceId: id,
       });
 

@@ -365,10 +365,14 @@ async function processSuccessfulPayment(
  */
 export async function checkPaymentStatus(
   deps: PaymentServiceDeps,
-  opts: { userId: string; invoiceId: string },
+  opts: { userId?: string; invoiceId: string },
 ) {
+  const where = opts.userId
+    ? { id: opts.invoiceId, userId: opts.userId }
+    : { id: opts.invoiceId };
+
   const invoice = await prisma.invoice.findFirst({
-    where: { id: opts.invoiceId, userId: opts.userId },
+    where,
   });
 
   if (!invoice) {
@@ -443,6 +447,8 @@ export async function checkPaymentStatus(
     invoiceId: invoice.id,
     status: result.status?.toLowerCase() ?? invoice.status,
     paymentChannel: result.paymentChannel,
+    qrString: result.qrString,
+    qrUrl: result.qrUrl,
   };
 }
 

@@ -28,6 +28,12 @@ export type StudioRef = {
   uploading?: boolean;
   progress?: number;
   alias?: string | null;
+  name?: string;
+  format?: string;
+  contentType?: string;
+  width?: number;
+  height?: number;
+  tag?: string;
 };
 
 export type StudioUpload = {
@@ -43,23 +49,42 @@ export type StudioUpload = {
   height?: number;
 };
 
-export function getRefTag(ref: StudioRef, index: number): string {
+export function resequenceRefs(refs: StudioRef[]): StudioRef[] {
+  let imageCounter = 1;
+  return refs.map((ref) => {
+    if (ref.alias && ref.alias.trim().length > 0) {
+      return { ...ref, tag: `@${ref.alias.trim()}` };
+    }
+    const tag = `@image${imageCounter}`;
+    imageCounter++;
+    return { ...ref, tag };
+  });
+}
+
+export function getRefTag(ref: StudioRef, index?: number): string {
   if (ref.alias && ref.alias.trim().length > 0) {
     return `@${ref.alias.trim()}`;
   }
-  return `@image${index + 1}`;
+  if (ref.tag && ref.tag.trim().length > 0) {
+    return ref.tag.startsWith("@") ? ref.tag.trim() : `@${ref.tag.trim()}`;
+  }
+  return typeof index === "number" ? `@image${index + 1}` : "@image1";
 }
 
 const DEFAULT_T2I_MODEL_ID = "openai/gpt-image-2-t2i";
+const DEFAULT_I2I_MODEL_ID = "openai/gpt-image-2-edit";
 
-function pickInitialModel(catalog: Model[]): string {
+function pickInitialModel(catalog: Model[], mode: "t2i" | "i2i" = "t2i"): string {
   if (catalog.length === 0) return "";
-  const preferred = catalog.find((m) => m.modelId === DEFAULT_T2I_MODEL_ID);
+  const defaultId = mode === "i2i" ? DEFAULT_I2I_MODEL_ID : DEFAULT_T2I_MODEL_ID;
+  const preferred = catalog.find((m) => m.modelId === defaultId);
   return (preferred ?? catalog[0])!.modelId;
 }
 
-function t2iModels(models: Model[]): Model[] {
-  return models.filter((m) => m.mode === "t2i");
+function filterModels(models: Model[], mode: "t2i" | "i2i"): Model[] {
+  const forMode = models.filter((m) => m.mode === mode);
+  if (forMode.length > 0) return forMode;
+  return models.filter((m) => m.mode === "t2i" || m.mode === "i2i");
 }
 
 function nearestSignedRefresh(jobs: JobView[]): number | null {
@@ -81,11 +106,16 @@ export function useGenerateStudio(props: {
   initialUploads?: StudioUpload[];
   initialUploadsTotal?: number;
 }) {
-  const catalog = useMemo(() => t2iModels(props.models ?? []), [props.models]);
-  const [jobs, setJobs] = useState<JobView[]>(() => props.jobs ?? []);
-  const [modelId, setModelId] = useState(() => pickInitialModel(catalog));
   const [mediaType, setMediaType] = useState<"image" | "video">("image");
-  const [imageMode, setImageMode] = useState<"t2i" | "i2i">("t2i");
+  const [selectedRefs, setSelectedRefs] = useState<StudioRef[]>([]);
+  const hasImageRefs = selectedRefs.length > 0;
+  const effectiveMode: "t2i" | "i2i" = hasImageRefs ? "i2i" : "t2i";
+  const catalog = useMemo(
+    () => filterModels(props.models ?? [], effectiveMode),
+    [props.models, effectiveMode],
+  );
+  const [jobs, setJobs] = useState<JobView[]>(() => props.jobs ?? []);
+  const [modelId, setModelId] = useState(() => pickInitialModel(catalog, effectiveMode));
   const [videoDuration, setVideoDuration] = useState<"6s" | "10s" | "15s">("6s");
   const [videoResolution, setVideoResolution] = useState<"720p" | "1080p">("720p");
   const [prompt, setPrompt] = useState("");
@@ -101,7 +131,6 @@ export function useGenerateStudio(props: {
   const [uploadPage, setUploadPage] = useState(1);
   const [uploadTotal, setUploadTotal] = useState(() => props.initialUploadsTotal ?? props.initialUploads?.length ?? 0);
   const [isUploadsLoading, setIsUploadsLoading] = useState(false);
-  const [selectedRefs, setSelectedRefs] = useState<StudioRef[]>([]);
   const [mentionOpen, setMentionOpen] = useState(false);
   const [mentionIndex, setMentionIndex] = useState(0);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -115,7 +144,7 @@ export function useGenerateStudio(props: {
 
   const selected =
     catalog.find((m) => m.modelId === modelId) ??
-    catalog.find((m) => m.modelId === DEFAULT_T2I_MODEL_ID) ??
+    catalog.find((m) => m.modelId === (effectiveMode === "i2i" ? DEFAULT_I2I_MODEL_ID : DEFAULT_T2I_MODEL_ID)) ??
     catalog[0];
   const active = activeJob ?? jobs.find((j) => isJobActive(j.status));
   const isGenerating = busy || Boolean(activeJobId) || Boolean(active);
@@ -139,7 +168,7 @@ export function useGenerateStudio(props: {
 
   async function fetchUploadsPage(page = 1) {
     setIsUploadsLoading(true);
-    const offset = Math.max(0, (page - 1) * 9);
+    const offset = Math.max(0, (page - 1) * 15);
     const res = await requestJson<{
       total?: number;
       limit?: number;
@@ -152,7 +181,7 @@ export function useGenerateStudio(props: {
         width?: number;
         height?: number;
       }>;
-    }>(`/api/customer-images?limit=9&offset=${offset}`);
+    }>(`/api/customer-images?limit=15&offset=${offset}`);
     setIsUploadsLoading(false);
     if (res.ok && res.data.items) {
       if (typeof res.data.total === "number") {
@@ -207,9 +236,9 @@ export function useGenerateStudio(props: {
   useEffect(() => {
     if (catalog.length === 0) return;
     if (!catalog.some((m) => m.modelId === modelId)) {
-      setModelId(pickInitialModel(catalog));
+      setModelId(pickInitialModel(catalog, effectiveMode));
     }
-  }, [catalog, modelId]);
+  }, [catalog, modelId, effectiveMode]);
 
   useEffect(() => {
     const tick = window.setInterval(() => setNow(Date.now()), 1000);
@@ -310,14 +339,26 @@ export function useGenerateStudio(props: {
     setBusy(true);
     setLastGeneratedJob(null);
 
-    const mode = mediaType === "video" ? (selectedRefs.length > 0 ? "i2v" : "t2v") : imageMode;
+    const mode = mediaType === "video" ? (hasImageRefs ? "i2v" : "t2v") : (hasImageRefs ? "i2i" : "t2i");
+    const targetModelId = mediaType === "video"
+      ? (selected?.modelId ?? (hasImageRefs ? "bytedance/seedance-2.0-i2v" : "bytedance/seedance-2.0-t2v"))
+      : (hasImageRefs
+          ? (catalog.find((m) => m.mode === "i2i")?.modelId ?? DEFAULT_I2I_MODEL_ID)
+          : (catalog.find((m) => m.mode === "t2i" && m.modelId === modelId)?.modelId ?? DEFAULT_T2I_MODEL_ID));
+
     const params: Record<string, unknown> = { aspectRatio };
     if (mediaType === "video") {
       params.duration = videoDuration;
       params.resolution = videoResolution;
     }
-    if (selectedRefs.length > 0) {
-      params.refs = selectedRefs.map((r) => r.url);
+    if (hasImageRefs) {
+      params.refs = selectedRefs.map((r, idx) => ({
+        url: r.url,
+        tag: getRefTag(r, idx),
+        alias: r.alias || null,
+      }));
+      params.image = selectedRefs[0]?.url;
+      params.images = selectedRefs.map((r) => r.url);
     }
 
     const result = await requestJson<{ job_id?: string; id?: string }>("/api/generate", {
@@ -325,7 +366,7 @@ export function useGenerateStudio(props: {
       headers: { "Idempotency-Key": crypto.randomUUID() },
       body: JSON.stringify({
         mode,
-        modelId: selected?.modelId,
+        modelId: targetModelId,
         prompt: prompt.trim(),
         params,
       }),
@@ -395,8 +436,6 @@ export function useGenerateStudio(props: {
           const data = JSON.parse(xhr.responseText) as {
             id: string;
             url: string;
-            key: string;
-            alias?: string | null;
             width?: number;
             height?: number;
           };
@@ -406,11 +445,10 @@ export function useGenerateStudio(props: {
               item.id === tempId
                 ? {
                     ...item,
+                    id: data.id,
                     url: finalUrl,
                     uploading: false,
                     progress: 100,
-                    key: data.key,
-                    alias: data.alias ?? null,
                     width: data.width,
                     height: data.height,
                   }
@@ -422,10 +460,13 @@ export function useGenerateStudio(props: {
               item.id === tempId
                 ? {
                     ...item,
+                    id: data.id,
                     url: finalUrl,
                     uploading: false,
                     progress: 100,
-                    alias: data.alias ?? null,
+                    format: "WEBP",
+                    width: data.width,
+                    height: data.height,
                   }
                 : item
             )
@@ -471,6 +512,20 @@ export function useGenerateStudio(props: {
     for (const file of files) {
       const tempId = `up-${crypto.randomUUID()}`;
       const localBlobUrl = URL.createObjectURL(file);
+      const ext = file.name.split(".").pop()?.toUpperCase() ?? file.type.split("/")[1]?.toUpperCase() ?? "IMAGE";
+
+      const newRef: StudioRef = {
+        id: tempId,
+        url: localBlobUrl,
+        kind: "upload",
+        uploading: true,
+        progress: 0,
+        name: file.name,
+        format: ext,
+        contentType: file.type,
+      };
+
+      newRefs.push(newRef);
 
       newUploads.push({
         id: tempId,
@@ -480,40 +535,48 @@ export function useGenerateStudio(props: {
         progress: 0,
       });
 
-      newRefs.push({
-        id: tempId,
-        url: localBlobUrl,
-        kind: "upload",
-        uploading: true,
-        progress: 0,
-      });
-
       uploadFileAsync(file, tempId);
     }
 
     setUploads((prev) => [...newUploads, ...prev]);
-    setSelectedRefs((prev) => [...prev, ...newRefs]);
+    setSelectedRefs((prev) => resequenceRefs([...prev, ...newRefs]));
     setLibraryTab("uploads");
   }
 
   function toggleGeneration(job: JobView) {
     const url = job.output?.url;
     if (!url) return;
+    const contentType = job.output?.contentType ?? "image/webp";
+    const format = (contentType.split("/")[1] ?? "webp").toUpperCase();
     setSelectedRefs((prev) => {
       if (prev.some((item) => item.id === job.id)) {
         return prev.filter((item) => item.id !== job.id);
       }
-      return [...prev, { id: job.id, url, kind: "generation" }];
+      return resequenceRefs([
+        ...prev,
+        {
+          id: job.id,
+          url,
+          kind: "generation",
+          contentType,
+          format,
+          alias: job.alias ?? null,
+          name: `Generation #${job.id.slice(0, 8)}`,
+          width: job.output?.width ?? undefined,
+          height: job.output?.height ?? undefined,
+        },
+      ]);
     });
   }
 
   function toggleUpload(item: StudioUpload) {
     if (item.uploading) return;
+    const ext = (item.name.split(".").pop() ?? "webp").toUpperCase();
     setSelectedRefs((prev) => {
       if (prev.some((ref) => ref.id === item.id)) {
         return prev.filter((ref) => ref.id !== item.id);
       }
-      return [
+      return resequenceRefs([
         ...prev,
         {
           id: item.id,
@@ -522,8 +585,12 @@ export function useGenerateStudio(props: {
           uploading: item.uploading,
           progress: item.progress,
           alias: item.alias,
+          name: item.name,
+          format: ext,
+          width: item.width,
+          height: item.height,
         },
-      ];
+      ]);
     });
   }
 
@@ -554,12 +621,55 @@ export function useGenerateStudio(props: {
         prev.map((u) => (u.id === id ? { ...u, alias: updatedAlias } : u))
       );
       setSelectedRefs((prev) =>
-        prev.map((r) => (r.id === id ? { ...r, alias: updatedAlias } : r))
+        prev.map((r) =>
+          r.id === id
+            ? {
+                ...r,
+                alias: updatedAlias,
+                tag: updatedAlias ? `@${updatedAlias}` : r.tag,
+              }
+            : r
+        )
       );
       return true;
     }
     setError(res.message || "Gagal mengubah alias gambar");
     return false;
+  }
+
+  async function updateJobAlias(id: string, newAlias: string): Promise<boolean> {
+    const trimmed = newAlias.trim();
+    const res = await requestJson<{ ok?: boolean; alias?: string | null }>(`/api/generate/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ alias: trimmed }),
+    });
+    if (res.ok) {
+      const updatedAlias = trimmed.length > 0 ? trimmed : null;
+      setJobs((prev) =>
+        prev.map((j) => (j.id === id ? { ...j, alias: updatedAlias } : j))
+      );
+      setSelectedRefs((prev) =>
+        prev.map((r) =>
+          r.id === id
+            ? {
+                ...r,
+                alias: updatedAlias,
+                tag: updatedAlias ? `@${updatedAlias}` : r.tag,
+              }
+            : r
+        )
+      );
+      return true;
+    }
+    setError(res.message || "Gagal mengubah alias gambar generate");
+    return false;
+  }
+
+  async function updateAlias(id: string, newAlias: string, kind: "generation" | "upload" = "upload"): Promise<boolean> {
+    if (kind === "generation") {
+      return await updateJobAlias(id, newAlias);
+    }
+    return await updateUploadAlias(id, newAlias);
   }
 
   function removeRef(id: string) {
@@ -655,8 +765,6 @@ export function useGenerateStudio(props: {
     setLastGeneratedJob,
     mediaType,
     setMediaType,
-    imageMode,
-    setImageMode,
     videoDuration,
     setVideoDuration,
     videoResolution,
@@ -690,7 +798,7 @@ export function useGenerateStudio(props: {
     uploads,
     uploadPage,
     uploadTotal,
-    uploadLimit: 9,
+    uploadLimit: 15,
     isUploadsLoading,
     onUploadPageChange: (p: number) => {
       setUploadPage(p);
@@ -704,6 +812,8 @@ export function useGenerateStudio(props: {
     toggleUpload,
     deleteUpload,
     updateUploadAlias,
+    updateJobAlias,
+    updateAlias,
     isSelected,
     fileRef,
     openFilePicker,

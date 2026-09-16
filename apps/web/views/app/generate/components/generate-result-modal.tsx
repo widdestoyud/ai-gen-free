@@ -7,12 +7,15 @@ import {
   CopyButton,
   Group,
   Modal,
+  Paper,
   ScrollArea,
   Stack,
   Text,
   Tooltip,
 } from "@mantine/core";
-import type { JobView } from "@/lib/job-status";
+import { useState } from "react";
+import { extractReferenceImages, type JobView, type ReferenceImageItem } from "@/lib/job-status";
+import { resolveUploadUrl } from "@/lib/format";
 import classes from "./generate-result-modal.module.css";
 
 function DownloadIcon({ size = 16 }: { size?: number }) {
@@ -88,79 +91,124 @@ export function GenerateResultModal({
   onClose: () => void;
   job: JobView | null;
 }) {
+  const [previewRef, setPreviewRef] = useState<ReferenceImageItem | null>(null);
+
   if (!job) return null;
 
   const isVideo =
     job.mode?.includes("video") || job.output?.contentType.startsWith("video/");
 
+  const handleModalClose = () => {
+    setPreviewRef(null);
+    onClose();
+  };
+
   return (
-    <Modal
-      opened={opened}
-      onClose={onClose}
-      title="Hasil Generate"
-      size="90%"
-      centered
-      classNames={{
-        content: classes.modalContentFull,
-        body: classes.modalBodyNoPadding,
-        header: classes.modalHeaderClean,
-      }}
-    >
-      <div className={classes.detailModalLayout}>
-        {/* Kolom Kiri: Media Showcase */}
-        <div className={classes.mediaShowcaseSection}>
-          <div className={classes.mediaViewerWrapper}>
-            {isVideo ? (
-              <video
-                src={job.output?.url ?? ""}
-                controls
-                autoPlay
-                loop
-                className={classes.detailMedia}
-              />
-            ) : (
-              <img
-                src={job.output?.url ?? ""}
-                alt={job.prompt}
-                className={classes.detailMedia}
-              />
-            )}
+    <>
+      <Modal
+        opened={opened}
+        onClose={handleModalClose}
+        title="Hasil Generate"
+        size="90%"
+        centered
+        classNames={{
+          content: classes.modalContentFull,
+          body: classes.modalBodyNoPadding,
+          header: classes.modalHeaderClean,
+        }}
+      >
+        <div className={classes.detailModalLayout}>
+          {/* Kolom Kiri: Media Showcase */}
+          <div className={classes.mediaShowcaseSection}>
+            <div className={classes.mediaViewerWrapper}>
+              {isVideo ? (
+                <video
+                  src={job.output?.url ?? ""}
+                  controls
+                  autoPlay
+                  loop
+                  className={classes.detailMedia}
+                />
+              ) : (
+                <img
+                  src={job.output?.url ?? ""}
+                  alt={job.prompt}
+                  className={classes.detailMedia}
+                />
+              )}
+            </div>
           </div>
-        </div>
 
-        {/* Kolom Kanan: Detail & Aksi Media */}
-        <div className={classes.detailInfoSidebar}>
-          <ScrollArea type="hover" className={classes.sidebarScroll}>
-            <Stack gap="md" p="md">
-              {/* Status & Mode Badges */}
-              <Group justify="space-between" align="center">
-                <Badge variant="light" color="blue" size="md" radius="sm">
-                  {formatModeLabel(job.mode)}
-                </Badge>
-                <Badge variant="light" color="green" size="md" radius="sm">
-                  Completed
-                </Badge>
-              </Group>
+          {/* Kolom Kanan: Detail & Aksi Media */}
+          <div className={classes.detailInfoSidebar}>
+            <ScrollArea type="hover" className={classes.sidebarScroll}>
+              <Stack gap="md" p="md">
+                {/* Status & Mode Badges */}
+                <Group justify="space-between" align="center">
+                  <Badge variant="light" color="blue" size="md" radius="sm">
+                    {formatModeLabel(job.mode)}
+                  </Badge>
+                  <Badge variant="light" color="green" size="md" radius="sm">
+                    Completed
+                  </Badge>
+                </Group>
 
-              {/* Tombol Aksi Utama (Download) */}
-              {job.output?.url ? (
-                <Button
-                  component="a"
-                  href={job.output.url}
-                  target="_blank"
-                  download={`ai-gen-${job.id}`}
-                  variant="filled"
-                  color="dark.4"
-                  size="md"
-                  radius="md"
-                  fullWidth
-                  mt="xs"
-                  leftSection={<DownloadIcon size={18} />}
-                  className={classes.primaryDownloadBtn}
-                >
-                  Download
-                </Button>
-              ) : null}
+                {/* Tombol Aksi Utama (Download) */}
+                {job.output?.url ? (
+                  <Button
+                    component="a"
+                    href={job.output.url}
+                    target="_blank"
+                    download={`ai-gen-${job.id}`}
+                    variant="filled"
+                    color="dark.4"
+                    size="md"
+                    radius="md"
+                    fullWidth
+                    mt="xs"
+                    leftSection={<DownloadIcon size={18} />}
+                    className={classes.primaryDownloadBtn}
+                  >
+                    Download
+                  </Button>
+                ) : null}
+
+                {/* Gambar Referensi (@image) */}
+                {(() => {
+                  const referenceImages = extractReferenceImages(job.params, job.prompt);
+                  if (referenceImages.length === 0) return null;
+                  return (
+                    <div className={classes.referenceImagesSection}>
+                      <Text size="sm" fw={700} c="dimmed" tt="uppercase" lts={0.5} mb={8}>
+                        Reference Image{referenceImages.length > 1 ? "s" : ""}
+                      </Text>
+                      <div className={classes.referenceGrid}>
+                        {referenceImages.map((ref, idx) => {
+                          const imgUrl = resolveUploadUrl(ref.url);
+                          return (
+                            <Tooltip key={idx} label={`Lihat referensi: ${ref.tag}`} withArrow position="top">
+                              <button
+                                type="button"
+                                onClick={() => setPreviewRef(ref)}
+                                className={classes.referenceCard}
+                                aria-label={`Lihat media referensi ${ref.tag}`}
+                              >
+                                <img
+                                  src={imgUrl}
+                                  alt={ref.tag}
+                                  className={classes.referenceThumb}
+                                />
+                                <div className={classes.referenceTagBadge}>
+                                  {ref.tag}
+                                </div>
+                              </button>
+                            </Tooltip>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })()}
 
               {/* Box Prompt */}
               <div className={classes.promptSection}>
@@ -256,5 +304,78 @@ export function GenerateResultModal({
         </div>
       </div>
     </Modal>
+
+    {/* Modal Detail Media Referensi saat diklik */}
+    <Modal
+      opened={Boolean(previewRef)}
+      onClose={() => setPreviewRef(null)}
+      title="Detail Media Referensi"
+      size="lg"
+      centered
+      zIndex={300}
+    >
+      {previewRef ? (
+        <Stack gap="md">
+          <div className={classes.zoomImageContainer}>
+            <img
+              src={resolveUploadUrl(previewRef.url)}
+              alt={previewRef.tag}
+              className={classes.zoomImage}
+            />
+          </div>
+
+          <Paper p="sm" withBorder radius="md">
+            <Group justify="space-between" wrap="wrap" gap="sm">
+              <div>
+                <Text size="xs" c="dimmed">
+                  Tag Referensi
+                </Text>
+                <Group gap={6} mt={2}>
+                  <Badge size="sm" variant="light" color="green">
+                    {previewRef.tag}
+                  </Badge>
+                </Group>
+              </div>
+
+              <div>
+                <Text size="xs" c="dimmed">
+                  Tipe
+                </Text>
+                <Text size="sm" fw={600}>
+                  Gambar (Image)
+                </Text>
+              </div>
+
+              <div>
+                <Text size="xs" c="dimmed">
+                  Format
+                </Text>
+                <Badge size="sm" variant="outline" color="gray">
+                  {previewRef.url.split(".").pop()?.toUpperCase() || "WEBP"}
+                </Badge>
+              </div>
+            </Group>
+          </Paper>
+
+          <Group justify="space-between" align="center">
+            <Text size="xs" c="dimmed">
+              Tag{" "}
+              <Text component="span" fw={600} c="green">
+                {previewRef.tag}
+              </Text>{" "}
+              digunakan pada prompt sebagai referensi gambar ini.
+            </Text>
+            <Button
+              variant="default"
+              size="xs"
+              onClick={() => setPreviewRef(null)}
+            >
+              Tutup
+            </Button>
+          </Group>
+        </Stack>
+      ) : null}
+    </Modal>
+  </>
   );
 }

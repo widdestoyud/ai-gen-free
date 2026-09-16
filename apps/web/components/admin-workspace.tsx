@@ -11,6 +11,7 @@ import classes from "./app-workspace.module.css";
 
 const ADMIN_NAV = [
   { href: "/admin", label: "Kurasi", matchExact: true },
+  { href: "/admin/packages", label: "Paket Poin", matchExact: false },
   { href: "/admin/settings", label: "Cooldown", matchExact: false },
   { href: "/admin/users", label: "User", matchExact: false },
   { href: "/admin/jobs", label: "Job", matchExact: false },

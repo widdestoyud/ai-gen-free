@@ -3,6 +3,7 @@ import { adminAuth } from "@/auth-admin";
 import { auth } from "@/auth";
 import { mergeCookie } from "@/lib/cookie-header";
 import { resolveBackendPath } from "@/lib/api-mapping";
+import { adminBasicHeaders } from "@/lib/server-api";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -38,6 +39,9 @@ async function proxy(req: NextRequest, path: string[]) {
     const session = await adminAuth();
     if (session?.sid) {
       headers.set("cookie", mergeCookie(headers.get("cookie"), `sid_admin=${session.sid}`));
+    }
+    for (const [key, value] of Object.entries(adminBasicHeaders())) {
+      if (!headers.has(key)) headers.set(key, value);
     }
   } else {
     const session = await auth();

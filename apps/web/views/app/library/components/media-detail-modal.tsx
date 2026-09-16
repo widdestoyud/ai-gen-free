@@ -5,13 +5,18 @@ import {
   Badge,
   Button,
   CopyButton,
+  Group,
   Modal,
+  Paper,
   ScrollArea,
+  Stack,
+  Text,
   Tooltip,
 } from "@mantine/core";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import type { LibraryItem } from "@/hooks/use-library";
-import { formatBytes } from "@/lib/format";
+import { formatBytes, resolveUploadUrl } from "@/lib/format";
+import { extractReferenceImages, type ReferenceImageItem } from "@/lib/job-status";
 import classes from "./media-detail-modal.module.css";
 
 function DownloadIcon({ size = 16 }: { size?: number }) {
@@ -151,6 +156,7 @@ export function MediaDetailModal({
   items: LibraryItem[];
   onSelectItem: (item: LibraryItem) => void;
 }) {
+  const [previewRef, setPreviewRef] = useState<ReferenceImageItem | null>(null);
   const currentIndex = items.findIndex((i) => i.id === item?.id);
   const hasPrev = currentIndex > 0;
   const hasNext = currentIndex >= 0 && currentIndex < items.length - 1;
@@ -170,96 +176,141 @@ export function MediaDetailModal({
 
   if (!item) return null;
 
+  const handleModalClose = () => {
+    setPreviewRef(null);
+    onClose();
+  };
+
   const isVideo = item.kind === "video" || item.mime_type.startsWith("video/");
   const isGenerated = item.type === "generated";
   const displayLabel = item.prompt || item.alias || item.id;
 
   return (
-    <Modal
-      opened={opened}
-      onClose={onClose}
-      size="960px"
-      centered
-      classNames={{
-        content: classes.modalContentFull,
-        body: classes.modalBodyNoPadding,
-        header: classes.modalHeaderClean,
-      }}
-    >
-      <div className={classes.detailModalLayout}>
-        {/* Kolom Kiri: Media Showcase */}
-        <div className={classes.mediaShowcaseSection}>
-          <div className={classes.mediaViewerWrapper}>
-            {isVideo ? (
-              <video
-                src={item.url ?? ""}
-                controls
-                autoPlay
-                loop
-                className={classes.detailMedia}
-              />
-            ) : (
-              <img
-                src={item.url ?? ""}
-                alt={displayLabel}
-                className={classes.detailMedia}
-              />
-            )}
+    <>
+      <Modal
+        opened={opened}
+        onClose={handleModalClose}
+        size="960px"
+        centered
+        classNames={{
+          content: classes.modalContentFull,
+          body: classes.modalBodyNoPadding,
+          header: classes.modalHeaderClean,
+        }}
+      >
+        <div className={classes.detailModalLayout}>
+          {/* Kolom Kiri: Media Showcase */}
+          <div className={classes.mediaShowcaseSection}>
+            <div className={classes.mediaViewerWrapper}>
+              {isVideo ? (
+                <video
+                  src={item.url ?? ""}
+                  controls
+                  autoPlay
+                  loop
+                  className={classes.detailMedia}
+                />
+              ) : (
+                <img
+                  src={item.url ?? ""}
+                  alt={displayLabel}
+                  className={classes.detailMedia}
+                />
+              )}
 
-            {/* Tombol Navigasi Prev / Next */}
-            {hasPrev ? (
-              <button
-                type="button"
-                className={classes.navArrowLeft}
-                onClick={() => onSelectItem(items[currentIndex - 1]!)}
-                aria-label="Media Sebelumnya"
-              >
-                <ChevronLeftIcon size={18} />
-              </button>
-            ) : null}
-
-            {hasNext ? (
-              <button
-                type="button"
-                className={classes.navArrowRight}
-                onClick={() => onSelectItem(items[currentIndex + 1]!)}
-                aria-label="Media Selanjutnya"
-              >
-                <ChevronRightIcon size={18} />
-              </button>
-            ) : null}
-          </div>
-        </div>
-
-        {/* Kolom Kanan: Detail & Aksi Media */}
-        <div className={classes.detailInfoSidebar}>
-          <ScrollArea type="hover" className={classes.sidebarScroll}>
-            <div className={classes.sidebarContent}>
-              {/* Status & Mode Badges */}
-              <div className={classes.badgesRow}>
-                <Badge className={classes.modeBadge}>
-                  {getModeLabel(item)}
-                </Badge>
-                <Badge className={classes.statusBadge}>
-                  {getStatusLabel(item)}
-                </Badge>
-              </div>
-
-              {/* Tombol Aksi Download (Hanya untuk Generated Media) */}
-              {isGenerated && item.url ? (
-                <Button
-                  component="a"
-                  href={item.url}
-                  target="_blank"
-                  download={`media-${item.id}`}
-                  variant="filled"
-                  fullWidth
-                  leftSection={<DownloadIcon size={16} />}
-                  className={classes.primaryDownloadBtn}
+              {/* Tombol Navigasi Prev / Next */}
+              {hasPrev ? (
+                <button
+                  type="button"
+                  className={classes.navArrowLeft}
+                  onClick={() => onSelectItem(items[currentIndex - 1]!)}
+                  aria-label="Media Sebelumnya"
                 >
-                  Download
-                </Button>
+                  <ChevronLeftIcon size={18} />
+                </button>
               ) : null}
+
+              {hasNext ? (
+                <button
+                  type="button"
+                  className={classes.navArrowRight}
+                  onClick={() => onSelectItem(items[currentIndex + 1]!)}
+                  aria-label="Media Selanjutnya"
+                >
+                  <ChevronRightIcon size={18} />
+                </button>
+              ) : null}
+            </div>
+          </div>
+
+          {/* Kolom Kanan: Detail & Aksi Media */}
+          <div className={classes.detailInfoSidebar}>
+            <ScrollArea type="hover" className={classes.sidebarScroll}>
+              <div className={classes.sidebarContent}>
+                {/* Status & Mode Badges */}
+                <div className={classes.badgesRow}>
+                  <Badge className={classes.modeBadge}>
+                    {getModeLabel(item)}
+                  </Badge>
+                  <Badge className={classes.statusBadge}>
+                    {getStatusLabel(item)}
+                  </Badge>
+                </div>
+
+                {/* Tombol Aksi Download (Hanya untuk Generated Media) */}
+                {isGenerated && item.url ? (
+                  <Button
+                    component="a"
+                    href={item.url}
+                    target="_blank"
+                    download={`media-${item.id}`}
+                    variant="filled"
+                    fullWidth
+                    leftSection={<DownloadIcon size={16} />}
+                    className={classes.primaryDownloadBtn}
+                  >
+                    Download
+                  </Button>
+                ) : null}
+
+                {/* Reference Images (@image) */}
+                {(() => {
+                  const referenceImages = extractReferenceImages(item.params, item.prompt ?? undefined);
+                  if (referenceImages.length === 0) return null;
+                  return (
+                    <div className={classes.referenceImagesSection}>
+                      <div className={classes.referenceHeader}>
+                        <span className={classes.promptHeading}>
+                          REFERENCE IMAGE{referenceImages.length > 1 ? "S" : ""}
+                        </span>
+                      </div>
+                      <div className={classes.referenceGrid}>
+                        {referenceImages.map((ref, idx) => {
+                          const imgUrl = resolveUploadUrl(ref.url);
+                          return (
+                            <Tooltip key={idx} label={`Lihat referensi: ${ref.tag}`} withArrow position="top">
+                              <button
+                                type="button"
+                                onClick={() => setPreviewRef(ref)}
+                                className={classes.referenceCard}
+                                aria-label={`Lihat media referensi ${ref.tag}`}
+                              >
+                                <img
+                                  src={imgUrl}
+                                  alt={ref.tag}
+                                  className={classes.referenceThumb}
+                                />
+                                <div className={classes.referenceTagBadge}>
+                                  {ref.tag}
+                                </div>
+                              </button>
+                            </Tooltip>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })()}
 
               {/* Box Prompt (Hanya untuk Generated Media yang memiliki Prompt) */}
               {isGenerated && item.prompt ? (
@@ -360,5 +411,78 @@ export function MediaDetailModal({
         </div>
       </div>
     </Modal>
+
+    {/* Modal Detail Media Referensi saat diklik */}
+    <Modal
+      opened={Boolean(previewRef)}
+      onClose={() => setPreviewRef(null)}
+      title="Detail Media Referensi"
+      size="lg"
+      centered
+      zIndex={300}
+    >
+      {previewRef ? (
+        <Stack gap="md">
+          <div className={classes.zoomImageContainer}>
+            <img
+              src={resolveUploadUrl(previewRef.url)}
+              alt={previewRef.tag}
+              className={classes.zoomImage}
+            />
+          </div>
+
+          <Paper p="sm" withBorder radius="md">
+            <Group justify="space-between" wrap="wrap" gap="sm">
+              <div>
+                <Text size="xs" c="dimmed">
+                  Tag Referensi
+                </Text>
+                <Group gap={6} mt={2}>
+                  <Badge size="sm" variant="light" color="green">
+                    {previewRef.tag}
+                  </Badge>
+                </Group>
+              </div>
+
+              <div>
+                <Text size="xs" c="dimmed">
+                  Tipe
+                </Text>
+                <Text size="sm" fw={600}>
+                  Gambar (Image)
+                </Text>
+              </div>
+
+              <div>
+                <Text size="xs" c="dimmed">
+                  Format
+                </Text>
+                <Badge size="sm" variant="outline" color="gray">
+                  {previewRef.url.split(".").pop()?.toUpperCase() || "WEBP"}
+                </Badge>
+              </div>
+            </Group>
+          </Paper>
+
+          <Group justify="space-between" align="center">
+            <Text size="xs" c="dimmed">
+              Tag{" "}
+              <Text component="span" fw={600} c="green">
+                {previewRef.tag}
+              </Text>{" "}
+              digunakan pada prompt sebagai referensi gambar ini.
+            </Text>
+            <Button
+              variant="default"
+              size="xs"
+              onClick={() => setPreviewRef(null)}
+            >
+              Tutup
+            </Button>
+          </Group>
+        </Stack>
+      ) : null}
+    </Modal>
+  </>
   );
 }

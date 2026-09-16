@@ -175,14 +175,13 @@ test("processUpload: customer upload saves to correct key and returns valid payl
   });
 
   assert.ok(result.id.startsWith("up_"));
-  assert.equal(result.key, `uploads/customer/usr_cust123/${result.id}.webp`);
-  assert.equal(result.mime_type, "image/webp");
   assert.equal(result.width, 200);
+  assert.equal(result.height, 300);
   assert.equal(result.url, `/customer/uploads/${result.id}/file`);
-  assert.ok(new Date(result.expires_at).getTime() > Date.now());
 
   // Verify stored object in storage
-  const stored = await storage.get(result.key);
+  const expectedKey = `uploads/customer/usr_cust123/${result.id}.webp`;
+  const stored = await storage.get(expectedKey);
   assert.equal(stored.contentType, "image/webp");
   assert.ok(stored.body.length > 0);
 });
@@ -204,9 +203,14 @@ test("processUpload: admin upload saves to correct admin key path", async () => 
   });
 
   assert.ok(result.id.startsWith("up_"));
-  assert.equal(result.key, `uploads/admin/adm_999/${result.id}.webp`);
   assert.equal(result.width, 400);
   assert.equal(result.height, 200);
+  assert.equal(result.url, `/admin/uploads/${result.id}/file`);
+
+  const expectedKey = `uploads/admin/adm_999/${result.id}.webp`;
+  const stored = await storage.get(expectedKey);
+  assert.equal(stored.contentType, "image/webp");
+  assert.ok(stored.body.length > 0);
 });
 
 test("processUpload: rejects invalid mime type and oversized files", async () => {

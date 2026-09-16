@@ -63,6 +63,24 @@ async function main() {
     },
   });
 
+  await prisma.modelCatalog.upsert({
+    where: { mode_modelId: { mode: "i2i", modelId: "openai/gpt-image-2-edit" } },
+    update: {
+      displayName: "GPT Image 2 Edit",
+      providerId: "siray",
+      costPoints: 10,
+      enabled: true,
+    },
+    create: {
+      mode: "i2i",
+      modelId: "openai/gpt-image-2-edit",
+      displayName: "GPT Image 2 Edit",
+      providerId: "siray",
+      costPoints: 10,
+      enabled: true,
+    },
+  });
+
   const dummyEnabled = process.env.ENABLE_DUMMY_T2I === "true";
   await prisma.modelCatalog.upsert({
     where: { mode_modelId: { mode: "t2i", modelId: "dummy-t2i" } },

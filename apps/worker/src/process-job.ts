@@ -12,6 +12,7 @@ import { captureJob, releaseJob } from "@ai-gen-free/wallet";
 import { createHash } from "node:crypto";
 import { extensionFor, fetchOutputBytes, type FetchedBytes } from "./fetch-output.js";
 import { optimizeOutputImage } from "./optimize-output.js";
+import { resolveInputImages } from "./resolve-inputs.js";
 import { classifyJobFailure, formatFailureLog, formatFailureNote } from "./failure-source.js";
 import { appendSirayJobNote, rememberSirayTaskId } from "./siray-file-log.js";
 
@@ -119,11 +120,24 @@ export async function processGenerateJob(opts: ProcessGenerateJobOpts): Promise<
       } catch (err) {
         throw new RetryableProviderError(`storage not ready before Siray: ${errorDetail(err)}`, { cause: err });
       }
+
+      const resolvedInputs = await resolveInputImages({
+        userId: running.userId,
+        params: running.params,
+        storage: opts.storage,
+        fetchBytes,
+      });
+      const submitParams: Record<string, unknown> = {
+        ...running.params,
+        ...(resolvedInputs.image ? { image: resolvedInputs.image } : {}),
+        ...(resolvedInputs.images ? { images: resolvedInputs.images } : {}),
+      };
+
       const handle = await provider.submit({
         mode: running.mode as Capability,
         modelId: running.modelId,
         prompt: running.prompt,
-        params: running.params,
+        params: submitParams,
         inputFiles: [],
       });
       providerJobId = handle.providerJobId;

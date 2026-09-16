@@ -1,8 +1,14 @@
 export type Package = {
   id: string;
+  name?: string;
   amountIdr: number;
+  originalAmountIdr?: number | null;
   points: number;
   label: string;
+  description?: string | null;
+  badgeText?: string | null;
+  active?: boolean;
+  sortOrder?: number;
 };
 
 export type GatewayPaymentInfo = {

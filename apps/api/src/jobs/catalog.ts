@@ -5,6 +5,7 @@ import type { JobMode } from "@prisma/client";
 const DISPLAY_FALLBACK: Record<string, string> = {
   "black-forest-labs/flux-1.1-pro-t2i": "Flux 1.1 Pro",
   "openai/gpt-image-2-t2i": "GPT Image 2",
+  "openai/gpt-image-2-edit": "GPT Image 2 Edit",
   "bytedance/seedream-5.0-pro-t2i-spicy": "Seedream 5.0 Pro Spicy",
   "dummy-t2i": "Dummy",
 };
@@ -28,7 +29,7 @@ export function humanDisplayName(modelId: string, displayName?: string | null): 
 }
 
 export function pickEnabledModel(rows: CatalogRow[], modeRaw: unknown, modelIdRaw: unknown): CatalogRow {
-  if (modeRaw !== "t2i") {
+  if (modeRaw !== "t2i" && modeRaw !== "i2i") {
     throw new AppError(ErrorCodes.VALIDATION_ERROR, "Mode ini belum tersedia");
   }
   const mode = modeRaw as JobMode;
@@ -62,7 +63,7 @@ export async function listEnabledModels() {
 }
 
 export async function resolveModel(modeRaw: unknown, modelIdRaw: unknown) {
-  if (modeRaw !== "t2i") {
+  if (modeRaw !== "t2i" && modeRaw !== "i2i") {
     throw new AppError(ErrorCodes.VALIDATION_ERROR, "Mode ini belum tersedia");
   }
   const mode = modeRaw as JobMode;

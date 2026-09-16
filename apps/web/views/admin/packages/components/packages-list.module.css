@@ -1,26 +1,9 @@
-.inboxContainer {
+.container {
   margin-top: var(--mantine-spacing-md);
   background-color: var(--mantine-color-body);
   border-radius: var(--mantine-radius-md);
   border: 1px solid var(--mantine-color-default-border);
   padding: var(--mantine-spacing-md) var(--mantine-spacing-lg);
-}
-
-.statGrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: var(--mantine-spacing-md);
-  margin-bottom: var(--mantine-spacing-lg);
-}
-
-.statCard {
-  background-color: var(--mantine-color-default);
-  border: 1px solid var(--mantine-color-default-border);
-  border-radius: var(--mantine-radius-md);
-  padding: var(--mantine-spacing-md);
-  display: flex;
-  flex-direction: column;
-  gap: var(--mantine-spacing-xs);
 }
 
 .headerRow {
@@ -50,10 +33,6 @@
   flex-wrap: wrap;
 }
 
-.searchInput {
-  min-width: 220px;
-}
-
 .tableHeader {
   color: var(--mantine-color-dimmed);
   font-size: var(--mantine-font-size-sm);
@@ -74,19 +53,19 @@
   background-color: var(--mantine-color-dark-7);
 }
 
-.codeCell {
+.nameCell {
   display: flex;
   flex-direction: column;
   gap: 2px;
 }
 
-.uniqueCode {
+.packageName {
   color: var(--mantine-color-text);
   font-size: var(--mantine-font-size-sm);
   font-weight: 600;
 }
 
-.userEmail {
+.packageDesc {
   color: var(--mantine-color-dimmed);
   font-size: var(--mantine-font-size-xs);
 }
@@ -97,41 +76,27 @@
   gap: 2px;
 }
 
-.amountValue {
+.priceValue {
   color: var(--mantine-color-text);
   font-size: var(--mantine-font-size-sm);
   font-weight: 600;
 }
 
+.strikethroughPrice {
+  color: var(--mantine-color-dimmed);
+  font-size: var(--mantine-font-size-xs);
+  text-decoration: line-through;
+}
+
 .pointsValue {
   color: var(--mantine-color-teal-6);
-  font-size: var(--mantine-font-size-xs);
-  font-weight: 500;
-}
-
-.methodCell {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.dateCell {
-  color: var(--mantine-color-dimmed);
   font-size: var(--mantine-font-size-sm);
-  white-space: nowrap;
+  font-weight: 600;
 }
 
 .actionCell {
   text-align: right;
   white-space: nowrap;
-}
-
-.previewImage {
-  max-width: 100%;
-  max-height: 500px;
-  object-fit: contain;
-  border-radius: var(--mantine-radius-md);
-  margin-top: var(--mantine-spacing-sm);
 }
 
 .summaryFooter {
@@ -142,4 +107,3 @@
   padding-top: var(--mantine-spacing-sm);
   border-top: 1px solid var(--mantine-color-default-border);
 }
-

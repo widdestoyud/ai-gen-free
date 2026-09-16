@@ -128,6 +128,12 @@ export interface MidtransStatusResponse {
   fraud_status?: string;
   signature_key?: string;
   settlement_time?: string;
+  qr_string?: string;
+  actions?: Array<{
+    name: string;
+    method: string;
+    url: string;
+  }>;
   va_numbers?: Array<{
     bank: string;
     va_number: string;

@@ -949,6 +949,73 @@
           "response": []
         },
         {
+          "name": "POST /invoices/:id/proof",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-session-token",
+                "value": "{{userSessionToken}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "description": "Berkas bukti transfer pembayaran (PNG, JPG, WebP)"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/invoices/{{invoiceId}}/proof",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "invoices",
+                "{{invoiceId}}",
+                "proof"
+              ]
+            },
+            "description": "Mengunggah berkas bukti transfer untuk verifikasi manual invoice."
+          },
+          "response": []
+        },
+        {
+          "name": "POST /customer/password-change",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-session-token",
+                "value": "{{userSessionToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currentPassword\": \"Password123\",\n  \"newPassword\": \"PasswordBaru456\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/customer/password-change",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "customer",
+                "password-change"
+              ]
+            },
+            "description": "Mengubah kata sandi pelanggan yang sedang login dengan memverifikasi kata sandi lama."
+          },
+          "response": []
+        },
+        {
           "name": "POST /customer/logout",
           "request": {
             "method": "POST",
@@ -1074,6 +1141,59 @@
               ]
             },
             "description": "Submit khusus model Siray openai/gpt-image-2-t2i."
+          },
+          "response": []
+        },
+        {
+          "name": "POST /generate/siray/gpt-image-2-edit",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 202) {",
+                  "    var json = pm.response.json();",
+                  "    if (json.job_id) {",
+                  "        pm.environment.set(\"jobId\", json.job_id);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-session-token",
+                "value": "{{userSessionToken}}"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "idemp-siray-gpt2-edit-001"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"prompt\": \"Ubah latar belakang menjadi pantai berpasir putih saat matahari terbenam\",\n  \"image\": \"https://example.com/source-image.webp\",\n  \"n\": 1,\n  \"quality\": \"high\",\n  \"aspectRatio\": \"1:1\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/generate/siray/gpt-image-2-edit",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "generate",
+                "siray",
+                "gpt-image-2-edit"
+              ]
+            },
+            "description": "Submit khusus model edit gambar Siray openai/gpt-image-2-edit."
           },
           "response": []
         },
@@ -1847,6 +1967,146 @@
               ]
             },
             "description": "Membatalkan invoice oleh admin."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /admin/invoices/:id/payment-status",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-session-token",
+                "value": "{{adminSessionToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/invoices/{{invoiceId}}/payment-status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "invoices",
+                "{{invoiceId}}",
+                "payment-status"
+              ]
+            },
+            "description": "Mengecek status pembayaran Midtrans untuk invoice tertentu oleh admin."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /admin/packages",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-session-token",
+                "value": "{{adminSessionToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/packages",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "packages"
+              ]
+            },
+            "description": "Mendapatkan daftar seluruh paket topup poin oleh admin."
+          },
+          "response": []
+        },
+        {
+          "name": "POST /admin/packages",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-session-token",
+                "value": "{{adminSessionToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Paket Super Promo\",\n  \"description\": \"Paket spesial promosi bulanan\",\n  \"amountIdr\": 50000,\n  \"originalAmountIdr\": 100000,\n  \"points\": 600,\n  \"badgeText\": \"DISKON 50%\",\n  \"sortOrder\": 1,\n  \"active\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/packages",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "packages"
+              ]
+            },
+            "description": "Membuat paket topup baru oleh admin."
+          },
+          "response": []
+        },
+        {
+          "name": "PATCH /admin/packages/:id",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-session-token",
+                "value": "{{adminSessionToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Paket Super Promo Updated\",\n  \"amountIdr\": 45000,\n  \"originalAmountIdr\": 100000,\n  \"points\": 650,\n  \"badgeText\": \"FLASH SALE\",\n  \"active\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/packages/{{packageId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "packages",
+                "{{packageId}}"
+              ]
+            },
+            "description": "Memperbarui konfigurasi paket topup oleh admin."
+          },
+          "response": []
+        },
+        {
+          "name": "DELETE /admin/packages/:id",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "x-session-token",
+                "value": "{{adminSessionToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/packages/{{packageId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "packages",
+                "{{packageId}}"
+              ]
+            },
+            "description": "Menghapus paket topup oleh admin."
           },
           "response": []
         },

@@ -186,6 +186,14 @@ function redactSirayBody(body: unknown): unknown {
   if (typeof copy.prompt === "string" && copy.prompt.length > 160) {
     copy.prompt = `${copy.prompt.slice(0, 160)}…`;
   }
+  if (typeof copy.image === "string" && copy.image.length > 60) {
+    copy.image = `${copy.image.slice(0, 30)}…[base64 ${copy.image.length} chars]`;
+  }
+  if (Array.isArray(copy.images)) {
+    copy.images = copy.images.map((img) =>
+      typeof img === "string" && img.length > 60 ? `${img.slice(0, 30)}…[base64 ${img.length} chars]` : img,
+    );
+  }
   return copy;
 }
 
@@ -223,6 +231,29 @@ export function buildSiraySubmitPayload(input: CanonicalGenerateInput): Record<s
     model: input.modelId,
     prompt: input.prompt,
   };
+
+  const image =
+    typeof input.params.image === "string"
+      ? input.params.image
+      : typeof input.params.image_url === "string"
+        ? input.params.image_url
+        : Array.isArray(input.params.refs) && typeof input.params.refs[0] === "string"
+          ? input.params.refs[0]
+          : undefined;
+
+  if (image) {
+    payload.image = image;
+  }
+
+  if (Array.isArray(input.params.images) && input.params.images.length > 0) {
+    payload.images = input.params.images;
+  } else if (Array.isArray(input.params.refs) && input.params.refs.length > 0) {
+    payload.images = input.params.refs;
+  }
+
+  if (typeof input.params.mask === "string") {
+    payload.mask = input.params.mask;
+  }
 
   if (isSeedreamT2i(input.modelId)) {
     payload.size = size ?? (aspectRatio ? SEEDREAM_SIZE_BY_ASPECT[aspectRatio] : undefined) ?? "1024x1024";

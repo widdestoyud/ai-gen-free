@@ -7,9 +7,13 @@ import {
   cancelInvoiceForAdmin,
   cancelInvoiceForUser,
   computeBalance,
+  createAdminPackage,
   createInvoice,
+  deleteAdminPackage,
+  getAdminPackage,
   getInvoiceForUser,
   listAdminInvoices,
+  listAdminPackages,
   listInvoicesForUser,
   listLedger,
   listNotifications,
@@ -18,6 +22,9 @@ import {
   proofUrlForAdmin,
   rejectInvoice,
   submitProof,
+  updateAdminPackage,
+  type CreatePackageInput,
+  type UpdatePackageInput,
 } from "../wallet/service.js";
 
 function sendError(reply: { status: (n: number) => { send: (b: unknown) => unknown } }, err: unknown) {
@@ -99,7 +106,7 @@ export async function registerWalletRoutes(app: FastifyInstance, deps: { storage
   app.get("/customer/packages", async (req, reply) => {
     const session = await requireUser(req, reply);
     if (!session) return;
-    return { packages: listPackages() };
+    return { packages: await listPackages() };
   });
 
   app.post("/invoices", async (req, reply) => {
@@ -253,6 +260,57 @@ export async function registerWalletRoutes(app: FastifyInstance, deps: { storage
       const { id } = req.params as { id: string };
       const body = (req.body ?? {}) as { reason?: unknown };
       return await cancelInvoiceForAdmin(id, session.userId, body.reason);
+    } catch (err) {
+      return sendError(reply, err);
+    }
+  });
+
+  app.get("/admin/packages", async (req, reply) => {
+    const session = await requireAdmin(req, reply);
+    if (!session) return;
+    return { packages: await listAdminPackages() };
+  });
+
+  app.post("/admin/packages", async (req, reply) => {
+    const session = await requireAdmin(req, reply);
+    if (!session) return;
+    try {
+      const body = (req.body ?? {}) as CreatePackageInput;
+      return await createAdminPackage(session.userId, body);
+    } catch (err) {
+      return sendError(reply, err);
+    }
+  });
+
+  app.get("/admin/packages/:id", async (req, reply) => {
+    const session = await requireAdmin(req, reply);
+    if (!session) return;
+    try {
+      const { id } = req.params as { id: string };
+      return await getAdminPackage(id);
+    } catch (err) {
+      return sendError(reply, err);
+    }
+  });
+
+  app.patch("/admin/packages/:id", async (req, reply) => {
+    const session = await requireAdmin(req, reply);
+    if (!session) return;
+    try {
+      const { id } = req.params as { id: string };
+      const body = (req.body ?? {}) as UpdatePackageInput;
+      return await updateAdminPackage(session.userId, id, body);
+    } catch (err) {
+      return sendError(reply, err);
+    }
+  });
+
+  app.delete("/admin/packages/:id", async (req, reply) => {
+    const session = await requireAdmin(req, reply);
+    if (!session) return;
+    try {
+      const { id } = req.params as { id: string };
+      return await deleteAdminPackage(session.userId, id);
     } catch (err) {
       return sendError(reply, err);
     }

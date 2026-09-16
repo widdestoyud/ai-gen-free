@@ -29,6 +29,17 @@ export function parseGenerateParams(raw: unknown, providerId: string): Prisma.In
   if (typeof input.moderation === "string") params.moderation = input.moderation;
   if (typeof input.n === "number") params.n = input.n;
 
+  if (Array.isArray(input.refs)) {
+    params.refs = input.refs.filter((r) => typeof r === "string" || (typeof r === "object" && r !== null));
+  }
+  if (typeof input.image === "string") params.image = input.image;
+  if (Array.isArray(input.images)) {
+    params.images = input.images.filter((img) => typeof img === "string");
+  }
+  if (typeof input.mask === "string") params.mask = input.mask;
+  if (typeof input.duration === "string") params.duration = input.duration;
+  if (typeof input.resolution === "string") params.resolution = input.resolution;
+
   if (providerId === "dummy" && input.fail === true) {
     params.fail = true;
   }

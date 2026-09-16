@@ -23,6 +23,13 @@ export interface ProcessUploadOptions {
   contentType: string;
 }
 
+export interface ProcessUploadResult {
+  id: string;
+  url: string;
+  width: number;
+  height: number;
+}
+
 export interface UploadResult {
   id: string;
   key: string;
@@ -159,8 +166,23 @@ export async function checkUploadRateLimit(
 /**
  * Memproses upload gambar, mengompres, dan menyimpannya ke ObjectStorage serta DB.
  */
-export async function processUpload(opts: ProcessUploadOptions & { alias?: string | null }): Promise<UploadResult> {
-  if (!opts.contentType || !isAllowedMimeType(opts.contentType)) {
+export async function processUpload(
+  opts: ProcessUploadOptions & { alias?: string | null },
+): Promise<ProcessUploadResult> {
+  if (opts.buffer.length === 0) {
+    throw new AuthError(ErrorCodes.VALIDATION_ERROR, "Berkas gambar kosong", 400);
+  }
+
+  const maxBytes = UploadConfig.limits.maxSizeBytes;
+  if (opts.buffer.length > maxBytes) {
+    throw new AuthError(
+      ErrorCodes.VALIDATION_ERROR,
+      "Ukuran berkas melebihi batas maksimal 5 MB",
+      400,
+    );
+  }
+
+  if (!isAllowedMimeType(opts.contentType) || !isImageBuffer(opts.buffer)) {
     throw new AuthError(
       ErrorCodes.VALIDATION_ERROR,
       "Format berkas tidak didukung (hanya png, jpg, jpeg, webp)",
@@ -168,17 +190,12 @@ export async function processUpload(opts: ProcessUploadOptions & { alias?: strin
     );
   }
 
-  if (opts.buffer.length === 0) {
-    throw new AuthError(ErrorCodes.VALIDATION_ERROR, "Berkas gambar kosong", 400);
-  }
-
-  if (opts.buffer.length > UploadConfig.limits.maxSizeBytes) {
-    throw new AuthError(ErrorCodes.VALIDATION_ERROR, "Ukuran berkas melebihi batas maksimal 5 MB", 400);
-  }
-
   const compressed = await compressUploadImage(opts.buffer);
   const uploadId = `up_${randomBytes(12).toString("hex")}`;
-  const key = `uploads/${opts.actor}/${opts.actorId}/${uploadId}.webp`;
+  const key =
+    opts.actor === "customer"
+      ? `uploads/customer/${opts.actorId}/${uploadId}.webp`
+      : `uploads/admin/${opts.actorId}/${uploadId}.webp`;
 
   await opts.storage.put({
     key,
@@ -186,15 +203,20 @@ export async function processUpload(opts: ProcessUploadOptions & { alias?: strin
     contentType: compressed.contentType,
   });
 
-  const ttlSeconds = UploadConfig.retention.ttlSeconds;
-  const expiresAtDate = new Date(Date.now() + ttlSeconds * 1000);
-  // URL internal same-origin, bukan ekspos R2 langsung
-  const sameOriginUrl = `/${opts.actor}/uploads/${uploadId}/file`;
-  const alias = typeof opts.alias === "string" && opts.alias.trim().length > 0 ? opts.alias.trim().slice(0, 100) : null;
+  const now = new Date();
+  const expiresAtDate = new Date(now.getTime() + UploadConfig.retention.ttlSeconds * 1000);
+  const sameOriginUrl =
+    opts.actor === "customer"
+      ? `/customer/uploads/${uploadId}/file`
+      : `/admin/uploads/${uploadId}/file`;
 
-  // Simpan record ke database jika tersedia
+  const alias =
+    typeof opts.alias === "string" && opts.alias.trim().length > 0
+      ? opts.alias.trim().slice(0, 100)
+      : null;
+
   try {
-    if (prisma?.upload?.create) {
+    if (opts.actor === "customer") {
       await prisma.upload.create({
         data: {
           id: uploadId,
@@ -216,14 +238,9 @@ export async function processUpload(opts: ProcessUploadOptions & { alias?: strin
 
   return {
     id: uploadId,
-    key,
     url: sameOriginUrl,
-    mime_type: compressed.contentType,
     width: compressed.width,
     height: compressed.height,
-    size_bytes: compressed.sizeBytes,
-    expires_at: expiresAtDate.toISOString(),
-    alias,
   };
 }
 

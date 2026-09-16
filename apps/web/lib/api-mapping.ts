@@ -362,6 +362,12 @@ export const API_MAPPINGS: readonly ApiRouteMapping[] = [
     description: "Batalkan tagihan invoice oleh admin",
   },
   {
+    FE: "/api/admin/invoices/:id/payment-status",
+    BE: "/admin/invoices/:id/payment-status",
+    method: "GET",
+    description: "Cek status pembayaran Midtrans invoice oleh admin",
+  },
+  {
     FE: "/api/admin/notifications",
     BE: "/admin/notifications",
     method: "GET",
@@ -372,6 +378,36 @@ export const API_MAPPINGS: readonly ApiRouteMapping[] = [
     BE: "/admin/audit",
     method: "GET",
     description: "Riwayat log audit perubahan admin",
+  },
+  {
+    FE: "/api/admin/packages",
+    BE: "/admin/packages",
+    method: "GET",
+    description: "Daftar seluruh paket topup poin untuk dikonfigurasi admin",
+  },
+  {
+    FE: "/api/admin/packages",
+    BE: "/admin/packages",
+    method: "POST",
+    description: "Membuat paket topup baru oleh admin",
+  },
+  {
+    FE: "/api/admin/packages/:id",
+    BE: "/admin/packages/:id",
+    method: "GET",
+    description: "Detail paket topup poin admin",
+  },
+  {
+    FE: "/api/admin/packages/:id",
+    BE: "/admin/packages/:id",
+    method: "PATCH",
+    description: "Memperbarui data dan konfigurasi paket topup oleh admin",
+  },
+  {
+    FE: "/api/admin/packages/:id",
+    BE: "/admin/packages/:id",
+    method: "DELETE",
+    description: "Menghapus paket topup oleh admin",
   },
 
   // -------------------------------------------------------------
@@ -567,6 +603,9 @@ export function resolveBackendPath(fePath: string, method = "GET"): string {
 
   const invoiceCancelMatch = m === "POST" ? path.match(/^\/api\/admin\/invoices\/([^/]+)\/cancel$/) : null;
   if (invoiceCancelMatch) return `/admin/invoices/${invoiceCancelMatch[1]}/cancel` + search;
+
+  const adminInvoicePaymentStatus = m === "GET" ? path.match(/^\/api\/admin\/invoices\/([^/]+)\/payment-status$/) : null;
+  if (adminInvoicePaymentStatus) return `/admin/invoices/${adminInvoicePaymentStatus[1]}/payment-status` + search;
 
   // Invoices user
   const userInvoiceProof = m === "POST" ? path.match(/^\/api\/invoices\/([^/]+)\/proof$/) : null;

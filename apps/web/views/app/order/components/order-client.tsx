@@ -20,6 +20,7 @@ import { useRouter } from "next/navigation";
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { EmptyState } from "@/components/empty-state";
 import { ErrorAlert } from "@/components/error-alert";
+import { SnapPaymentModal } from "@/components/snap-payment-modal";
 import { requestJson } from "@/lib/api";
 import { formatDateId, formatIdr } from "@/lib/format";
 import { usePayment } from "@/hooks/use-payment";
@@ -74,6 +75,9 @@ export function OrderClient(props: {
   const [gatewayEnabled, setGatewayEnabled] = useState(false);
   const [payingInvoiceId, setPayingInvoiceId] = useState<string | null>(null);
 
+  // Snap Payment Modal state
+  const [snapInvoice, setSnapInvoice] = useState<{ id: string; code: string } | null>(null);
+
   // Upload proof modal state
   const [uploadInvoice, setUploadInvoice] = useState<Invoice | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -82,7 +86,6 @@ export function OrderClient(props: {
   const [cancelingInvoice, setCancelingInvoice] = useState<Invoice | null>(null);
 
   const {
-    payAndRedirect,
     getPaymentMethods,
     error: paymentError,
     clearError: clearPaymentError,
@@ -109,8 +112,9 @@ export function OrderClient(props: {
 
   async function buy(packageId: string) {
     setError("");
+    clearPaymentError();
     setBusy(true);
-    const result = await requestJson("/api/invoices", {
+    const result = await requestJson<{ id: string; uniqueCode: string }>("/api/invoices", {
       method: "POST",
       body: JSON.stringify({ packageId }),
     });
@@ -119,6 +123,12 @@ export function OrderClient(props: {
       setError(result.message);
       return;
     }
+
+    // Jika online gateway aktif, langsung buka modal pembayaran Snap
+    if (gatewayEnabled && result.data?.id && result.data?.uniqueCode) {
+      setSnapInvoice({ id: result.data.id, code: result.data.uniqueCode });
+    }
+
     router.refresh();
   }
 
@@ -143,20 +153,12 @@ export function OrderClient(props: {
   }
 
   const handlePayGateway = useCallback(
-    async (invoiceId: string) => {
+    (invoiceId: string, invoiceCode: string) => {
       setError("");
       clearPaymentError();
-      setPayingInvoiceId(invoiceId);
-      setBusy(true);
-
-      try {
-        await payAndRedirect(invoiceId);
-      } finally {
-        setBusy(false);
-        setPayingInvoiceId(null);
-      }
+      setSnapInvoice({ id: invoiceId, code: invoiceCode });
     },
-    [payAndRedirect, clearPaymentError],
+    [clearPaymentError],
   );
 
   async function handleConfirmCancel() {
@@ -219,29 +221,55 @@ export function OrderClient(props: {
       )}
 
       <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing="md" className={classes.packagesGrid}>
-        {props.packages.map((p) => (
-          <Card key={p.id} withBorder padding="lg" radius="md" className={classes.packageCard}>
-            <Text fw={600} size="lg">
-              {p.label}
-            </Text>
-            <Text size="xl" fw={700} c="blue" mt="xs">
-              {formatIdr(p.amountIdr)}
-            </Text>
-            <Text size="sm" c="dimmed" mb="md">
-              Dapatkan <strong>{p.points} Poin</strong> Generate
-            </Text>
-            <Button
-              type="button"
-              variant="filled"
-              color="blue"
-              fullWidth
-              disabled={busy}
-              onClick={() => void buy(p.id)}
-            >
-              Pesan Paket
-            </Button>
-          </Card>
-        ))}
+        {props.packages.map((p) => {
+          const hasDiscount = Boolean(p.originalAmountIdr && p.originalAmountIdr > p.amountIdr);
+          return (
+            <Card key={p.id} withBorder padding="lg" radius="md" className={classes.packageCard}>
+              <Group justify="space-between" align="flex-start" mb="xs">
+                <Text fw={600} size="lg">
+                  {p.name || p.label}
+                </Text>
+                {p.badgeText ? (
+                  <Badge color="red" variant="filled" size="sm">
+                    {p.badgeText}
+                  </Badge>
+                ) : null}
+              </Group>
+
+              {p.description ? (
+                <Text size="xs" c="dimmed" mb="xs">
+                  {p.description}
+                </Text>
+              ) : null}
+
+              <Group gap="xs" align="baseline" mt="xs">
+                <Text size="xl" fw={700} c="blue">
+                  {formatIdr(p.amountIdr)}
+                </Text>
+                {hasDiscount && (
+                  <Text size="sm" c="dimmed" td="line-through">
+                    {formatIdr(p.originalAmountIdr!)}
+                  </Text>
+                )}
+              </Group>
+
+              <Text size="sm" c="dimmed" mb="md" mt={4}>
+                Dapatkan <strong>+{p.points} Poin</strong> Generate
+              </Text>
+
+              <Button
+                type="button"
+                variant="filled"
+                color="blue"
+                fullWidth
+                disabled={busy}
+                onClick={() => void buy(p.id)}
+              >
+                Pesan Paket
+              </Button>
+            </Card>
+          );
+        })}
       </SimpleGrid>
 
       <ErrorAlert message={displayError} />
@@ -373,7 +401,7 @@ export function OrderClient(props: {
                               color="blue"
                               disabled={busy || isPaying}
                               leftSection={isPaying ? <Loader size="xs" /> : null}
-                              onClick={() => void handlePayGateway(inv.id)}
+                              onClick={() => handlePayGateway(inv.id, inv.uniqueCode)}
                             >
                               {isPaying
                                 ? "Memproses..."
@@ -535,6 +563,30 @@ export function OrderClient(props: {
           </Group>
         </Stack>
       </Modal>
+
+      {/* Modal Pembayaran Midtrans Snap (Embed) */}
+      {snapInvoice && (
+        <SnapPaymentModal
+          opened={Boolean(snapInvoice)}
+          onClose={() => {
+            setSnapInvoice(null);
+            router.refresh();
+          }}
+          invoiceId={snapInvoice.id}
+          invoiceCode={snapInvoice.code}
+          onSuccess={() => {
+            setSnapInvoice(null);
+            router.refresh();
+          }}
+          onPending={() => {
+            setSnapInvoice(null);
+            router.refresh();
+          }}
+          onError={() => {
+            router.refresh();
+          }}
+        />
+      )}
     </div>
   );
 }

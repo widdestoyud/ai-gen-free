@@ -5,6 +5,7 @@ import { resolveSirayGenerateSlug, sirayGenerateParamsFromBody } from "./siray-g
 
 test("known slugs map to catalog modelIds", () => {
   assert.equal(resolveSirayGenerateSlug("gpt-image-2-t2i").modelId, "openai/gpt-image-2-t2i");
+  assert.equal(resolveSirayGenerateSlug("gpt-image-2-edit").modelId, "openai/gpt-image-2-edit");
   assert.equal(
     resolveSirayGenerateSlug("seedream-5.0-pro-t2i-spicy").modelId,
     "bytedance/seedream-5.0-pro-t2i-spicy",

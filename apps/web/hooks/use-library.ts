@@ -26,6 +26,7 @@ export type LibraryItem = {
   size_bytes?: number | null;
   created_at: string;
   expires_at?: string | null;
+  params?: Record<string, unknown> | null;
 };
 
 export type CustomerLibraryResponse = {

@@ -260,6 +260,10 @@ export class MidtransSnapProvider implements PaymentGatewayPort {
         paidAt = new Date(data.transaction_time);
       }
 
+      const qrAction = data.actions?.find((a) => a.name === "generate-qr-code");
+      const qrString = data.qr_string ?? qrAction?.url;
+      const qrUrl = qrAction?.url;
+
       return {
         found: true,
         invoiceNumber: data.order_id ?? invoiceNumber,
@@ -267,6 +271,8 @@ export class MidtransSnapProvider implements PaymentGatewayPort {
         status: status === "FAILED" && data.transaction_status === "expire" ? "EXPIRED" : status,
         paymentChannel: data.payment_type,
         paidAt,
+        qrString,
+        qrUrl,
       };
     } catch (err: unknown) {
       const errorMsg = err instanceof Error ? err.message : String(err);

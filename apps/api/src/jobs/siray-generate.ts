@@ -5,6 +5,9 @@ export const SIRAY_GENERATE_SLUGS: Record<string, { modelId: string; defaultPara
   "gpt-image-2-t2i": {
     modelId: "openai/gpt-image-2-t2i",
   },
+  "gpt-image-2-edit": {
+    modelId: "openai/gpt-image-2-edit",
+  },
   "seedream-5.0-pro-t2i-spicy": {
     modelId: "bytedance/seedream-5.0-pro-t2i-spicy",
     defaultParams: { size: "1024x1024", output_format: "png" },
@@ -32,5 +35,9 @@ export function sirayGenerateParamsFromBody(
     size: body.size ?? defaults.size,
     moderation: body.moderation,
     aspectRatio: body.aspectRatio ?? body.aspect_ratio,
+    image: body.image,
+    images: body.images,
+    refs: body.refs,
+    mask: body.mask,
   };
 }

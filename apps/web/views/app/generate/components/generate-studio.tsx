@@ -1,12 +1,13 @@
 "use client";
 
-import { ActionIcon, Alert, Button, Group, Paper, Progress, Text, Textarea, UnstyledButton } from "@mantine/core";
+import { useRef, useState } from "react";
+import { ActionIcon, Alert, Badge, Button, Group, Modal, Paper, Progress, Stack, Text, Textarea, UnstyledButton } from "@mantine/core";
 import { AppLink } from "@/components/app-link";
 import { CooldownText } from "@/components/cooldown-text";
 import { EmptyState } from "@/components/empty-state";
 import { ErrorAlert } from "@/components/error-alert";
 import { WaitAlert } from "@/components/wait-alert";
-import { useGenerateStudio, type StudioUpload } from "@/hooks/use-generate-studio";
+import { getRefTag, useGenerateStudio, type StudioRef, type StudioUpload } from "@/hooks/use-generate-studio";
 import { hasLiveOutput, type JobView } from "@/lib/job-status";
 import type { Model } from "../types";
 import { GenerateAspectMenu } from "./generate-aspect-menu";
@@ -23,6 +24,45 @@ function hasLiveJobOutput(
   return Boolean(job && job.output && typeof job.output.url === "string" && job.output.url.length > 0);
 }
 
+function renderHighlightedPrompt(promptText: string, activeRefs: StudioRef[]) {
+  if (!promptText) return null;
+
+  const activeTags = new Set<string>();
+  activeRefs.forEach((ref, idx) => {
+    const tag = getRefTag(ref, idx).toLowerCase();
+    activeTags.add(tag);
+    if (ref.alias && ref.alias.trim().length > 0) {
+      activeTags.add(`@${ref.alias.trim().toLowerCase()}`);
+    }
+    if (ref.tag && ref.tag.trim().length > 0) {
+      const clean = ref.tag.trim().toLowerCase();
+      activeTags.add(clean.startsWith("@") ? clean : `@${clean}`);
+    }
+  });
+
+  const parts = promptText.split(/(@[a-zA-Z0-9_-]+)/g);
+  const elements = parts.map((part, i) => {
+    if (part.startsWith("@")) {
+      const isAvailable = activeTags.has(part.toLowerCase());
+      return (
+        <span
+          key={i}
+          className={isAvailable ? classes.mentionTagActive : classes.mentionTagDeleted}
+        >
+          {part}
+        </span>
+      );
+    }
+    return <span key={i}>{part}</span>;
+  });
+
+  if (promptText.endsWith("\n")) {
+    elements.push(<span key="trailing-newline">{"\u200B"}</span>);
+  }
+
+  return elements;
+}
+
 export function GenerateStudio(props: {
   available: number;
   held: number;
@@ -34,6 +74,8 @@ export function GenerateStudio(props: {
 }) {
   const ctrl = useGenerateStudio(props);
   const lastJob = ctrl.lastGeneratedJob;
+  const [previewRef, setPreviewRef] = useState<StudioRef | null>(null);
+  const backdropRef = useRef<HTMLDivElement>(null);
 
   return (
     <div className={classes.page}>
@@ -101,14 +143,14 @@ export function GenerateStudio(props: {
             {ctrl.selectedRefs.length > 0 ? (
               <Group gap="xs" mb="sm">
                 {ctrl.selectedRefs.map((item, idx) => {
-                  const tagLabel = item.alias && item.alias.trim().length > 0 ? `@${item.alias.trim()}` : `@image${idx + 1}`;
+                  const tagLabel = getRefTag(item, idx);
                   return (
                     <div key={item.id} className={classes.thumbWrapper}>
                       <UnstyledButton
                         type="button"
-                        onClick={() => !item.uploading && ctrl.insertImageTag(idx)}
+                        onClick={() => !item.uploading && setPreviewRef(item)}
                         className={classes.thumbInner}
-                        aria-label={`Pilih selector ${tagLabel}`}
+                        aria-label={`Lihat gambar ${tagLabel}`}
                       >
                         <img
                           src={item.url}
@@ -167,19 +209,29 @@ export function GenerateStudio(props: {
                 })}
               </div>
             ) : null}
-            <Textarea
-              ref={ctrl.textareaRef}
-              placeholder="Type to imagine"
-              value={ctrl.prompt}
-              onChange={(e) => ctrl.handlePromptChange(e.currentTarget.value, e.currentTarget.selectionStart)}
-              onKeyDown={ctrl.handlePromptKeyDown}
-              autosize
-              minRows={ctrl.prompt.trim() ? 3 : 1}
-              maxRows={8}
-              maxLength={4000}
-              variant="unstyled"
-              classNames={{ input: classes.textarea }}
-            />
+            <div className={classes.textareaWrapper}>
+              <div ref={backdropRef} className={classes.highlightBackdrop} aria-hidden="true">
+                {renderHighlightedPrompt(ctrl.prompt, ctrl.selectedRefs)}
+              </div>
+              <Textarea
+                ref={ctrl.textareaRef}
+                placeholder="Type to imagine"
+                value={ctrl.prompt}
+                onChange={(e) => ctrl.handlePromptChange(e.currentTarget.value, e.currentTarget.selectionStart)}
+                onKeyDown={ctrl.handlePromptKeyDown}
+                onScroll={(e) => {
+                  if (backdropRef.current) {
+                    backdropRef.current.scrollTop = e.currentTarget.scrollTop;
+                  }
+                }}
+                autosize
+                minRows={ctrl.prompt.trim() ? 3 : 1}
+                maxRows={8}
+                maxLength={4000}
+                variant="unstyled"
+                classNames={{ input: classes.textarea }}
+              />
+            </div>
             <Group justify="space-between" mt="sm" wrap="wrap" gap="xs">
               <Group gap="xs" align="center">
                 <ActionIcon type="button" variant="subtle" size="lg" onClick={ctrl.openLibrary} aria-label="Tambah gambar">
@@ -205,30 +257,6 @@ export function GenerateStudio(props: {
                     {ctrl.mediaType === "video" ? <span>Video</span> : null}
                   </button>
                 </div>
-
-                {ctrl.mediaType === "image" ? (
-                  <div className={classes.pillSegment}>
-                    <button
-                      type="button"
-                      className={`${classes.pillBtn} ${ctrl.imageMode === "t2i" ? classes.pillBtnActive : ""}`}
-                      onClick={() => ctrl.setImageMode("t2i")}
-                    >
-                      T2I
-                    </button>
-                    <button
-                      type="button"
-                      className={`${classes.pillBtn} ${ctrl.imageMode === "i2i" ? classes.pillBtnActive : ""}`}
-                      onClick={() => {
-                        ctrl.setImageMode("i2i");
-                        if (ctrl.selectedRefs.length === 0) {
-                          ctrl.openLibrary();
-                        }
-                      }}
-                    >
-                      I2I
-                    </button>
-                  </div>
-                ) : null}
               </Group>
 
               <Group gap="xs" align="center">
@@ -298,7 +326,7 @@ export function GenerateStudio(props: {
         onToggleUpload={ctrl.toggleUpload}
         onUploadClick={ctrl.openFilePicker}
         onDeleteUpload={ctrl.deleteUpload}
-        onUpdateAlias={ctrl.updateUploadAlias}
+        onUpdateAlias={ctrl.updateAlias}
       />
 
       <GenerateResultModal
@@ -306,6 +334,101 @@ export function GenerateStudio(props: {
         onClose={ctrl.closeResultModal}
         job={lastJob}
       />
+
+      {/* Modal Lihat Detail Media (Full Size Preview + Metadata) */}
+      {(() => {
+        const activePreviewRef = previewRef
+          ? (ctrl.selectedRefs.find((r) => r.id === previewRef.id) ?? previewRef)
+          : null;
+
+        return (
+          <Modal
+            opened={Boolean(activePreviewRef)}
+            onClose={() => setPreviewRef(null)}
+            title="Detail Media Referensi"
+            size="lg"
+            centered
+          >
+            {activePreviewRef ? (
+              <Stack gap="md">
+                <div className={classes.zoomImageContainer}>
+                  <img
+                    src={activePreviewRef.url}
+                    alt={activePreviewRef.name ?? "Media Referensi"}
+                    className={classes.zoomImage}
+                  />
+                </div>
+
+                <Paper p="sm" withBorder radius="md">
+                  <Group justify="space-between" wrap="wrap" gap="sm">
+                    <div>
+                      <Text size="xs" c="dimmed">
+                        Sumber Media
+                      </Text>
+                      <Group gap={6} mt={2}>
+                        <Badge
+                          size="sm"
+                          variant="light"
+                          color={activePreviewRef.kind === "upload" ? "blue" : "violet"}
+                        >
+                          {activePreviewRef.kind === "upload" ? "Upload Media" : "Hasil Generation"}
+                        </Badge>
+                      </Group>
+                    </div>
+
+                    <div>
+                      <Text size="xs" c="dimmed">
+                        Tipe
+                      </Text>
+                      <Text size="sm" fw={600}>
+                        Gambar (Image)
+                      </Text>
+                    </div>
+
+                    <div>
+                      <Text size="xs" c="dimmed">
+                        Format
+                      </Text>
+                      <Badge size="sm" variant="outline" color="gray">
+                        {activePreviewRef.format ?? (activePreviewRef.url.split(".").pop()?.toUpperCase() || "WEBP")}
+                      </Badge>
+                    </div>
+
+                    {activePreviewRef.width && activePreviewRef.height ? (
+                      <div>
+                        <Text size="xs" c="dimmed">
+                          Resolusi
+                        </Text>
+                        <Text size="sm" fw={600}>
+                          {activePreviewRef.width} × {activePreviewRef.height} px
+                        </Text>
+                      </div>
+                    ) : null}
+                  </Group>
+                </Paper>
+
+                <Group justify="space-between" align="center">
+                  <Text size="xs" c="dimmed">
+                    Gunakan tag{" "}
+                    <Text component="span" fw={600} c="green">
+                      {getRefTag(activePreviewRef)}
+                    </Text>{" "}
+                    pada prompt untuk mereferensikan gambar ini.
+                  </Text>
+                  <Button
+                    variant="default"
+                    size="xs"
+                    onClick={() => setPreviewRef(null)}
+                  >
+                    Tutup
+                  </Button>
+                </Group>
+              </Stack>
+            ) : null}
+          </Modal>
+        );
+      })()}
     </div>
   );
 }
+
