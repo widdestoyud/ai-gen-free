@@ -65,17 +65,31 @@ Jangan impor folder `postman/postman/` atau file `.yaml` hasil export app — it
 - `POST /auth/password-reset-validation` body `{ "token": "..." }`. Token invalid: `A023`. Tidak consume token. Jangan `?token=`.
 - `POST /auth/password-reset-confirm` body `{ "token": "...", "password": "NewValidPass123" }`. Password lemah: `A011`. Sukses mencabut seluruh sesi.
 
-### 8. Admin Management (`POST /admin/register`, `POST /admin/login`, `GET /admin/customer/list`, `PUT /admin/settings/generate_cooldown_seconds`, `POST /admin/logout`)
+### 8. Admin Management (`POST /admin/register`, `POST /admin/login`, `GET /admin/customer/list`, `PUT /admin/settings/generate_cooldown_seconds`, `GET /admin/models/settings`, `PUT /admin/models/settings`, `POST /admin/logout`)
 - `POST /admin/register`: Body `{ "username": "admin123", "password": "AdminPassword123!" }`. Mendaftar akun admin baru langsung dengan `role: "admin"` (tanpa OTP/verifikasi email).
 - `POST /admin/login`: Body `{ "username": "admin123", "password": "AdminPassword123!" }`. Login admin via username & password.
 - `GET /admin/customer/list`: Header/Cookie `sid_admin`. Melihat seluruh daftar pengguna customer/user.
 - `PUT /admin/settings/generate_cooldown_seconds`: Body `{ "value": 3600 }`. Mengubah durasi cooldown generator global.
+- `GET /admin/models/settings`: Mengambil konfigurasi model default aktif untuk Video & Image (Standar & Spicy) serta daftar katalog model.
+- `PUT /admin/models/settings`: Body `{ "normalVideoModelId": "...", "spicyVideoModelId": "...", "normalT2iModelId": "...", ... }`. Menyimpan model default dengan validasi ketat (model video dilarang untuk image, dan sebaliknya).
+
 ### 9. Image Uploads Sementara (`POST/GET /customer/uploads` & `POST/GET /admin/uploads`)
 - `POST /customer/uploads`: Upload file gambar pelanggan (form-data `file`). Memeriksa format `png, jpg, jpeg, webp` (max 5 MB), mengompresi ke WebP menggunakan sharp (menjaga orientasi & rasio potrait/landscape), dan menyimpannya di storage sementara.
 - `GET /customer/uploads`: Menampilkan daftar gambar yang diunggah pelanggan (mendukung query parameter pagination `limit` & `offset`). Terpisah mutlak dari hasil generate AI di `/customer/generated-lists`.
 - `POST /admin/uploads`: Upload file gambar admin (form-data `file`) ke direktori storage admin.
 - `GET /admin/uploads`: Menampilkan daftar seluruh unggahan gambar aktif untuk admin.
 
-
+### 10. AI Generation & Studio (`POST /jobs`, `POST /generate/siray/:slug`)
+- `POST /jobs`: Submit pekerjaan generate umum (202 Accepted + `job_id`). Body: `{ "mode": "t2i" | "i2i" | "i2v" | "t2v", "prompt": "...", "params": { "aspectRatio": "1:1" } }`.
+- `POST /generate/siray/gpt-image-2-t2i`: Submit khusus model Siray `openai/gpt-image-2-t2i`.
+- `POST /generate/siray/gpt-image-2-edit`: Submit khusus model edit Siray `openai/gpt-image-2-edit`. Body: `{ "prompt": "...", "images": ["https://..."], "size": "1024x1024", "quality": "medium", "n": 1 }`.
+- `POST /generate/siray/seedream-5.0-pro-t2i-spicy`: Submit khusus model T2I Spicy `bytedance/seedream-5.0-pro-t2i-spicy`.
+- `POST /generate/siray/qwen-image-3-edit-spicy`: Submit khusus model I2I Edit Spicy `alibaba/qwen-image-3-edit-spicy`.
+- `POST /generate/siray/seedance-2.5-i2v`: Submit khusus model I2V Normal `bytedance/seedance-2.5-i2v` (default duration: `6s`, resolution: `480`).
+- `POST /generate/siray/seedance-2.0-i2v-spicy`: Submit khusus model I2V Spicy `bytedance/seedance-2.0-i2v-spicy` (default duration: `6s`, resolution: `480`).
+- `POST /generate/siray/wan-2.7-i2v-uncensored`: Submit khusus model I2V Uncensored `alibaba/wan-2.7-i2v-uncensored` (default duration: `6s`, resolution: `480`).
+- `GET /customer/generated-lists`: Menampilkan riwayat hasil generate AI pengguna.
+- `GET /customer/generated/:jobId`: Polling status pekerjaan generate tertentu.
+- `GET /customer/generated/:jobId/file`: Mengambil URL unduhan/berkas media hasil generate.
 
 

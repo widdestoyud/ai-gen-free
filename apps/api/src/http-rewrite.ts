@@ -46,9 +46,10 @@ export function mapLegacyPath(method: string, path: string): string {
   if (jobDetail) return `/customer/generated/${jobDetail[1]}`;
 
   if (m === "POST" && path === "/admin/auth/logout") return "/admin/logout";
+  if (path === "/admin/models/settings") return path;
   const adjust = m === "POST" ? path.match(/^\/admin\/users\/([^/]+)\/wallet\/adjust$/) : null;
   if (adjust) return `/admin/topup/poin/${adjust[1]}`;
-  const modelUpdate = m === "PATCH" || m === "PUT" ? path.match(/^\/admin\/models\/([^/]+)$/) : null;
+  const modelUpdate = (m === "PATCH" || m === "PUT") && path !== "/admin/models/settings" ? path.match(/^\/admin\/models\/([^/]+)$/) : null;
   if (modelUpdate) return `/admin/model/${modelUpdate[1]}`;
 
   return path;

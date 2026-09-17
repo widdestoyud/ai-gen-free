@@ -168,7 +168,7 @@ app.get("/api/health", async () => ({ ok: true, service: "api" }));
 
 await registerAuthRoutes(app, { redis, mailer });
 await registerWalletRoutes(app, { storage });
-await registerJobRoutes(app, { storage, queue });
+await registerJobRoutes(app, { storage, queue, redis });
 await registerAdminRoutes(app, { storage, redis });
 await registerUploadRoutes(app, { storage, redis });
 

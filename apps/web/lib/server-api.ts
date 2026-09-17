@@ -67,6 +67,11 @@ export async function loadCustomerProfile() {
         ktp: string | null;
         address: string | null;
         gender: string | null;
+        uploadPolicyAcceptedAt?: string | null;
+        hasUploads?: boolean;
+        dateOfBirth?: string | null;
+        spicyModeAcceptedAt?: string | null;
+        spicyModeEnabled?: boolean;
       };
     };
   } catch {

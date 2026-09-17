@@ -13,9 +13,11 @@ import {
   Text,
   Tooltip,
 } from "@mantine/core";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { extractReferenceImages, type JobView, type ReferenceImageItem } from "@/lib/job-status";
 import { resolveUploadUrl } from "@/lib/format";
+import { downloadMediaFile } from "@/lib/download-media";
+import { useImageViewer } from "@/hooks/use-image-viewer";
 import classes from "./generate-result-modal.module.css";
 
 function DownloadIcon({ size = 16 }: { size?: number }) {
@@ -33,6 +35,63 @@ function DownloadIcon({ size = 16 }: { size?: number }) {
       <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
       <polyline points="7 10 12 15 17 10" />
       <line x1="12" y1="15" x2="12" y2="3" />
+    </svg>
+  );
+}
+
+function ZoomInIcon({ size = 16 }: { size?: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="11" cy="11" r="8" />
+      <line x1="21" y1="21" x2="16.65" y2="16.65" />
+      <line x1="11" y1="8" x2="11" y2="14" />
+      <line x1="8" y1="11" x2="14" y2="11" />
+    </svg>
+  );
+}
+
+function ZoomOutIcon({ size = 16 }: { size?: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="11" cy="11" r="8" />
+      <line x1="21" y1="21" x2="16.65" y2="16.65" />
+      <line x1="8" y1="11" x2="14" y2="11" />
+    </svg>
+  );
+}
+
+function ZoomResetIcon({ size = 14 }: { size?: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+      <path d="M3 3v5h5" />
     </svg>
   );
 }
@@ -72,14 +131,36 @@ function CheckIcon({ size = 15 }: { size?: number }) {
   );
 }
 
+function formatModalDate(iso?: string | null): string {
+  if (!iso) return "-";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "-";
+  const day = d.getDate();
+  const months = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
+  const month = months[d.getMonth()] || "";
+  const year = d.getFullYear();
+  const hours = String(d.getHours()).padStart(2, "0");
+  const mins = String(d.getMinutes()).padStart(2, "0");
+  return `${day} ${month} ${year}, ${hours}.${mins}`;
+}
+
+function formatModalDateShort(iso?: string | null): string {
+  if (!iso) return "-";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "-";
+  const day = d.getDate();
+  const months = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
+  const month = months[d.getMonth()] || "";
+  const year = d.getFullYear();
+  return `${day} ${month} ${year}`;
+}
+
 function formatModeLabel(mode?: string): string {
-  if (!mode) return "Text-To-Image";
+  if (!mode) return "Generated Image";
   const m = mode.toLowerCase();
-  if (m === "t2i") return "Text-To-Image";
-  if (m === "i2i") return "Image-To-Image";
-  if (m === "t2v") return "Text-To-Video";
-  if (m === "i2v") return "Image-To-Video";
-  return mode.toUpperCase();
+  if (m === "t2i" || m === "i2i") return "Generated Image";
+  if (m === "t2v" || m === "i2v") return "Generated Video";
+  return "Generated Image";
 }
 
 export function GenerateResultModal({
@@ -92,6 +173,8 @@ export function GenerateResultModal({
   job: JobView | null;
 }) {
   const [previewRef, setPreviewRef] = useState<ReferenceImageItem | null>(null);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const viewer = useImageViewer({ resetKey: `${job?.id}-${opened}` });
 
   if (!job) return null;
 
@@ -100,7 +183,22 @@ export function GenerateResultModal({
 
   const handleModalClose = () => {
     setPreviewRef(null);
+    viewer.resetZoom();
     onClose();
+  };
+
+  const handleDownload = async () => {
+    if (!job.output?.url) return;
+    setIsDownloading(true);
+    try {
+      await downloadMediaFile({
+        url: job.output.url,
+        filename: `ai-gen-${job.id}`,
+        isVideo,
+      });
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
   return (
@@ -120,7 +218,13 @@ export function GenerateResultModal({
         <div className={classes.detailModalLayout}>
           {/* Kolom Kiri: Media Showcase */}
           <div className={classes.mediaShowcaseSection}>
-            <div className={classes.mediaViewerWrapper}>
+            <div
+              ref={viewer.containerRef}
+              className={classes.mediaViewerWrapper}
+              data-zoomed={viewer.isZoomed ? "true" : undefined}
+              data-dragging={viewer.isDragging ? "true" : undefined}
+              {...(!isVideo ? viewer.viewerProps : {})}
+            >
               {isVideo ? (
                 <video
                   src={job.output?.url ?? ""}
@@ -131,12 +235,54 @@ export function GenerateResultModal({
                 />
               ) : (
                 <img
+                  ref={viewer.imageRef}
                   src={job.output?.url ?? ""}
                   alt={job.prompt}
                   className={classes.detailMedia}
                 />
               )}
             </div>
+
+            {/* Kontrol Zoom (Hanya untuk Gambar) */}
+            {!isVideo && job.output?.url ? (
+              <div className={classes.zoomControlsBar}>
+                <Tooltip label="Perkecil (-)" withArrow position="top">
+                  <button
+                    type="button"
+                    onClick={viewer.zoomOut}
+                    disabled={!viewer.canZoomOut}
+                    className={classes.zoomBtn}
+                    aria-label="Zoom Out"
+                  >
+                    <ZoomOutIcon size={15} />
+                  </button>
+                </Tooltip>
+                <span className={classes.zoomPercent}>{viewer.zoomLevel}%</span>
+                <Tooltip label="Perbesar (+)" withArrow position="top">
+                  <button
+                    type="button"
+                    onClick={viewer.zoomIn}
+                    disabled={!viewer.canZoomIn}
+                    className={classes.zoomBtn}
+                    aria-label="Zoom In"
+                  >
+                    <ZoomInIcon size={15} />
+                  </button>
+                </Tooltip>
+                {viewer.isZoomed ? (
+                  <Tooltip label="Reset Ukuran" withArrow position="top">
+                    <button
+                      type="button"
+                      onClick={viewer.resetZoom}
+                      className={classes.zoomBtn}
+                      aria-label="Reset Zoom"
+                    >
+                      <ZoomResetIcon size={13} />
+                    </button>
+                  </Tooltip>
+                ) : null}
+              </div>
+            ) : null}
           </div>
 
           {/* Kolom Kanan: Detail & Aksi Media */}
@@ -156,10 +302,8 @@ export function GenerateResultModal({
                 {/* Tombol Aksi Utama (Download) */}
                 {job.output?.url ? (
                   <Button
-                    component="a"
-                    href={job.output.url}
-                    target="_blank"
-                    download={`ai-gen-${job.id}`}
+                    onClick={() => void handleDownload()}
+                    loading={isDownloading}
                     variant="filled"
                     color="dark.4"
                     size="md"
@@ -254,10 +398,7 @@ export function GenerateResultModal({
                       Dibuat
                     </Text>
                     <Text size="xs" fw={500}>
-                      {new Date(job.createdAt).toLocaleString("id-ID", {
-                        dateStyle: "medium",
-                        timeStyle: "short",
-                      })}
+                      {formatModalDate(job.createdAt)}
                     </Text>
                   </div>
                 ) : null}
@@ -268,9 +409,7 @@ export function GenerateResultModal({
                       Masa Berlaku
                     </Text>
                     <Text size="xs" fw={500}>
-                      {new Date(job.output.availableUntil).toLocaleDateString("id-ID", {
-                        dateStyle: "medium",
-                      })}
+                      {formatModalDateShort(job.output.availableUntil)}
                     </Text>
                   </div>
                 ) : null}
@@ -345,26 +484,10 @@ export function GenerateResultModal({
                   Gambar (Image)
                 </Text>
               </div>
-
-              <div>
-                <Text size="xs" c="dimmed">
-                  Format
-                </Text>
-                <Badge size="sm" variant="outline" color="gray">
-                  {previewRef.url.split(".").pop()?.toUpperCase() || "WEBP"}
-                </Badge>
-              </div>
             </Group>
           </Paper>
 
-          <Group justify="space-between" align="center">
-            <Text size="xs" c="dimmed">
-              Tag{" "}
-              <Text component="span" fw={600} c="green">
-                {previewRef.tag}
-              </Text>{" "}
-              digunakan pada prompt sebagai referensi gambar ini.
-            </Text>
+          <Group justify="flex-end" align="center">
             <Button
               variant="default"
               size="xs"

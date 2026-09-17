@@ -296,12 +296,12 @@ export function AdminJobsList({
                   <Table.Td className={classes.costCell}>
                     {job.cost} Poin
                   </Table.Td>
-                  <Table.Td className={classes.dateCell}>
+                  <Table.Td className={classes.dateCell} suppressHydrationWarning>
                     <Tooltip
                       label={job.finishedAt ? `Selesai: ${formatDateId(job.finishedAt)}` : "Belum selesai"}
                       withArrow
                     >
-                      <span>{formatDateId(job.createdAt)}</span>
+                      <span suppressHydrationWarning>{formatDateId(job.createdAt)}</span>
                     </Tooltip>
                   </Table.Td>
                   <Table.Td className={classes.actionCell}>

@@ -9,7 +9,7 @@ import {
 import { requestJson } from "@/lib/api";
 import type { CustomerProfile } from "@/views/app/profile/components/customer-home";
 
-export type EditableField = "displayName" | "phoneNumber" | "address" | "ktp" | "gender";
+export type EditableField = "displayName" | "phoneNumber" | "address" | "ktp" | "gender" | "dateOfBirth";
 
 function getFieldSuccessMessage(field: EditableField): string {
   switch (field) {
@@ -23,6 +23,8 @@ function getFieldSuccessMessage(field: EditableField): string {
       return "Alamat berhasil diubah.";
     case "ktp":
       return "Nomor KTP berhasil diubah.";
+    case "dateOfBirth":
+      return "Tanggal lahir berhasil diubah.";
     default:
       return "Profil berhasil diperbarui.";
   }
@@ -43,6 +45,7 @@ export interface AccountSettingsState {
     phoneNumber: string;
     address: string;
     ktp: string;
+    dateOfBirth: string;
   };
   validationErrors: Partial<Record<EditableField, string>>;
   phoneInfo: IndonesianPhoneInfo | null;
@@ -55,6 +58,23 @@ export interface AccountSettingsState {
   passwordForm: PasswordFormState;
   passwordErrors: Partial<Record<keyof PasswordFormState, string>>;
   passwordSaving: boolean;
+
+  // Upload Policy & Terms state
+  policyModalOpened: boolean;
+  setPolicyModalOpened: (opened: boolean) => void;
+  termsModalOpened: boolean;
+  setTermsModalOpened: (opened: boolean) => void;
+  policySaving: boolean;
+  policyError: string | null;
+  acceptUploadPolicy: () => Promise<boolean>;
+
+  // Spicy Mode state
+  spicyConsentModalOpened: boolean;
+  setSpicyConsentModalOpened: (opened: boolean) => void;
+  spicySaving: boolean;
+  spicyError: string | null;
+  toggleSpicyMode: (enable: boolean) => Promise<boolean>;
+  confirmSpicyConsent: () => Promise<boolean>;
 
   startEdit: (field: EditableField) => void;
   cancelEdit: () => void;
@@ -78,6 +98,7 @@ export function useAccountSettings(initialProfile: CustomerProfile): AccountSett
     phoneNumber: initialProfile.phoneNumber ?? "",
     address: initialProfile.address ?? "",
     ktp: initialProfile.ktp ?? "",
+    dateOfBirth: initialProfile.dateOfBirth ? initialProfile.dateOfBirth.slice(0, 10) : "",
   });
   const [validationErrors, setValidationErrors] = useState<Partial<Record<EditableField, string>>>({});
   const [phoneInfo, setPhoneInfo] = useState<IndonesianPhoneInfo | null>(() => {
@@ -97,9 +118,22 @@ export function useAccountSettings(initialProfile: CustomerProfile): AccountSett
   const [passwordErrors, setPasswordErrors] = useState<Partial<Record<keyof PasswordFormState, string>>>({});
   const [passwordSaving, setPasswordSaving] = useState(false);
 
+  // Upload Policy & Terms states
+  const [policyModalOpened, setPolicyModalOpened] = useState(false);
+  const [termsModalOpened, setTermsModalOpened] = useState(false);
+  const [policySaving, setPolicySaving] = useState(false);
+  const [policyError, setPolicyError] = useState<string | null>(null);
+
+  // Spicy Mode states
+  const [spicyConsentModalOpened, setSpicyConsentModalOpened] = useState(false);
+  const [spicySaving, setSpicySaving] = useState(false);
+  const [spicyError, setSpicyError] = useState<string | null>(null);
+
   function clearMessages() {
     setSaveSuccessMessage("");
     setSaveErrorMessage("");
+    setPolicyError(null);
+    setSpicyError(null);
   }
 
   function startEdit(field: EditableField) {
@@ -164,6 +198,15 @@ export function useAccountSettings(initialProfile: CustomerProfile): AccountSett
     if (field === "address") {
       if (trimmed.length > 255) {
         return "Alamat maksimal 255 karakter.";
+      }
+      return undefined;
+    }
+
+    if (field === "dateOfBirth") {
+      if (!trimmed) return undefined;
+      const parsed = new Date(trimmed);
+      if (isNaN(parsed.getTime()) || parsed.getTime() > Date.now()) {
+        return "Tanggal lahir tidak valid.";
       }
       return undefined;
     }
@@ -334,6 +377,93 @@ export function useAccountSettings(initialProfile: CustomerProfile): AccountSett
     return true;
   }
 
+  async function acceptUploadPolicy(): Promise<boolean> {
+    setPolicySaving(true);
+    setPolicyError(null);
+    const res = await requestJson<{ ok: boolean; user: CustomerProfile; message?: string }>(
+      "/api/customer/profile",
+      {
+        method: "PATCH",
+        body: JSON.stringify({ acceptUploadPolicy: true }),
+      }
+    );
+    setPolicySaving(false);
+
+    if (!res.ok) {
+      setPolicyError(res.message ?? "Gagal menyetujui kebijakan upload.");
+      return false;
+    }
+
+    if (res.data?.user) {
+      setProfile((prev) => ({ ...prev, ...res.data?.user }));
+    }
+    setSaveSuccessMessage("Kebijakan unggah media berhasil disetujui.");
+    setPolicyModalOpened(false);
+    return true;
+  }
+
+  async function toggleSpicyMode(enable: boolean): Promise<boolean> {
+    clearMessages();
+    if (enable && !profile.spicyModeAcceptedAt) {
+      if (!profile.dateOfBirth) {
+        setSaveErrorMessage("Silakan isi tanggal lahir pada profil terlebih dahulu sebelum mengaktifkan Spicy Mode.");
+        return false;
+      }
+      setSpicyConsentModalOpened(true);
+      return false;
+    }
+
+    setSpicySaving(true);
+    const res = await requestJson<{ ok: boolean; user: CustomerProfile; message?: string }>(
+      "/api/customer/profile",
+      {
+        method: "PATCH",
+        body: JSON.stringify({ spicyModeEnabled: enable }),
+      }
+    );
+    setSpicySaving(false);
+
+    if (!res.ok) {
+      setSaveErrorMessage(res.message ?? "Gagal memperbarui status Spicy Mode.");
+      return false;
+    }
+
+    if (res.data?.user) {
+      setProfile((prev) => ({ ...prev, ...res.data?.user }));
+    } else {
+      setProfile((prev) => ({ ...prev, spicyModeEnabled: enable }));
+    }
+    setSaveSuccessMessage(enable ? "Spicy Mode berhasil diaktifkan." : "Spicy Mode berhasil dinonaktifkan.");
+    return true;
+  }
+
+  async function confirmSpicyConsent(): Promise<boolean> {
+    setSpicySaving(true);
+    setSpicyError(null);
+    const res = await requestJson<{ ok: boolean; user: CustomerProfile; message?: string }>(
+      "/api/customer/profile",
+      {
+        method: "PATCH",
+        body: JSON.stringify({ spicyModeEnabled: true }),
+      }
+    );
+    setSpicySaving(false);
+
+    if (!res.ok) {
+      setSpicyError(res.message ?? "Gagal mengaktifkan Spicy Mode.");
+      return false;
+    }
+
+    if (res.data?.user) {
+      setProfile((prev) => ({ ...prev, ...res.data?.user }));
+    } else {
+      setProfile((prev) => ({ ...prev, spicyModeEnabled: true, spicyModeAcceptedAt: new Date().toISOString() }));
+    }
+    setSaveSuccessMessage("Spicy Mode berhasil diaktifkan.");
+    setSpicyConsentModalOpened(false);
+    return true;
+  }
+
   return {
     profile,
     editingField,
@@ -348,6 +478,21 @@ export function useAccountSettings(initialProfile: CustomerProfile): AccountSett
     passwordForm,
     passwordErrors,
     passwordSaving,
+
+    policyModalOpened,
+    setPolicyModalOpened,
+    termsModalOpened,
+    setTermsModalOpened,
+    policySaving,
+    policyError,
+    acceptUploadPolicy,
+
+    spicyConsentModalOpened,
+    setSpicyConsentModalOpened,
+    spicySaving,
+    spicyError,
+    toggleSpicyMode,
+    confirmSpicyConsent,
 
     startEdit,
     cancelEdit,

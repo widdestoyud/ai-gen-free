@@ -657,3 +657,69 @@ test("resolves input image references to base64 data URLs before provider submit
   assert.ok((p.images[1] as string).startsWith("data:image/png;base64,"));
 });
 
+test("publishes progress and success events to Redis Pub/Sub", async () => {
+  const published: Array<{ channel: string; message: string }> = [];
+  const fakeRedis = {
+    async publish(channel: string, message: string) {
+      published.push({ channel, message });
+      return 1;
+    },
+  };
+
+  let getStatusCalls = 0;
+  const provider: GenerationProvider = {
+    id: "siray",
+    capabilities: ["t2i"],
+    async submit() {
+      return { providerId: "siray", providerJobId: "task-pub-1" };
+    },
+    async getStatus() {
+      getStatusCalls += 1;
+      if (getStatusCalls === 1) {
+        return { state: "running", progress: 45 };
+      }
+      return { state: "succeeded", outputUrls: ["https://api.siray.ai/out.png"], progress: 100 };
+    },
+  };
+
+  const store = memoryStore(baseJob());
+  const storage = new MemoryObjectStorage();
+
+  await processGenerateJob({
+    jobId: "job1",
+    providers: new Map([["siray", provider]]),
+    storage,
+    store,
+    redis: fakeRedis,
+    fetchBytes: async () => ({ body: PNG_1X1, contentType: "image/png" }),
+    optimizeImage: async (b) => b,
+    wallet: {
+      async captureJob() {
+        return {};
+      },
+      async releaseJob() {
+        return {};
+      },
+    },
+    sleep: async () => {},
+  });
+
+  assert.equal(store.job.status, "succeeded");
+  assert.equal(published.length, 3);
+  assert.equal(published[0]?.channel, "job-events:job1");
+  const event1 = JSON.parse(published[0]!.message);
+  assert.equal(event1.status, "running");
+  assert.equal(event1.progressPct, 45);
+
+  assert.equal(published[1]?.channel, "job-events:job1");
+  const event2 = JSON.parse(published[1]!.message);
+  assert.equal(event2.status, "running");
+  assert.equal(event2.progressPct, 100);
+
+  assert.equal(published[2]?.channel, "job-events:job1");
+  const event3 = JSON.parse(published[2]!.message);
+  assert.equal(event3.status, "succeeded");
+  assert.equal(event3.progressPct, 100);
+  assert.ok(event3.output?.url);
+});
+

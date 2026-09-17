@@ -170,3 +170,9 @@ test("Password reset durations are read from RateLimitConfig not literals in tes
   assert.equal(validatePassword("weak").valid, false);
   assert.equal(validatePassword("ValidPass123").valid, true);
 });
+
+test("Upload Policy: error code and response definitions", () => {
+  assert.equal(AuthResponses.errors.UPLOAD_POLICY_REQUIRED.code, "A030");
+  assert.equal(AuthResponses.errors.UPLOAD_POLICY_REQUIRED.status, 403);
+  assert.ok(AuthResponses.errors.UPLOAD_POLICY_REQUIRED.message.includes("kebijakan upload"));
+});

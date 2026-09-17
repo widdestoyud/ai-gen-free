@@ -17,6 +17,8 @@ import { useEffect, useState } from "react";
 import type { LibraryItem } from "@/hooks/use-library";
 import { formatBytes, resolveUploadUrl } from "@/lib/format";
 import { extractReferenceImages, type ReferenceImageItem } from "@/lib/job-status";
+import { downloadMediaFile } from "@/lib/download-media";
+import { useImageViewer } from "@/hooks/use-image-viewer";
 import classes from "./media-detail-modal.module.css";
 
 function DownloadIcon({ size = 16 }: { size?: number }) {
@@ -34,6 +36,63 @@ function DownloadIcon({ size = 16 }: { size?: number }) {
       <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
       <polyline points="7 10 12 15 17 10" />
       <line x1="12" y1="15" x2="12" y2="3" />
+    </svg>
+  );
+}
+
+function ZoomInIcon({ size = 16 }: { size?: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="11" cy="11" r="8" />
+      <line x1="21" y1="21" x2="16.65" y2="16.65" />
+      <line x1="11" y1="8" x2="11" y2="14" />
+      <line x1="8" y1="11" x2="14" y2="11" />
+    </svg>
+  );
+}
+
+function ZoomOutIcon({ size = 16 }: { size?: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="11" cy="11" r="8" />
+      <line x1="21" y1="21" x2="16.65" y2="16.65" />
+      <line x1="8" y1="11" x2="14" y2="11" />
+    </svg>
+  );
+}
+
+function ZoomResetIcon({ size = 14 }: { size?: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+      <path d="M3 3v5h5" />
     </svg>
   );
 }
@@ -107,6 +166,27 @@ function ChevronRightIcon({ size = 20 }: { size?: number }) {
   );
 }
 
+function TrashIcon({ size = 16 }: { size?: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M3 6h18" />
+      <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+      <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+      <line x1="10" y1="11" x2="10" y2="17" />
+      <line x1="14" y1="11" x2="14" y2="17" />
+    </svg>
+  );
+}
+
 function formatModalDate(iso?: string | null): string {
   if (!iso) return "-";
   const d = new Date(iso);
@@ -133,8 +213,8 @@ function formatModalDateShort(iso?: string | null): string {
 
 function getModeLabel(item: LibraryItem): string {
   if (item.type === "upload") return "UPLOAD MEDIA";
-  if (item.kind === "video") return "TEXT-TO-VIDEO";
-  return "TEXT-TO-IMAGE";
+  if (item.kind === "video") return "GENERATED VIDEO";
+  return "GENERATED IMAGE";
 }
 
 function getStatusLabel(item: LibraryItem): string {
@@ -149,17 +229,28 @@ export function MediaDetailModal({
   item,
   items,
   onSelectItem,
+  onDeleteUpload,
 }: {
   opened: boolean;
   onClose: () => void;
   item: LibraryItem | null;
   items: LibraryItem[];
   onSelectItem: (item: LibraryItem) => void;
+  onDeleteUpload?: (id: string) => Promise<boolean>;
 }) {
   const [previewRef, setPreviewRef] = useState<ReferenceImageItem | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const viewer = useImageViewer({ resetKey: `${item?.id}-${opened}` });
+
   const currentIndex = items.findIndex((i) => i.id === item?.id);
   const hasPrev = currentIndex > 0;
   const hasNext = currentIndex >= 0 && currentIndex < items.length - 1;
+
+  useEffect(() => {
+    setConfirmDelete(false);
+  }, [item?.id, opened]);
 
   useEffect(() => {
     if (!opened) return;
@@ -178,12 +269,43 @@ export function MediaDetailModal({
 
   const handleModalClose = () => {
     setPreviewRef(null);
+    setConfirmDelete(false);
+    viewer.resetZoom();
     onClose();
+  };
+
+  const handleDeleteUpload = async () => {
+    if (!item || !onDeleteUpload) return;
+    setIsDeleting(true);
+    try {
+      const ok = await onDeleteUpload(item.id);
+      if (ok) {
+        handleModalClose();
+      }
+    } finally {
+      setIsDeleting(false);
+      setConfirmDelete(false);
+    }
   };
 
   const isVideo = item.kind === "video" || item.mime_type.startsWith("video/");
   const isGenerated = item.type === "generated";
   const displayLabel = item.prompt || item.alias || item.id;
+
+  const handleDownload = async () => {
+    if (!item?.url) return;
+    setIsDownloading(true);
+    try {
+      const rawFilename = item.type === "upload" ? (item.alias || `upload-${item.id}`) : `media-${item.id}`;
+      await downloadMediaFile({
+        url: item.url,
+        filename: rawFilename,
+        isVideo,
+      });
+    } finally {
+      setIsDownloading(false);
+    }
+  };
 
   return (
     <>
@@ -201,7 +323,13 @@ export function MediaDetailModal({
         <div className={classes.detailModalLayout}>
           {/* Kolom Kiri: Media Showcase */}
           <div className={classes.mediaShowcaseSection}>
-            <div className={classes.mediaViewerWrapper}>
+            <div
+              ref={viewer.containerRef}
+              className={classes.mediaViewerWrapper}
+              data-zoomed={viewer.isZoomed ? "true" : undefined}
+              data-dragging={viewer.isDragging ? "true" : undefined}
+              {...(!isVideo ? viewer.viewerProps : {})}
+            >
               {isVideo ? (
                 <video
                   src={item.url ?? ""}
@@ -212,6 +340,7 @@ export function MediaDetailModal({
                 />
               ) : (
                 <img
+                  ref={viewer.imageRef}
                   src={item.url ?? ""}
                   alt={displayLabel}
                   className={classes.detailMedia}
@@ -241,6 +370,47 @@ export function MediaDetailModal({
                 </button>
               ) : null}
             </div>
+
+            {/* Kontrol Zoom (Hanya untuk Gambar) */}
+            {!isVideo && item.url ? (
+              <div className={classes.zoomControlsBar}>
+                <Tooltip label="Perkecil (-)" withArrow position="top">
+                  <button
+                    type="button"
+                    onClick={viewer.zoomOut}
+                    disabled={!viewer.canZoomOut}
+                    className={classes.zoomBtn}
+                    aria-label="Zoom Out"
+                  >
+                    <ZoomOutIcon size={15} />
+                  </button>
+                </Tooltip>
+                <span className={classes.zoomPercent}>{viewer.zoomLevel}%</span>
+                <Tooltip label="Perbesar (+)" withArrow position="top">
+                  <button
+                    type="button"
+                    onClick={viewer.zoomIn}
+                    disabled={!viewer.canZoomIn}
+                    className={classes.zoomBtn}
+                    aria-label="Zoom In"
+                  >
+                    <ZoomInIcon size={15} />
+                  </button>
+                </Tooltip>
+                {viewer.isZoomed ? (
+                  <Tooltip label="Reset Ukuran" withArrow position="top">
+                    <button
+                      type="button"
+                      onClick={viewer.resetZoom}
+                      className={classes.zoomBtn}
+                      aria-label="Reset Zoom"
+                    >
+                      <ZoomResetIcon size={13} />
+                    </button>
+                  </Tooltip>
+                ) : null}
+              </div>
+            ) : null}
           </div>
 
           {/* Kolom Kanan: Detail & Aksi Media */}
@@ -257,13 +427,11 @@ export function MediaDetailModal({
                   </Badge>
                 </div>
 
-                {/* Tombol Aksi Download (Hanya untuk Generated Media) */}
-                {isGenerated && item.url ? (
+                {/* Tombol Aksi (Download & Delete) */}
+                {item.url ? (
                   <Button
-                    component="a"
-                    href={item.url}
-                    target="_blank"
-                    download={`media-${item.id}`}
+                    onClick={() => void handleDownload()}
+                    loading={isDownloading}
                     variant="filled"
                     fullWidth
                     leftSection={<DownloadIcon size={16} />}
@@ -271,6 +439,41 @@ export function MediaDetailModal({
                   >
                     Download
                   </Button>
+                ) : null}
+
+                {item.type === "upload" && onDeleteUpload ? (
+                  confirmDelete ? (
+                    <Group gap="xs" grow>
+                      <Button
+                        variant="filled"
+                        color="red"
+                        size="sm"
+                        loading={isDeleting}
+                        onClick={() => void handleDeleteUpload()}
+                      >
+                        Ya, Hapus
+                      </Button>
+                      <Button
+                        variant="default"
+                        size="sm"
+                        disabled={isDeleting}
+                        onClick={() => setConfirmDelete(false)}
+                      >
+                        Batal
+                      </Button>
+                    </Group>
+                  ) : (
+                    <Button
+                      variant="light"
+                      color="red"
+                      fullWidth
+                      leftSection={<TrashIcon size={16} />}
+                      className={classes.dangerDeleteBtn}
+                      onClick={() => setConfirmDelete(true)}
+                    >
+                      Hapus Berkas
+                    </Button>
+                  )
                 ) : null}
 
                 {/* Reference Images (@image) */}
@@ -452,26 +655,10 @@ export function MediaDetailModal({
                   Gambar (Image)
                 </Text>
               </div>
-
-              <div>
-                <Text size="xs" c="dimmed">
-                  Format
-                </Text>
-                <Badge size="sm" variant="outline" color="gray">
-                  {previewRef.url.split(".").pop()?.toUpperCase() || "WEBP"}
-                </Badge>
-              </div>
             </Group>
           </Paper>
 
-          <Group justify="space-between" align="center">
-            <Text size="xs" c="dimmed">
-              Tag{" "}
-              <Text component="span" fw={600} c="green">
-                {previewRef.tag}
-              </Text>{" "}
-              digunakan pada prompt sebagai referensi gambar ini.
-            </Text>
+          <Group justify="flex-end" align="center">
             <Button
               variant="default"
               size="xs"

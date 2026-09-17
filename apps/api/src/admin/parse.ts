@@ -5,6 +5,25 @@ export const GENERATE_COOLDOWN_KEY = "generate_cooldown_seconds";
 export const GENERATE_COOLDOWN_DEFAULT = 43200;
 export const GENERATE_COOLDOWN_MAX = 2_592_000;
 
+export const DEFAULT_GENERATION_MODELS_KEY = "default_generation_models";
+export const DEFAULT_FALLBACK_MODELS = {
+  normalT2iModelId: "openai/gpt-image-2-t2i",
+  normalI2iModelId: "openai/gpt-image-2-edit",
+  spicyT2iModelId: "bytedance/seedream-5.0-pro-t2i-spicy",
+  spicyI2iModelId: "alibaba/qwen-image-3-edit-spicy",
+  normalVideoModelId: "bytedance/seedance-2.5-i2v",
+  spicyVideoModelId: "bytedance/seedance-2.0-i2v-spicy",
+} as const;
+
+export type DefaultGenerationModelsConfig = {
+  normalT2iModelId: string;
+  normalI2iModelId: string;
+  spicyT2iModelId: string;
+  spicyI2iModelId: string;
+  normalVideoModelId: string;
+  spicyVideoModelId: string;
+};
+
 export function parseLimitOffset(query: { limit?: unknown; offset?: unknown }): { limit: number; offset: number } {
   const limit = parseOptionalInt(query.limit, 50);
   const offset = parseOptionalInt(query.offset, 0);

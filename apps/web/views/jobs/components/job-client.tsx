@@ -75,12 +75,12 @@ export function JobClient({ initial }: { initial: JobView }) {
       </Text>
       <Text c="dimmed">{job.prompt}</Text>
       {job.createdAt ? (
-        <Text c="dimmed" size="sm">
+        <Text c="dimmed" size="sm" suppressHydrationWarning>
           Dibuat: {formatDateId(job.createdAt)}
         </Text>
       ) : null}
       {job.finishedAt ? (
-        <Text c="dimmed" size="sm">
+        <Text c="dimmed" size="sm" suppressHydrationWarning>
           Selesai: {formatDateId(job.finishedAt)}
         </Text>
       ) : null}

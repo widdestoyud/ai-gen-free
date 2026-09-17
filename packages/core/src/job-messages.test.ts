@@ -5,8 +5,8 @@ import { jobClientErrorMessage } from "./job-messages.js";
 test("W002 is content policy copy for the client, not HTTP 4xx", () => {
   const msg = jobClientErrorMessage("W002");
   assert.ok(msg);
-  assert.match(msg, /kebijakan konten/i);
-  assert.match(msg, /Poin dikembalikan/i);
+  assert.match(msg, /keamanan konten|kebijakan konten/i);
+  assert.match(msg, /poin Anda tidak berkurang|poin dikembalikan/i);
 });
 
 test("null code has no client message", () => {

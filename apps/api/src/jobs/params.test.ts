@@ -22,3 +22,25 @@ test("params.fail ignored unless dummy", () => {
   assert.deepEqual(parseGenerateParams({ fail: true }, "siray"), { aspectRatio: "1:1" });
   assert.deepEqual(parseGenerateParams({ fail: true }, "dummy"), { aspectRatio: "1:1", fail: true });
 });
+
+test("preserves size, tierSize, seed, and prompt_expansion_enable", () => {
+  assert.deepEqual(
+    parseGenerateParams(
+      {
+        aspectRatio: "16:9",
+        size: "1024x768",
+        tierSize: "1k",
+        seed: -1,
+        prompt_expansion_enable: true,
+      },
+      "siray",
+    ),
+    {
+      aspectRatio: "16:9",
+      size: "1024x768",
+      tierSize: "1k",
+      seed: -1,
+      prompt_expansion_enable: true,
+    },
+  );
+});

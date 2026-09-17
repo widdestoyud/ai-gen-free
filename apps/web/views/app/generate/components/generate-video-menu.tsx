@@ -5,7 +5,7 @@ import { CheckIcon, ClockIcon, ResolutionIcon } from "./generate-icons";
 import classes from "./generate-studio.module.css";
 
 const DURATIONS: Array<"6s" | "10s" | "15s"> = ["6s", "10s", "15s"];
-const RESOLUTIONS: Array<"720p" | "1080p"> = ["720p", "1080p"];
+const RESOLUTIONS: Array<"480p" | "720p" | "1080p"> = ["480p", "720p", "1080p"];
 
 export function GenerateDurationMenu({
   value,
@@ -43,8 +43,8 @@ export function GenerateResolutionMenu({
   value,
   onChange,
 }: {
-  value: "720p" | "1080p";
-  onChange: (val: "720p" | "1080p") => void;
+  value: "480p" | "720p" | "1080p";
+  onChange: (val: "480p" | "720p" | "1080p") => void;
 }) {
   return (
     <Menu position="top-end" shadow="md" width={140}>

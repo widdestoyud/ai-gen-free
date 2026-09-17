@@ -15,11 +15,13 @@ import {
 import {
   adjustUserWallet,
   getAdminUser,
+  getDefaultGenerationModelsSetting,
   getGenerateCooldownSetting,
   listAdminModels,
   listAdminModelsByProvider,
   listAdminUsers,
   listAuditLogs,
+  putDefaultGenerationModelsSetting,
   putGenerateCooldownSetting,
   resetUserCooldown,
   updateAdminModel,
@@ -346,6 +348,55 @@ export async function registerAdminRoutes(app: FastifyInstance, deps: { storage:
   // -------------------------------------------------------------
   // 5. ADMIN MODEL MANAGEMENT (Pengaturan Model & Poin)
   // -------------------------------------------------------------
+  const handleGetModelSettings = async (req: any, reply: any) => {
+    const session = await requireAdmin(req, reply);
+    if (!session) return;
+    try {
+      const [settings, allModels] = await Promise.all([
+        getDefaultGenerationModelsSetting(),
+        listAdminModels(),
+      ]);
+      return {
+        config: settings.value,
+        models: allModels.models,
+      };
+    } catch (err) {
+      return sendError(reply, err);
+    }
+  };
+  app.get("/admin/models/settings", handleGetModelSettings);
+
+  const handlePutModelSettings = async (req: any, reply: any) => {
+    const session = await requireAdmin(req, reply);
+    if (!session) return;
+    try {
+      const body = (req.body ?? {}) as {
+        normalT2iModelId?: unknown;
+        normalI2iModelId?: unknown;
+        spicyT2iModelId?: unknown;
+        spicyI2iModelId?: unknown;
+        normalVideoModelId?: unknown;
+        spicyVideoModelId?: unknown;
+      };
+      const result = await putDefaultGenerationModelsSetting({
+        config: {
+          normalT2iModelId: typeof body.normalT2iModelId === "string" ? body.normalT2iModelId : undefined,
+          normalI2iModelId: typeof body.normalI2iModelId === "string" ? body.normalI2iModelId : undefined,
+          spicyT2iModelId: typeof body.spicyT2iModelId === "string" ? body.spicyT2iModelId : undefined,
+          spicyI2iModelId: typeof body.spicyI2iModelId === "string" ? body.spicyI2iModelId : undefined,
+          normalVideoModelId: typeof body.normalVideoModelId === "string" ? body.normalVideoModelId : undefined,
+          spicyVideoModelId: typeof body.spicyVideoModelId === "string" ? body.spicyVideoModelId : undefined,
+        },
+        actorId: session.userId,
+        ip: requestIp(req),
+      });
+      return result;
+    } catch (err) {
+      return sendError(reply, err);
+    }
+  };
+  app.put("/admin/models/settings", handlePutModelSettings);
+
   const handleListModels = async (req: any, reply: any) => {
     const session = await requireAdmin(req, reply);
     if (!session) return;
@@ -373,16 +424,19 @@ export async function registerAdminRoutes(app: FastifyInstance, deps: { storage:
     const session = await requireAdmin(req, reply);
     if (!session) return;
     try {
-      const { modelCatalogId } = req.params as { modelCatalogId: string };
-      const body = (req.body ?? {}) as { costPoints?: unknown; displayName?: unknown; enabled?: unknown };
+      const params = (req.params ?? {}) as Record<string, string>;
+      const modelCatalogId = params["*"] || params.modelCatalogId || params.id;
+      const body = (req.body ?? {}) as { costPoints?: unknown; displayName?: unknown; enabled?: unknown; isSpicy?: unknown };
       const costPoints = typeof body.costPoints === "number" ? body.costPoints : undefined;
       const displayName = typeof body.displayName === "string" ? body.displayName : undefined;
       const enabled = typeof body.enabled === "boolean" ? body.enabled : undefined;
+      const isSpicy = typeof body.isSpicy === "boolean" ? body.isSpicy : undefined;
       return await updateAdminModel({
         id: modelCatalogId,
         costPoints,
         displayName,
         enabled,
+        isSpicy,
         actorId: session.userId,
         ip: requestIp(req),
       });
@@ -392,4 +446,6 @@ export async function registerAdminRoutes(app: FastifyInstance, deps: { storage:
   };
   app.patch("/admin/model/:modelCatalogId", handleUpdateModel);
   app.put("/admin/model/:modelCatalogId", handleUpdateModel);
+  app.patch("/admin/models/:modelCatalogId", handleUpdateModel);
+  app.put("/admin/models/:modelCatalogId", handleUpdateModel);
 }

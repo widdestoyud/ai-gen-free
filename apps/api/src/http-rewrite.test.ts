@@ -45,6 +45,8 @@ test("maps admin legacy paths", () => {
     rewriteRequestUrl("/api/admin/users/u1/wallet/adjust", "POST"),
     "/admin/topup/poin/u1",
   );
+  assert.equal(rewriteRequestUrl("/api/admin/models/settings", "GET"), "/admin/models/settings");
+  assert.equal(rewriteRequestUrl("/api/admin/models/settings", "PUT"), "/admin/models/settings");
   assert.equal(rewriteRequestUrl("/api/admin/models/m1", "PATCH"), "/admin/model/m1");
   assert.equal(rewriteRequestUrl("/api/admin/models", "GET"), "/admin/models");
   assert.equal(rewriteRequestUrl("/api/admin/auth/logout", "POST"), "/admin/logout");

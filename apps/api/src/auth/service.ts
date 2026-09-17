@@ -647,28 +647,42 @@ export async function validateOtp(opts: {
  * Ambil data profil user saat ini (IDOR SAFE: identitas dari session.userId).
  */
 export async function getUserProfile(userId: string) {
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: {
-      id: true,
-      email: true,
-      displayName: true,
-      phoneNumber: true,
-      ktp: true,
-      address: true,
-      gender: true,
-      role: true,
-      nextGenerateAt: true,
-      emailVerifiedAt: true,
-      createdAt: true,
-      updatedAt: true,
-    },
-  });
+  const [user, uploadsCount] = await Promise.all([
+    prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        displayName: true,
+        phoneNumber: true,
+        ktp: true,
+        address: true,
+        gender: true,
+        role: true,
+        nextGenerateAt: true,
+        emailVerifiedAt: true,
+        uploadPolicyAcceptedAt: true,
+        dateOfBirth: true,
+        spicyModeAcceptedAt: true,
+        spicyModeEnabled: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    }),
+    prisma.upload.count({
+      where: { userId, deletedAt: null },
+    }),
+  ]);
   if (!user) {
     throw new AuthError(AuthResponses.errors.UNAUTHENTICATED.code, AuthResponses.errors.UNAUTHENTICATED.message, 401);
   }
   return {
     ...user,
+    hasUploads: uploadsCount > 0,
+    uploadPolicyAcceptedAt: user.uploadPolicyAcceptedAt?.toISOString() ?? null,
+    dateOfBirth: user.dateOfBirth ? user.dateOfBirth.toISOString().slice(0, 10) : null,
+    spicyModeAcceptedAt: user.spicyModeAcceptedAt?.toISOString() ?? null,
+    spicyModeEnabled: user.spicyModeEnabled,
     nextGenerateAt: user.nextGenerateAt?.toISOString() ?? null,
     emailVerifiedAt: user.emailVerifiedAt?.toISOString() ?? null,
     createdAt: user.createdAt.toISOString(),
@@ -689,6 +703,9 @@ export async function updateUserProfile(
     address?: unknown;
     gender?: unknown;
     email?: unknown;
+    acceptUploadPolicy?: unknown;
+    dateOfBirth?: unknown;
+    spicyModeEnabled?: unknown;
   },
 ) {
   const updateData: {
@@ -698,7 +715,85 @@ export async function updateUserProfile(
     address?: string;
     gender?: string;
     email?: string;
+    uploadPolicyAcceptedAt?: Date;
+    dateOfBirth?: Date | null;
+    spicyModeAcceptedAt?: Date;
+    spicyModeEnabled?: boolean;
   } = {};
+
+  if (data.acceptUploadPolicy === true) {
+    const existing = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { uploadPolicyAcceptedAt: true },
+    });
+    if (existing && !existing.uploadPolicyAcceptedAt) {
+      updateData.uploadPolicyAcceptedAt = new Date();
+    }
+  }
+
+  let parsedDob: Date | null | undefined = undefined;
+  if (data.dateOfBirth !== undefined) {
+    if (typeof data.dateOfBirth === "string") {
+      const cleanDob = data.dateOfBirth.trim();
+      if (cleanDob.length === 0) {
+        updateData.dateOfBirth = null;
+        parsedDob = null;
+      } else {
+        const parsed = new Date(cleanDob);
+        if (isNaN(parsed.getTime()) || parsed.getTime() > Date.now() || parsed.getUTCFullYear() < 1900) {
+          throw new AuthError(AuthResponses.errors.PROFILE_INVALID.code, "Format tanggal lahir tidak valid.");
+        }
+        updateData.dateOfBirth = parsed;
+        parsedDob = parsed;
+      }
+    } else if (data.dateOfBirth === null) {
+      updateData.dateOfBirth = null;
+      parsedDob = null;
+    }
+  }
+
+  if (typeof data.spicyModeEnabled === "boolean") {
+    if (data.spicyModeEnabled === true) {
+      let effectiveDob = parsedDob;
+      let existingSpicyAcceptedAt: Date | null = null;
+      if (effectiveDob === undefined) {
+        const existing = await prisma.user.findUnique({
+          where: { id: userId },
+          select: { dateOfBirth: true, spicyModeAcceptedAt: true },
+        });
+        effectiveDob = existing?.dateOfBirth ?? null;
+        existingSpicyAcceptedAt = existing?.spicyModeAcceptedAt ?? null;
+      } else {
+        const existing = await prisma.user.findUnique({
+          where: { id: userId },
+          select: { spicyModeAcceptedAt: true },
+        });
+        existingSpicyAcceptedAt = existing?.spicyModeAcceptedAt ?? null;
+      }
+
+      if (!effectiveDob) {
+        throw new AuthError(AuthResponses.errors.DOB_REQUIRED.code, AuthResponses.errors.DOB_REQUIRED.message, 400);
+      }
+
+      const now = new Date();
+      let age = now.getUTCFullYear() - effectiveDob.getUTCFullYear();
+      const m = now.getUTCMonth() - effectiveDob.getUTCMonth();
+      if (m < 0 || (m === 0 && now.getUTCDate() < effectiveDob.getUTCDate())) {
+        age--;
+      }
+
+      if (age < 18) {
+        throw new AuthError(AuthResponses.errors.UNDERAGE.code, AuthResponses.errors.UNDERAGE.message, 400);
+      }
+
+      if (!existingSpicyAcceptedAt) {
+        updateData.spicyModeAcceptedAt = new Date();
+      }
+      updateData.spicyModeEnabled = true;
+    } else {
+      updateData.spicyModeEnabled = false;
+    }
+  }
 
   if (typeof data.email === "string" && data.email.trim().length > 0) {
     const cleanEmail = parseEmailOrThrow(data.email);
@@ -785,13 +880,26 @@ export async function updateUserProfile(
       gender: true,
       role: true,
       emailVerifiedAt: true,
+      uploadPolicyAcceptedAt: true,
+      dateOfBirth: true,
+      spicyModeAcceptedAt: true,
+      spicyModeEnabled: true,
       createdAt: true,
       updatedAt: true,
     },
   });
 
   return {
-    user,
+    user: {
+      ...user,
+      uploadPolicyAcceptedAt: user.uploadPolicyAcceptedAt?.toISOString() ?? null,
+      dateOfBirth: user.dateOfBirth ? user.dateOfBirth.toISOString().slice(0, 10) : null,
+      spicyModeAcceptedAt: user.spicyModeAcceptedAt?.toISOString() ?? null,
+      spicyModeEnabled: user.spicyModeEnabled,
+      emailVerifiedAt: user.emailVerifiedAt?.toISOString() ?? null,
+      createdAt: user.createdAt.toISOString(),
+      updatedAt: user.updatedAt.toISOString(),
+    },
     message: AuthResponses.success.PROFILE_UPDATED.message,
   };
 }

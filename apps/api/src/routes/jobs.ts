@@ -16,6 +16,9 @@ import {
   updateJobAliasForUser,
 } from "../jobs/service.js";
 import { parseOptionalInt } from "../admin/parse.js";
+import { getDefaultGenerationModelsSetting } from "../admin/service.js";
+
+import type IORedis from "ioredis";
 
 async function assertGenerateReady(storage: ObjectStorage): Promise<void> {
   await prisma.$queryRaw`SELECT 1`;
@@ -45,7 +48,7 @@ async function requireUser(
 
 export async function registerJobRoutes(
   app: FastifyInstance,
-  deps: { storage: ObjectStorage; queue: Queue },
+  deps: { storage: ObjectStorage; queue: Queue; redis?: IORedis },
 ) {
   const enqueueGenerate = async (jobId: string) => {
     await deps.queue.add("generate", { jobId }, { jobId, attempts: 10, backoff: { type: "custom" } });
@@ -64,7 +67,7 @@ export async function registerJobRoutes(
         userId: session.userId,
         idempotencyKey,
         body: {
-          mode: "t2i",
+          mode: mapped.mode,
           modelId: mapped.modelId,
           prompt: body.prompt,
           params: sirayGenerateParamsFromBody(body, mapped.defaultParams),
@@ -81,7 +84,11 @@ export async function registerJobRoutes(
   app.get("/customer/models", async (req, reply) => {
     const session = await requireUser(req, reply);
     if (!session) return;
-    return { models: await listEnabledModels() };
+    const [models, defaultsSetting] = await Promise.all([
+      listEnabledModels(),
+      getDefaultGenerationModelsSetting(),
+    ]);
+    return { models, defaults: defaultsSetting.value };
   });
 
   app.post("/jobs", async (req, reply) => {
@@ -199,4 +206,127 @@ export async function registerJobRoutes(
       return sendError(reply, err);
     }
   });
+
+  const handleJobEvents = async (req: any, reply: any) => {
+    const session = await requireUser(req, reply);
+    if (!session) return;
+    const { jobId } = req.params as { jobId: string };
+
+    const job = await prisma.job.findFirst({
+      where: { id: jobId, userId: session.userId },
+      include: { assets: { select: { storageKey: true, contentType: true, createdAt: true } } },
+    });
+    if (!job) {
+      return reply.status(404).send({
+        error: { code: ErrorCodes.NOT_FOUND, message: "Job tidak ditemukan" },
+      });
+    }
+
+    reply.raw.setHeader("Content-Type", "text/event-stream");
+    reply.raw.setHeader("Cache-Control", "no-cache, no-transform");
+    reply.raw.setHeader("Connection", "keep-alive");
+    reply.raw.setHeader("X-Accel-Buffering", "no");
+    reply.raw.flushHeaders?.();
+
+    if (job.status === "succeeded") {
+      const output = job.assets[0]
+        ? {
+            url: `/customer/generated/${job.id}/file`,
+            contentType: job.assets[0].contentType,
+            createdAt: job.assets[0].createdAt.toISOString(),
+          }
+        : null;
+      reply.raw.write(
+        `data: ${JSON.stringify({
+          jobId: job.id,
+          status: "succeeded",
+          progressPct: 100,
+          output,
+          nextGenerateAt: job.nextGenerateAt ? job.nextGenerateAt.toISOString() : null,
+        })}\n\n`,
+      );
+      reply.raw.end();
+      return;
+    }
+
+    if (job.status === "failed" || job.status === "canceled") {
+      reply.raw.write(
+        `data: ${JSON.stringify({
+          jobId: job.id,
+          status: job.status,
+          errorCode: job.errorCode,
+          errorMessage: job.errorMessage,
+        })}\n\n`,
+      );
+      reply.raw.end();
+      return;
+    }
+
+    if (!deps.redis) {
+      reply.raw.write(
+        `data: ${JSON.stringify({
+          jobId: job.id,
+          status: job.status,
+          progressPct: job.progressPct ?? 0,
+        })}\n\n`,
+      );
+      reply.raw.end();
+      return;
+    }
+
+    const subscriber = deps.redis.duplicate();
+    const channel = `job-events:${jobId}`;
+
+    const cleanup = async () => {
+      clearInterval(heartbeat);
+      subscriber.removeAllListeners();
+      try {
+        await subscriber.unsubscribe(channel);
+        await subscriber.quit();
+      } catch {}
+    };
+
+    subscriber.on("message", (chn, message) => {
+      if (chn !== channel) return;
+      reply.raw.write(`data: ${message}\n\n`);
+      try {
+        const parsed = JSON.parse(message);
+        if (parsed.status === "succeeded" || parsed.status === "failed" || parsed.status === "canceled") {
+          void cleanup();
+          reply.raw.end();
+        }
+      } catch {}
+    });
+
+    try {
+      await subscriber.subscribe(channel);
+    } catch {
+      void cleanup();
+      reply.raw.end();
+      return;
+    }
+
+    reply.raw.write(
+      `data: ${JSON.stringify({
+        jobId: job.id,
+        status: job.status,
+        progressPct: job.progressPct ?? 0,
+      })}\n\n`,
+    );
+
+    const heartbeat = setInterval(() => {
+      try {
+        reply.raw.write(":ping\n\n");
+      } catch {
+        void cleanup();
+      }
+    }, 15000);
+
+    req.raw.on("close", () => {
+      void cleanup();
+    });
+  };
+
+  app.get("/customer/generated/:jobId/events", handleJobEvents);
+  app.get("/customer/jobs/:jobId/events", handleJobEvents);
 }

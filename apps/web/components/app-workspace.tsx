@@ -49,6 +49,7 @@ export function AppWorkspace({ children }: { children: ReactNode }) {
                   key={item.href}
                   component={Link}
                   href={item.href}
+                  prefetch={false}
                   label={item.label}
                   active={pathname === item.href}
                   className={classes.nav}

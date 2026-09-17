@@ -11,19 +11,22 @@ export function CooldownText({
   until?: string | null;
   prefix?: string;
 }) {
+  const [mounted, setMounted] = useState(false);
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
+    setMounted(true);
     if (!until) return;
     const id = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(id);
   }, [until]);
 
+  if (!mounted || !until) return null;
   const remaining = remainingSeconds(until, now);
-  if (!until || remaining <= 0) return null;
+  if (remaining <= 0) return null;
 
   return (
-    <Text>
+    <Text suppressHydrationWarning>
       {prefix}: <strong>{formatDurationId(remaining)}</strong> (sampai {formatDateId(until)}).
     </Text>
   );

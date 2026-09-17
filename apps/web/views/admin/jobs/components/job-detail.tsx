@@ -39,12 +39,12 @@ export function AdminJobDetail({ job }: { job: AdminJobDetailView }) {
           Model {job.modelId} · biaya {job.cost} poin
         </Text>
         {job.createdAt ? (
-          <Text c="dimmed" size="sm">
+          <Text c="dimmed" size="sm" suppressHydrationWarning>
             Dibuat: {formatDateId(job.createdAt)}
           </Text>
         ) : null}
         {job.finishedAt ? (
-          <Text c="dimmed" size="sm">
+          <Text c="dimmed" size="sm" suppressHydrationWarning>
             Selesai: {formatDateId(job.finishedAt)}
           </Text>
         ) : null}
@@ -74,7 +74,7 @@ export function AdminJobDetail({ job }: { job: AdminJobDetailView }) {
                 Buka file
               </AppLink>
               {job.output?.availableUntil ? (
-                <Text c="dimmed" size="sm">
+                <Text c="dimmed" size="sm" suppressHydrationWarning>
                   Tersedia sampai {formatDateId(job.output.availableUntil)}.
                 </Text>
               ) : null}

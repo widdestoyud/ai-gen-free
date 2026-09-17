@@ -68,6 +68,7 @@ export type ProcessGenerateJobOpts = {
   storage: ObjectStorage;
   store: GenerateJobStore;
   wallet?: WalletPort;
+  redis?: { publish: (channel: string, message: string) => Promise<unknown> };
   now?: () => Date;
   sleep?: (ms: number) => Promise<void>;
   fetchBytes?: (url: string) => Promise<FetchedBytes>;
@@ -162,6 +163,18 @@ export async function processGenerateJob(opts: ProcessGenerateJobOpts): Promise<
       const status = await provider.getStatus(handle);
       if (typeof status.progress === "number") {
         await opts.store.updateProgress(job.id, status.progress);
+        if (opts.redis) {
+          try {
+            await opts.redis.publish(
+              `job-events:${job.id}`,
+              JSON.stringify({
+                jobId: job.id,
+                status: "running",
+                progressPct: status.progress,
+              }),
+            );
+          } catch {}
+        }
       }
       if (status.state === "failed") {
         await failJob(running, status.errorCode ?? JobErrorCodes.PROVIDER_ERROR, opts, wallet, now, {
@@ -229,6 +242,7 @@ async function completeSuccess(
   optimizeImage: (input: FetchedBytes) => Promise<FetchedBytes>,
 ) {
   const already = await opts.store.hasOutputAsset(job.id);
+  let outputContentType = job.mode === "i2v" || job.mode === "t2v" ? "video/mp4" : "image/webp";
   if (!already) {
     const url = outputUrls[0];
     if (!url) {
@@ -249,6 +263,7 @@ async function completeSuccess(
         } catch (err) {
           await appendSirayJobNote(`OPTIMIZE_SKIP jobId=${job.id} detail=${errorDetail(err)}`);
         }
+        outputContentType = stored.contentType;
         const ext = extensionFor(stored.contentType);
         const key = `outputs/${job.userId}/${job.id}.${ext}`;
         await opts.storage.put({ key, body: stored.body, contentType: stored.contentType });
@@ -291,6 +306,24 @@ async function completeSuccess(
   const nextGenerateAt =
     cooldownSeconds > 0 ? new Date(now().getTime() + cooldownSeconds * 1000) : null;
   await opts.store.succeed(job.id, { userId: job.userId, finishedAt: now(), nextGenerateAt });
+  if (opts.redis) {
+    try {
+      await opts.redis.publish(
+        `job-events:${job.id}`,
+        JSON.stringify({
+          jobId: job.id,
+          status: "succeeded",
+          progressPct: 100,
+          nextGenerateAt: nextGenerateAt ? nextGenerateAt.toISOString() : null,
+          output: {
+            url: `/customer/generated/${job.id}/file`,
+            contentType: outputContentType,
+            createdAt: now().toISOString(),
+          },
+        }),
+      );
+    } catch {}
+  }
   console.log(JSON.stringify({ event: "job.completed", jobId: job.id, status: "succeeded" }));
   await appendSirayJobNote(`RESULT=succeeded jobId=${job.id}`);
 }
@@ -308,6 +341,19 @@ async function failJob(
   const classified = classifyJobFailure(errorCode, extra?.err);
   if (extra?.sourceHint && classified.source !== extra.sourceHint && !extra.err) {
     classified.source = extra.sourceHint;
+  }
+  if (opts.redis) {
+    try {
+      await opts.redis.publish(
+        `job-events:${job.id}`,
+        JSON.stringify({
+          jobId: job.id,
+          status: "failed",
+          errorCode,
+          errorMessage: classified.message,
+        }),
+      );
+    } catch {}
   }
   console.error(formatFailureLog(classified, { jobId: job.id, status: "failed" }));
   await appendSirayJobNote(formatFailureNote(classified, job.id));

@@ -83,6 +83,10 @@ model User {
   role                UserRole  @default(user)
   bannedAt            DateTime?
   nextGenerateAt      DateTime?
+  uploadPolicyAcceptedAt DateTime?
+  dateOfBirth         DateTime?
+  spicyModeAcceptedAt DateTime?
+  spicyModeEnabled    Boolean   @default(false)
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
 
@@ -279,6 +283,7 @@ model ModelCatalog {
   providerId  String
   costPoints  Decimal  @db.Decimal(20, 0)
   enabled     Boolean  @default(true)
+  isSpicy     Boolean  @default(false)
   createdAt   DateTime @default(now())
 
   @@unique([mode, modelId])

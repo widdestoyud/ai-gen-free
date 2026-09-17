@@ -668,6 +668,36 @@
           "response": []
         },
         {
+          "name": "GET /customer/generated/:jobId/events",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-session-token",
+                "value": "{{userSessionToken}}"
+              },
+              {
+                "key": "Accept",
+                "value": "text/event-stream"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/customer/generated/{{jobId}}/events",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "customer",
+                "generated",
+                "{{jobId}}",
+                "events"
+              ]
+            },
+            "description": "Server-Sent Events (SSE) streaming update progress dan status job generate secara realtime via Redis Pub/Sub."
+          },
+          "response": []
+        },
+        {
           "name": "POST /customer/uploads",
           "request": {
             "method": "POST",
@@ -821,6 +851,10 @@
                 "{{uploadId}}"
               ]
             },
+            "description": "Mengubah alias/nama referensi berkas unggahan pelanggan."
+          },
+          "response": []
+        },
         {
           "name": "POST /invoices",
           "event": [
@@ -1127,7 +1161,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"prompt\": \"Sebuah pemandangan gunung dengan danau jernih di sore hari\",\n  \"n\": 1,\n  \"output_format\": \"png\",\n  \"quality\": \"low\",\n  \"size\": \"1024x768\",\n  \"moderation\": \"auto\"\n}"
+              "raw": "{\n  \"prompt\": \"Sebuah pemandangan gunung dengan danau jernih di sore hari\",\n  \"n\": 1,\n  \"output_format\": \"png\",\n  \"quality\": \"medium\",\n  \"size\": \"1024x768\",\n  \"moderation\": \"auto\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/generate/siray/gpt-image-2-t2i",
@@ -1180,7 +1214,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"prompt\": \"Ubah latar belakang menjadi pantai berpasir putih saat matahari terbenam\",\n  \"image\": \"https://example.com/source-image.webp\",\n  \"n\": 1,\n  \"quality\": \"high\",\n  \"aspectRatio\": \"1:1\"\n}"
+              "raw": "{\n  \"prompt\": \"Ubah latar belakang menjadi pantai berpasir putih saat matahari terbenam\",\n  \"images\": [\n    \"https://example.com/source-image.webp\"\n  ],\n  \"size\": \"1024x1024\",\n  \"quality\": \"medium\",\n  \"moderation\": \"auto\",\n  \"output_format\": \"png\",\n  \"n\": 1\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/generate/siray/gpt-image-2-edit",
@@ -1241,6 +1275,194 @@
               "path": ["generate", "siray", "seedream-5.0-pro-t2i-spicy"]
             },
             "description": "Submit Seedream 5.0 Pro t2i Spicy (bytedance/seedream-5.0-pro-t2i-spicy). Size wajib menurut Siray; default 1024x1024."
+          },
+          "response": []
+        },
+        {
+          "name": "POST /generate/siray/qwen-image-3-edit-spicy",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 202) {",
+                  "    var json = pm.response.json();",
+                  "    if (json.job_id) {",
+                  "        pm.environment.set(\"jobId\", json.job_id);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-session-token",
+                "value": "{{userSessionToken}}"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "idemp-siray-qwen-edit-001"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"prompt\": \"Ganti pakaian karakter menjadi gaun malam merah anggun\",\n  \"image\": \"https://example.com/source-image.webp\",\n  \"size\": \"1k\",\n  \"aspect_ratio\": \"1:1\",\n  \"prompt_expansion_enable\": true,\n  \"seed\": -1,\n  \"n\": 1\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/generate/siray/qwen-image-3-edit-spicy",
+              "host": ["{{baseUrl}}"],
+              "path": ["generate", "siray", "qwen-image-3-edit-spicy"]
+            },
+            "description": "Submit Qwen Image 3 Edit Spicy (alibaba/qwen-image-3-edit-spicy). Memerlukan user dengan spicyModeEnabled=true dan menyertakan referensi image."
+          },
+          "response": []
+        },
+        {
+          "name": "POST /generate/siray/seedance-2.5-i2v",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 202) {",
+                  "    var json = pm.response.json();",
+                  "    if (json.job_id) {",
+                  "        pm.environment.set(\"jobId\", json.job_id);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-session-token",
+                "value": "{{userSessionToken}}"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "idemp-siray-seedance-25-001"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"prompt\": \"Camera slowly zooms in as character smiles and waves gently\",\n  \"image\": \"https://example.com/source-image.webp\",\n  \"duration\": \"6s\",\n  \"resolution\": \"480\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/generate/siray/seedance-2.5-i2v",
+              "host": ["{{baseUrl}}"],
+              "path": ["generate", "siray", "seedance-2.5-i2v"]
+            },
+            "description": "Submit Seedance 2.5 I2V normal mode (bytedance/seedance-2.5-i2v). Default duration 6s, default resolution 480."
+          },
+          "response": []
+        },
+        {
+          "name": "POST /generate/siray/seedance-2.0-i2v-spicy",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 202) {",
+                  "    var json = pm.response.json();",
+                  "    if (json.job_id) {",
+                  "        pm.environment.set(\"jobId\", json.job_id);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-session-token",
+                "value": "{{userSessionToken}}"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "idemp-siray-seedance-20-spicy-001"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"prompt\": \"Cinematic fluid movement with dynamic lighting and camera pan\",\n  \"image\": \"https://example.com/source-image.webp\",\n  \"duration\": \"6s\",\n  \"resolution\": \"480\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/generate/siray/seedance-2.0-i2v-spicy",
+              "host": ["{{baseUrl}}"],
+              "path": ["generate", "siray", "seedance-2.0-i2v-spicy"]
+            },
+            "description": "Submit Seedance 2.0 I2V Spicy mode (bytedance/seedance-2.0-i2v-spicy). Memerlukan user dengan spicyModeEnabled=true. Default duration 6s, default resolution 480."
+          },
+          "response": []
+        },
+        {
+          "name": "POST /generate/siray/wan-2.7-i2v-uncensored",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 202) {",
+                  "    var json = pm.response.json();",
+                  "    if (json.job_id) {",
+                  "        pm.environment.set(\"jobId\", json.job_id);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-session-token",
+                "value": "{{userSessionToken}}"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "idemp-siray-wan-27-001"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"prompt\": \"Camera orbits smoothly around character with soft ambient light\",\n  \"image\": \"https://example.com/source-image.webp\",\n  \"duration\": 6,\n  \"resolution\": \"480\",\n  \"aspect_ratio\": \"16:9\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/generate/siray/wan-2.7-i2v-uncensored",
+              "host": ["{{baseUrl}}"],
+              "path": ["generate", "siray", "wan-2.7-i2v-uncensored"]
+            },
+            "description": "Submit Wan 2.7 I2V Uncensored mode (alibaba/wan-2.7-i2v-uncensored). Memerlukan user dengan spicyModeEnabled=true. Default duration 6s, default resolution 480."
           },
           "response": []
         }
@@ -1518,6 +1740,52 @@
               ]
             },
             "description": "Audit log admin."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /admin/models/settings",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-session-token",
+                "value": "{{adminSessionToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/models/settings",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "models", "settings"]
+            },
+            "description": "Mengambil konfigurasi model default generator (Image & Video) serta seluruh katalog model."
+          },
+          "response": []
+        },
+        {
+          "name": "PUT /admin/models/settings",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-session-token",
+                "value": "{{adminSessionToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"normalVideoModelId\": \"bytedance/seedance-2.5-i2v\",\n  \"spicyVideoModelId\": \"bytedance/seedance-2.0-i2v-spicy\",\n  \"normalT2iModelId\": \"openai/gpt-image-2-t2i\",\n  \"normalI2iModelId\": \"openai/gpt-image-2-edit\",\n  \"spicyT2iModelId\": \"bytedance/seedream-5.0-pro-t2i-spicy\",\n  \"spicyI2iModelId\": \"alibaba/qwen-image-3-edit-spicy\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/models/settings",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "models", "settings"]
+            },
+            "description": "Mengatur model default yang aktif untuk Video (normal/spicy) dan Image (normal/spicy). Validasi ketat: model video tidak boleh diisi model gambar, dan sebaliknya."
           },
           "response": []
         },
@@ -1802,6 +2070,10 @@
                 "sync"
               ]
             },
+            "description": "Sinkronisasi status dan pembersihan cache/storage berkas unggahan oleh admin."
+          },
+          "response": []
+        },
         {
           "name": "GET /admin/notifications",
           "request": {

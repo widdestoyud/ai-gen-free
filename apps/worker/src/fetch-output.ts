@@ -42,23 +42,27 @@ async function getFollowingRedirects(url: string, fetchImpl: typeof fetch): Prom
 
 function downloadHeaders(): Headers {
   const headers = new Headers();
-  headers.set("accept", "image/*,application/octet-stream;q=0.9,*/*;q=0.8");
+  headers.set("accept", "image/*,video/*,application/octet-stream;q=0.9,*/*;q=0.8");
   headers.set("user-agent", "ai-gen-free-worker/1.0");
   return headers;
 }
 
 function interpretBody(buf: Uint8Array, headerType: string | null): FetchedBytes {
   const sniffed = sniffContentType(buf);
-  if (sniffed.startsWith("image/")) {
+  if (sniffed.startsWith("image/") || sniffed.startsWith("video/")) {
     return { body: buf, contentType: sniffed };
   }
   const contentType = headerType?.split(";")[0]?.trim() || sniffed;
-  if (contentType.startsWith("image/") || contentType === "application/octet-stream") {
+  if (
+    contentType.startsWith("image/") ||
+    contentType.startsWith("video/") ||
+    contentType === "application/octet-stream"
+  ) {
     return { body: buf, contentType };
   }
   if (contentType.includes("json") || contentType.includes("html") || contentType.includes("text/")) {
     const preview = new TextDecoder().decode(buf.slice(0, 180)).replace(/\s+/g, " ");
-    throw new Error(`output download bukan gambar (${contentType}): ${preview}`);
+    throw new Error(`output download bukan gambar/video (${contentType}): ${preview}`);
   }
   return { body: buf, contentType };
 }
@@ -86,6 +90,9 @@ export function shouldAttachSirayAuth(url: string): boolean {
 }
 
 export function extensionFor(contentType: string): string {
+  if (contentType.includes("mp4") || contentType.includes("video/mp4")) return "mp4";
+  if (contentType.includes("webm") || contentType.includes("video/webm")) return "webm";
+  if (contentType.startsWith("video/")) return "mp4";
   if (contentType.includes("jpeg") || contentType.includes("jpg")) return "jpg";
   if (contentType.includes("webp")) return "webp";
   if (contentType.includes("gif")) return "gif";
@@ -121,6 +128,12 @@ function sniffContentType(body: Uint8Array): string {
     body[11] === 0x50
   ) {
     return "image/webp";
+  }
+  if (body.length >= 8 && body[4] === 0x66 && body[5] === 0x74 && body[6] === 0x79 && body[7] === 0x70) {
+    return "video/mp4";
+  }
+  if (body.length >= 4 && body[0] === 0x1a && body[1] === 0x45 && body[2] === 0xdf && body[3] === 0xa3) {
+    return "video/webm";
   }
   return "application/octet-stream";
 }

@@ -2,8 +2,18 @@ export function formatIdr(amount: number): string {
   return `Rp${amount.toLocaleString("id-ID")}`;
 }
 
-export function formatDateId(iso: string): string {
-  return new Date(iso).toLocaleString("id-ID");
+const MONTH_NAMES_SHORT = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
+
+export function formatDateId(iso?: string | null): string {
+  if (!iso) return "-";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "-";
+  const day = d.getDate();
+  const month = MONTH_NAMES_SHORT[d.getMonth()] || "";
+  const year = d.getFullYear();
+  const hours = String(d.getHours()).padStart(2, "0");
+  const minutes = String(d.getMinutes()).padStart(2, "0");
+  return `${day} ${month} ${year}, ${hours}:${minutes}`;
 }
 
 export function formatCooldownHours(seconds: number): number {
@@ -44,10 +54,10 @@ export function resolveUploadUrl(url: string | null | undefined, id?: string): s
   }
   return url.startsWith("/") ? `/api${url}` : `/api/${url}`;
 }
-
 export function formatRelativeTime(iso?: string | null): string {
   if (!iso) return "";
-  const t = new Date(iso).getTime();
+  const d = new Date(iso);
+  const t = d.getTime();
   if (Number.isNaN(t)) return "";
   const diffSec = Math.max(0, Math.floor((Date.now() - t) / 1000));
   if (diffSec < 60) return "Just now";
@@ -58,7 +68,7 @@ export function formatRelativeTime(iso?: string | null): string {
   const diffDays = Math.floor(diffHour / 24);
   if (diffDays === 1) return "Yesterday";
   if (diffDays < 7) return `${diffDays}d ago`;
-  return new Date(iso).toLocaleDateString("id-ID", { month: "short", day: "numeric" });
+  return `${d.getDate()} ${MONTH_NAMES_SHORT[d.getMonth()] || ""}`;
 }
 
 export function formatBytes(bytes?: number | null): string {

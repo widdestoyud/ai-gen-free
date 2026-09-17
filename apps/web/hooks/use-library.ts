@@ -57,7 +57,31 @@ export function useLibrary(props: {
   const [previewOpened, setPreviewOpened] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadPolicyAccepted, setUploadPolicyAccepted] = useState(false);
+  const [uploadPolicyModalOpened, setUploadPolicyModalOpened] = useState(false);
+  const [policySaving, setPolicySaving] = useState(false);
+  const [policyError, setPolicyError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const userCheckedRef = useRef(false);
+
+  async function checkUserStatus() {
+    if (userCheckedRef.current) return { accepted: uploadPolicyAccepted };
+    const res = await requestJson<{
+      user: {
+        uploadPolicyAcceptedAt: string | null;
+        hasUploads?: boolean;
+      };
+    }>("/api/me");
+    if (!res.ok || !res.data?.user) return null;
+    userCheckedRef.current = true;
+    const accepted = Boolean(res.data.user.uploadPolicyAcceptedAt);
+    setUploadPolicyAccepted(accepted);
+    return {
+      accepted,
+      hasUploads: res.data.user.hasUploads,
+    };
+  }
 
   useEffect(() => {
     if (props.initialItems && props.initialItems.length > 0) {
@@ -71,6 +95,8 @@ export function useLibrary(props: {
     if (typeof props.initialTotal === "number") {
       setTotal(props.initialTotal);
     }
+    // Always trigger background fresh fetch on client mount so newly generated items appear immediately
+    void fetchLibrary();
   }, [props.initialItems, props.initialTotal]);
 
   async function fetchLibrary(params?: {
@@ -186,7 +212,17 @@ export function useLibrary(props: {
     setSelectedItem(null);
   }
 
-  function openFilePicker() {
+  async function openFilePicker() {
+    if (!userCheckedRef.current) {
+      const status = await checkUserStatus();
+      if (status && !status.accepted) {
+        setUploadPolicyModalOpened(true);
+        return;
+      }
+    } else if (!uploadPolicyAccepted) {
+      setUploadPolicyModalOpened(true);
+      return;
+    }
     fileInputRef.current?.click();
   }
 
@@ -194,6 +230,11 @@ export function useLibrary(props: {
     const files = Array.from(e.target.files ?? []);
     e.target.value = "";
     if (files.length === 0) return;
+
+    if (!uploadPolicyAccepted) {
+      setUploadPolicyModalOpened(true);
+      return;
+    }
 
     setIsUploading(true);
     for (const file of files) {
@@ -208,6 +249,39 @@ export function useLibrary(props: {
     }
     setIsUploading(false);
     void fetchLibrary();
+  }
+
+  async function deleteUpload(id: string): Promise<boolean> {
+    const res = await requestJson<{ ok?: boolean }>(`/api/customer-uploads/${id}`, {
+      method: "DELETE",
+    });
+    if (res.ok) {
+      setItems((prev) => prev.filter((item) => item.id !== id));
+      setTotal((prev) => Math.max(0, prev - 1));
+      if (selectedItem?.id === id) {
+        closePreview();
+      }
+      return true;
+    }
+    return false;
+  }
+
+  async function acceptUploadPolicy(): Promise<boolean> {
+    setPolicySaving(true);
+    setPolicyError(null);
+    const res = await requestJson<{ ok: boolean; message?: string }>("/api/customer/profile", {
+      method: "PATCH",
+      body: JSON.stringify({ acceptUploadPolicy: true }),
+    });
+    setPolicySaving(false);
+    if (!res.ok) {
+      setPolicyError(res.message ?? "Gagal menyetujui kebijakan upload.");
+      return false;
+    }
+    setUploadPolicyAccepted(true);
+    userCheckedRef.current = true;
+    setUploadPolicyModalOpened(false);
+    return true;
   }
 
   return {
@@ -236,5 +310,12 @@ export function useLibrary(props: {
     isUploading,
     openFilePicker,
     handleFileInputChange,
+    deleteUpload,
+    uploadPolicyAccepted,
+    uploadPolicyModalOpened,
+    setUploadPolicyModalOpened,
+    policySaving,
+    policyError,
+    acceptUploadPolicy,
   };
 }

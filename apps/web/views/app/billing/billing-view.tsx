@@ -15,7 +15,7 @@ export function BillingPageView({
     <div>
       <Group justify="space-between" align="center" mb="md">
         <Title order={2}>Billing</Title>
-        <Button component={Link} href="/app/order" variant="filled" color="blue">
+        <Button component={Link} href="/app/order" prefetch={false} variant="filled" color="blue">
           + Isi Saldo Poin
         </Button>
       </Group>
@@ -35,7 +35,7 @@ export function BillingPageView({
               </Text>
             ) : null}
           </div>
-          <Button component={Link} href="/app/order" variant="light" color="blue" size="sm">
+          <Button component={Link} href="/app/order" prefetch={false} variant="light" color="blue" size="sm">
             Topup Poin
           </Button>
         </Group>

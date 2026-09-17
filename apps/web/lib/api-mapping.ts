@@ -52,6 +52,18 @@ export const API_MAPPINGS: readonly ApiRouteMapping[] = [
     description: "Unduh file biner hasil render job",
   },
   {
+    FE: "/api/generate/:id/events",
+    BE: "/customer/generated/:id/events",
+    method: "GET",
+    description: "Server-Sent Events streaming progress & status job generate realtime",
+  },
+  {
+    FE: "/api/jobs/:id/events",
+    BE: "/customer/generated/:id/events",
+    method: "GET",
+    description: "Server-Sent Events streaming progress & status job generate realtime (alias)",
+  },
+  {
     FE: "/api/library",
     BE: "/customer/library",
     method: "GET",
@@ -314,6 +326,12 @@ export const API_MAPPINGS: readonly ApiRouteMapping[] = [
     description: "Penyesuaian saldo poin user secara manual oleh admin",
   },
   {
+    FE: "/api/admin/models/settings",
+    BE: "/admin/models/settings",
+    method: "ALL",
+    description: "Ambil dan simpan pengaturan model default generator",
+  },
+  {
     FE: "/api/admin/models",
     BE: "/admin/models",
     method: "GET",
@@ -322,8 +340,14 @@ export const API_MAPPINGS: readonly ApiRouteMapping[] = [
   {
     FE: "/api/admin/models/:id",
     BE: "/admin/model/:id",
-    method: "PATCH",
-    description: "Ubah status aktif/nonaktif model AI",
+    method: "ALL",
+    description: "Ubah status aktif/nonaktif, biaya, dan mode spicy model AI",
+  },
+  {
+    FE: "/api/admin/model/:id",
+    BE: "/admin/model/:id",
+    method: "ALL",
+    description: "Ubah model catalog kanonik",
   },
   {
     FE: "/api/admin/invoices",
@@ -559,6 +583,14 @@ export function resolveBackendPath(fePath: string, method = "GET"): string {
   }
 
   // 2. Cek pattern parameterized (misal :id)
+  // GET /api/generate/:id/events -> /customer/generated/:id/events
+  const generateEventsMatch = m === "GET" ? path.match(/^\/api\/generate\/([^/]+)\/events$/) : null;
+  if (generateEventsMatch) return `/customer/generated/${generateEventsMatch[1]}/events` + search;
+
+  // GET /api/jobs/:id/events -> /customer/generated/:id/events
+  const jobEventsMatch = m === "GET" ? path.match(/^\/api\/jobs\/([^/]+)\/events$/) : null;
+  if (jobEventsMatch) return `/customer/generated/${jobEventsMatch[1]}/events` + search;
+
   // GET /api/generate/:id/file -> /customer/generated/:id/file
   const generateFileMatch = m === "GET" ? path.match(/^\/api\/generate\/([^/]+)\/file$/) : null;
   if (generateFileMatch) return `/customer/generated/${generateFileMatch[1]}/file` + search;
@@ -581,7 +613,10 @@ export function resolveBackendPath(fePath: string, method = "GET"): string {
   if (adjustMatch) return `/admin/topup/poin/${adjustMatch[1]}` + search;
 
   // PATCH /api/admin/models/:id -> /admin/model/:id
-  const modelPatchMatch = (m === "PATCH" || m === "PUT") ? path.match(/^\/api\/admin\/models\/([^/]+)$/) : null;
+  const modelPatchMatch =
+    (m === "PATCH" || m === "PUT") && path !== "/api/admin/models/settings"
+      ? path.match(/^\/api\/admin\/models\/([^/]+)$/)
+      : null;
   if (modelPatchMatch) return `/admin/model/${modelPatchMatch[1]}` + search;
 
   // GET /api/admin/users/:id -> /admin/users/:id

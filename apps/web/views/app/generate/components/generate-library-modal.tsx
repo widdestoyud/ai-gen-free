@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import {
+  Alert,
   Button,
   Group,
   Modal,
@@ -54,6 +55,7 @@ export function GenerateLibraryModal({
   onUploadClick,
   onDeleteUpload,
   onUpdateAlias,
+  uploadPolicyAccepted = true,
 }: {
   opened: boolean;
   onClose: () => void;
@@ -70,6 +72,7 @@ export function GenerateLibraryModal({
   onUploadClick: () => void;
   onDeleteUpload?: (id: string) => Promise<boolean>;
   onUpdateAlias?: (id: string, alias: string, kind?: "generation" | "upload") => Promise<boolean>;
+  uploadPolicyAccepted?: boolean;
 }) {
   const [zoomedItem, setZoomedItem] = useState<ZoomableItem | null>(null);
   const [editingItem, setEditingItem] = useState<EditableItem | null>(null);
@@ -125,6 +128,18 @@ export function GenerateLibraryModal({
                 </Button>
               ) : null}
             </Group>
+            {tab === "uploads" && !uploadPolicyAccepted ? (
+              <Alert color="yellow" variant="light" radius="sm">
+                <Group justify="space-between" align="center">
+                  <Text size="xs">
+                    Anda harus menyetujui kebijakan unggah media sebelum dapat memilih berkas referensi.
+                  </Text>
+                  <Button size="compact-xs" color="yellow" variant="filled" onClick={onUploadClick}>
+                    Setujui Sekarang
+                  </Button>
+                </Group>
+              </Alert>
+            ) : null}
             {items.length === 0 ? (
               <Text c="dimmed" size="sm">
                 {tab === "generations" ? "Belum ada hasil generate." : "Belum ada unggahan."}

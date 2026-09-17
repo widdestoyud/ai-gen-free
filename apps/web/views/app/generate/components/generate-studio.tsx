@@ -6,10 +6,11 @@ import { AppLink } from "@/components/app-link";
 import { CooldownText } from "@/components/cooldown-text";
 import { EmptyState } from "@/components/empty-state";
 import { ErrorAlert } from "@/components/error-alert";
+import { UploadPolicyModal } from "@/components/upload-policy-modal";
 import { WaitAlert } from "@/components/wait-alert";
 import { getRefTag, useGenerateStudio, type StudioRef, type StudioUpload } from "@/hooks/use-generate-studio";
 import { hasLiveOutput, type JobView } from "@/lib/job-status";
-import type { Model } from "../types";
+import type { Model, DefaultGenerationModelsConfig } from "../types";
 import { GenerateAspectMenu } from "./generate-aspect-menu";
 import { GenerateLibraryModal } from "./generate-library-modal";
 import { GenerateResultModal } from "./generate-result-modal";
@@ -67,6 +68,7 @@ export function GenerateStudio(props: {
   available: number;
   held: number;
   models: Model[];
+  defaults?: Partial<DefaultGenerationModelsConfig>;
   jobs: JobView[];
   nextGenerateAt: string | null;
   initialUploads?: StudioUpload[];
@@ -257,6 +259,27 @@ export function GenerateStudio(props: {
                     {ctrl.mediaType === "video" ? <span>Video</span> : null}
                   </button>
                 </div>
+
+                {ctrl.spicyModeEnabled ? (
+                  <div className={classes.pillSegment}>
+                    <button
+                      type="button"
+                      className={`${classes.pillBtn} ${ctrl.spicyFilter === "normal" ? classes.pillBtnActive : ""}`}
+                      onClick={() => ctrl.setSpicyFilter("normal")}
+                      aria-label="Filter Standard Models"
+                    >
+                      <span>Standard</span>
+                    </button>
+                    <button
+                      type="button"
+                      className={`${classes.pillBtn} ${ctrl.spicyFilter === "spicy" ? classes.pillBtnSpicyActive : ""}`}
+                      onClick={() => ctrl.setSpicyFilter("spicy")}
+                      aria-label="Filter Spicy Models"
+                    >
+                      <span>Spicy</span>
+                    </button>
+                  </div>
+                ) : null}
               </Group>
 
               <Group gap="xs" align="center">
@@ -327,12 +350,21 @@ export function GenerateStudio(props: {
         onUploadClick={ctrl.openFilePicker}
         onDeleteUpload={ctrl.deleteUpload}
         onUpdateAlias={ctrl.updateAlias}
+        uploadPolicyAccepted={ctrl.uploadPolicyAccepted}
       />
 
       <GenerateResultModal
         opened={ctrl.resultModalOpened}
         onClose={ctrl.closeResultModal}
         job={lastJob}
+      />
+
+      <UploadPolicyModal
+        opened={ctrl.uploadPolicyModalOpened}
+        onClose={() => ctrl.setUploadPolicyModalOpened(false)}
+        onAccept={ctrl.acceptUploadPolicy}
+        loading={ctrl.policySaving}
+        error={ctrl.policyError}
       />
 
       {/* Modal Lihat Detail Media (Full Size Preview + Metadata) */}

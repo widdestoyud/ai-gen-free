@@ -72,7 +72,7 @@ function InvoiceCard({
       ) : null}
 
       {inv.paidAt && inv.status === "paid" ? (
-        <Text c="green" size="sm" mt="xs">
+        <Text c="green" size="sm" mt="xs" suppressHydrationWarning>
           Dibayar: {formatDateId(inv.paidAt)}
           {inv.gateway?.paymentChannel ? ` via ${inv.gateway.paymentChannel}` : ""}
         </Text>
@@ -143,25 +143,16 @@ export function WalletClient(props: {
   const router = useRouter();
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const [gatewayEnabled, setGatewayEnabled] = useState(false);
+  const [gatewayEnabled, setGatewayEnabled] = useState(true);
   const [payingInvoiceId, setPayingInvoiceId] = useState<string | null>(null);
 
   // Snap Payment Modal state
   const [snapInvoice, setSnapInvoice] = useState<{ id: string; code: string } | null>(null);
 
   const {
-    getPaymentMethods,
     error: paymentError,
     clearError: clearPaymentError,
   } = usePayment();
-
-  // Check if online payment gateway is enabled
-  useEffect(() => {
-    getPaymentMethods().then((methods) => {
-      const online = methods.find((m) => m.id === "midtrans" || m.id === "doku");
-      setGatewayEnabled(online?.enabled ?? false);
-    });
-  }, [getPaymentMethods]);
 
   async function buy(packageId: string) {
     setError("");

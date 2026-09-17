@@ -129,6 +129,26 @@ export const AuthResponses = {
       status: 400,
       message: "Tautan reset tidak valid atau sudah kedaluwarsa.",
     },
+    UPLOAD_POLICY_REQUIRED: {
+      code: "A030",
+      status: 403,
+      message: "Anda harus menyetujui kebijakan upload media terlebih dahulu.",
+    },
+    SPICY_MODE_REQUIRED: {
+      code: "A031",
+      status: 403,
+      message: "Aktifkan Spicy Mode di profil untuk menggunakan model ini.",
+    },
+    UNDERAGE: {
+      code: "A032",
+      status: 400,
+      message: "Fitur Spicy Mode hanya dapat diaktifkan oleh pengguna berusia 18 tahun ke atas.",
+    },
+    DOB_REQUIRED: {
+      code: "A033",
+      status: 400,
+      message: "Silakan isi tanggal lahir pada profil terlebih dahulu sebelum mengaktifkan Spicy Mode.",
+    },
   } satisfies Record<string, ErrorDefinition>,
 
   // === RESPON SUKSES ===

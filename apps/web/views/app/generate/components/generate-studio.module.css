@@ -509,6 +509,13 @@
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 }
 
+.pillBtnSpicyActive {
+  background: var(--mantine-color-dark-5);
+  color: #ff6b6b !important;
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
 .pillBtnIconOnly {
   padding: 6px 12px;
 }

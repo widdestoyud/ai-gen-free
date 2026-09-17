@@ -69,6 +69,17 @@
   position: relative;
   padding: 24px;
   min-height: 380px;
+  overflow: hidden;
+  user-select: none;
+  touch-action: none;
+}
+
+.mediaViewerWrapper[data-zoomed="true"] {
+  cursor: grab;
+}
+
+.mediaViewerWrapper[data-dragging="true"] {
+  cursor: grabbing;
 }
 
 @media (max-width: 48em) {
@@ -85,11 +96,74 @@
   border-radius: 8px;
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.7);
   display: block;
+  transform-origin: center center;
+  will-change: transform;
+  user-select: none;
+  -webkit-user-drag: none;
+  pointer-events: none;
+}
+
+.zoomControlsBar {
+  position: absolute;
+  bottom: 16px;
+  right: 16px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(18, 19, 24, 0.88);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  padding: 4px 6px;
+  z-index: 10;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
+.zoomBtn {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  color: #e4e4e7;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  padding: 0;
+}
+
+.zoomBtn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.14);
+  color: #ffffff;
+}
+
+.zoomBtn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.zoomPercent {
+  font-size: 11px;
+  font-weight: 600;
+  font-family: var(--mantine-font-family-monospace);
+  color: #a1a1aa;
+  padding: 0 4px;
+  min-width: 38px;
+  text-align: center;
+  user-select: none;
 }
 
 @media (max-width: 48em) {
   .detailMedia {
     max-height: 42vh;
+  }
+
+  .zoomControlsBar {
+    bottom: 8px;
+    right: 8px;
+    padding: 2px 4px;
   }
 }
 
@@ -205,6 +279,23 @@
 .primaryDownloadBtn:hover {
   background: #3e4049 !important;
   border-color: rgba(255, 255, 255, 0.18) !important;
+}
+
+.dangerDeleteBtn {
+  background: rgba(239, 68, 68, 0.12) !important;
+  color: #f87171 !important;
+  border: 1px solid rgba(239, 68, 68, 0.25) !important;
+  font-weight: 600 !important;
+  font-size: 14px !important;
+  border-radius: 8px !important;
+  height: 42px !important;
+  transition: all 0.15s ease !important;
+}
+
+.dangerDeleteBtn:hover {
+  background: rgba(239, 68, 68, 0.22) !important;
+  border-color: rgba(239, 68, 68, 0.45) !important;
+  color: #fca5a5 !important;
 }
 
 .referenceImagesSection {

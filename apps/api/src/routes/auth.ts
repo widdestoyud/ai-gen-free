@@ -258,6 +258,9 @@ export async function registerAuthRoutes(
         address?: unknown;
         gender?: unknown;
         email?: unknown;
+        acceptUploadPolicy?: unknown;
+        dateOfBirth?: unknown;
+        spicyModeEnabled?: unknown;
       };
 
       const result = await updateUserProfile(session.user.id, body);

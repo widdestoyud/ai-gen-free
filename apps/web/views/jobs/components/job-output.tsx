@@ -22,7 +22,9 @@ export function JobOutput({
     <>
       <Image src={url} alt={alt} maw={maw} radius="md" mt="sm" />
       {availableUntil ? (
-        <Text c="dimmed">Tersedia sampai {formatDateId(availableUntil)}.</Text>
+        <Text c="dimmed" suppressHydrationWarning>
+          Tersedia sampai {formatDateId(availableUntil)}.
+        </Text>
       ) : null}
       <AppLink href={url} external>
         Unduh

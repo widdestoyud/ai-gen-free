@@ -1,6 +1,7 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import "@fastify/multipart";
-import { ErrorCodes, type ObjectStorage } from "@ai-gen-free/core";
+import { AuthResponses, ErrorCodes, type ObjectStorage } from "@ai-gen-free/core";
+import { prisma } from "@ai-gen-free/db";
 import { AuthError, userFromCookie } from "../auth/service.js";
 import { sendError } from "../http.js";
 import { parseLimitOffset } from "../admin/parse.js";
@@ -122,6 +123,18 @@ export async function registerUploadRoutes(app: FastifyInstance, deps: UploadRou
     if (!session) return;
 
     try {
+      const user = await prisma.user.findUnique({
+        where: { id: session.userId },
+        select: { uploadPolicyAcceptedAt: true },
+      });
+      if (!user?.uploadPolicyAcceptedAt) {
+        throw new AuthError(
+          ErrorCodes.UPLOAD_POLICY_REQUIRED,
+          AuthResponses.errors.UPLOAD_POLICY_REQUIRED.message,
+          403,
+        );
+      }
+
       await checkUploadRateLimit(deps.redis, "customer", session.userId);
 
       const file = await req.file();

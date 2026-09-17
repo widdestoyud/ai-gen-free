@@ -231,7 +231,7 @@ export function AdminUsersList({
                       </Badge>
                     )}
                   </Table.Td>
-                  <Table.Td className={classes.dateCell}>
+                  <Table.Td className={classes.dateCell} suppressHydrationWarning>
                     {formatDateId(user.createdAt)}
                   </Table.Td>
                   <Table.Td className={classes.actionCell}>

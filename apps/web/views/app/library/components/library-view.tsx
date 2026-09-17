@@ -22,6 +22,7 @@ import {
   VideoIcon,
 } from "./library-icons";
 import { MediaDetailModal } from "./media-detail-modal";
+import { UploadPolicyModal } from "@/components/upload-policy-modal";
 import classes from "./library-view.module.css";
 
 const TABS: Array<{ label: string; value: LibraryTab }> = [
@@ -203,7 +204,7 @@ export function LibraryView(props: {
                   ? "Belum ada berkas media yang diunggah."
                   : "Belum ada media hasil generate."}
             </Text>
-            <Button component={Link} href="/app/generate" variant="light" size="xs">
+            <Button component={Link} href="/app/generate" prefetch={false} variant="light" size="xs">
               Mulai Generate
             </Button>
           </Stack>
@@ -254,7 +255,7 @@ export function LibraryView(props: {
                   <div className={classes.cardTitle} title={item.prompt || title}>
                     {title}
                   </div>
-                  <div className={classes.cardSub}>
+                  <div className={classes.cardSub} suppressHydrationWarning>
                     {timeStr}
                     {sizeStr ? ` · ${sizeStr}` : ""}
                   </div>
@@ -303,7 +304,7 @@ export function LibraryView(props: {
 
                 <div className={classes.listRight}>
                   {sizeStr ? <span>{sizeStr}</span> : null}
-                  <span>{timeStr}</span>
+                  <span suppressHydrationWarning>{timeStr}</span>
                 </div>
               </UnstyledButton>
             );
@@ -317,6 +318,15 @@ export function LibraryView(props: {
         item={ctrl.selectedItem}
         items={ctrl.items}
         onSelectItem={ctrl.openPreview}
+        onDeleteUpload={ctrl.deleteUpload}
+      />
+
+      <UploadPolicyModal
+        opened={ctrl.uploadPolicyModalOpened}
+        onClose={() => ctrl.setUploadPolicyModalOpened(false)}
+        onAccept={ctrl.acceptUploadPolicy}
+        loading={ctrl.policySaving}
+        error={ctrl.policyError}
       />
     </div>
   );

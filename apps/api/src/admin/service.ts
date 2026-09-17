@@ -2,8 +2,11 @@ import { prisma } from "@ai-gen-free/db";
 import { AppError, ErrorCodes } from "@ai-gen-free/core";
 import { adjustWallet, computeBalance } from "@ai-gen-free/wallet";
 import {
+  DEFAULT_FALLBACK_MODELS,
+  DEFAULT_GENERATION_MODELS_KEY,
   GENERATE_COOLDOWN_KEY,
   asCooldownSeconds,
+  type DefaultGenerationModelsConfig,
 } from "./parse.js";
 
 function iso(value: Date | null | undefined): string | null {
@@ -49,6 +52,149 @@ export async function putGenerateCooldownSetting(opts: {
     to: opts.value,
   });
   return { key: GENERATE_COOLDOWN_KEY, value: opts.value };
+}
+
+export async function getDefaultGenerationModelsSetting(): Promise<{
+  key: string;
+  value: DefaultGenerationModelsConfig;
+}> {
+  const row = await prisma.appSetting.findUnique({ where: { key: DEFAULT_GENERATION_MODELS_KEY } });
+  const raw = row?.value as Partial<DefaultGenerationModelsConfig> | null | undefined;
+  const config: DefaultGenerationModelsConfig = {
+    normalT2iModelId:
+      typeof raw?.normalT2iModelId === "string" && raw.normalT2iModelId.trim()
+        ? raw.normalT2iModelId.trim()
+        : DEFAULT_FALLBACK_MODELS.normalT2iModelId,
+    normalI2iModelId:
+      typeof raw?.normalI2iModelId === "string" && raw.normalI2iModelId.trim()
+        ? raw.normalI2iModelId.trim()
+        : DEFAULT_FALLBACK_MODELS.normalI2iModelId,
+    spicyT2iModelId:
+      typeof raw?.spicyT2iModelId === "string" && raw.spicyT2iModelId.trim()
+        ? raw.spicyT2iModelId.trim()
+        : DEFAULT_FALLBACK_MODELS.spicyT2iModelId,
+    spicyI2iModelId:
+      typeof raw?.spicyI2iModelId === "string" && raw.spicyI2iModelId.trim()
+        ? raw.spicyI2iModelId.trim()
+        : DEFAULT_FALLBACK_MODELS.spicyI2iModelId,
+    normalVideoModelId:
+      typeof raw?.normalVideoModelId === "string" && raw.normalVideoModelId.trim()
+        ? raw.normalVideoModelId.trim()
+        : DEFAULT_FALLBACK_MODELS.normalVideoModelId,
+    spicyVideoModelId:
+      typeof raw?.spicyVideoModelId === "string" && raw.spicyVideoModelId.trim()
+        ? raw.spicyVideoModelId.trim()
+        : DEFAULT_FALLBACK_MODELS.spicyVideoModelId,
+  };
+  return { key: DEFAULT_GENERATION_MODELS_KEY, value: config };
+}
+
+export async function putDefaultGenerationModelsSetting(opts: {
+  config: Partial<DefaultGenerationModelsConfig>;
+  actorId: string;
+  ip: string;
+}) {
+  const enabledModels = await prisma.modelCatalog.findMany({
+    where: { enabled: true },
+  });
+
+  const { value: current } = await getDefaultGenerationModelsSetting();
+
+  const normalT2iModelId = opts.config.normalT2iModelId?.trim() ?? current.normalT2iModelId;
+  const normalI2iModelId = opts.config.normalI2iModelId?.trim() ?? current.normalI2iModelId;
+  const spicyT2iModelId = opts.config.spicyT2iModelId?.trim() ?? current.spicyT2iModelId;
+  const spicyI2iModelId = opts.config.spicyI2iModelId?.trim() ?? current.spicyI2iModelId;
+  const normalVideoModelId = opts.config.normalVideoModelId?.trim() ?? current.normalVideoModelId;
+  const spicyVideoModelId = opts.config.spicyVideoModelId?.trim() ?? current.spicyVideoModelId;
+
+  // 1. Validasi Normal T2I Model (Wajib Gambar T2I, bukan Video, bukan Spicy)
+  const normT2i = enabledModels.find((m) => m.modelId === normalT2iModelId);
+  if (!normT2i || normT2i.mode !== "t2i" || normT2i.isSpicy) {
+    throw new AppError(
+      ErrorCodes.VALIDATION_ERROR,
+      `Model "${normalT2iModelId}" tidak valid untuk Normal T2I. Model harus aktif, berjenis gambar t2i, dan non-spicy.`,
+    );
+  }
+
+  // 2. Validasi Normal I2I Model (Wajib Gambar I2I, bukan Video, bukan Spicy)
+  const normI2i = enabledModels.find((m) => m.modelId === normalI2iModelId);
+  if (!normI2i || normI2i.mode !== "i2i" || normI2i.isSpicy) {
+    throw new AppError(
+      ErrorCodes.VALIDATION_ERROR,
+      `Model "${normalI2iModelId}" tidak valid untuk Normal I2I. Model harus aktif, berjenis gambar i2i, dan non-spicy.`,
+    );
+  }
+
+  // 3. Validasi Spicy T2I Model (Wajib Gambar T2I Spicy, bukan Video)
+  const spT2i = enabledModels.find((m) => m.modelId === spicyT2iModelId);
+  if (!spT2i || spT2i.mode !== "t2i" || !spT2i.isSpicy) {
+    throw new AppError(
+      ErrorCodes.VALIDATION_ERROR,
+      `Model "${spicyT2iModelId}" tidak valid untuk Spicy T2I. Model harus aktif, berjenis gambar t2i, dan mode spicy aktif.`,
+    );
+  }
+
+  // 4. Validasi Spicy I2I Model (Wajib Gambar I2I Spicy, bukan Video)
+  const spI2i = enabledModels.find((m) => m.modelId === spicyI2iModelId);
+  if (!spI2i || spI2i.mode !== "i2i" || !spI2i.isSpicy) {
+    throw new AppError(
+      ErrorCodes.VALIDATION_ERROR,
+      `Model "${spicyI2iModelId}" tidak valid untuk Spicy I2I. Model harus aktif, berjenis gambar i2i, dan mode spicy aktif.`,
+    );
+  }
+
+  // 5. Validasi Normal Video Model (Wajib Video i2v/t2v, BUKAN model gambar, bukan Spicy)
+  const normVid = enabledModels.find((m) => m.modelId === normalVideoModelId);
+  if (!normVid || (normVid.mode !== "i2v" && normVid.mode !== "t2v") || normVid.isSpicy) {
+    throw new AppError(
+      ErrorCodes.VALIDATION_ERROR,
+      `Model "${normalVideoModelId}" tidak valid untuk Video Normal. Model harus aktif, berjenis video (i2v/t2v), non-spicy, dan TIDAK BOLEH berupa model gambar.`,
+    );
+  }
+
+  // 6. Validasi Spicy Video Model (Wajib Video i2v/t2v Spicy, BUKAN model gambar)
+  const spVid = enabledModels.find((m) => m.modelId === spicyVideoModelId);
+  if (!spVid || (spVid.mode !== "i2v" && spVid.mode !== "t2v") || !spVid.isSpicy) {
+    throw new AppError(
+      ErrorCodes.VALIDATION_ERROR,
+      `Model "${spicyVideoModelId}" tidak valid untuk Video Spicy. Model harus aktif, berjenis video (i2v/t2v), mode spicy aktif, dan TIDAK BOLEH berupa model gambar.`,
+    );
+  }
+
+  const updatedConfig: DefaultGenerationModelsConfig = {
+    normalT2iModelId,
+    normalI2iModelId,
+    spicyT2iModelId,
+    spicyI2iModelId,
+    normalVideoModelId,
+    spicyVideoModelId,
+  };
+
+  await prisma.$transaction(async (tx) => {
+    await tx.appSetting.upsert({
+      where: { key: DEFAULT_GENERATION_MODELS_KEY },
+      update: { value: updatedConfig },
+      create: { key: DEFAULT_GENERATION_MODELS_KEY, value: updatedConfig },
+    });
+    await tx.auditLog.create({
+      data: {
+        actorId: opts.actorId,
+        action: "settings.default_generation_models.updated",
+        target: DEFAULT_GENERATION_MODELS_KEY,
+        ip: opts.ip,
+        meta: { from: current, to: updatedConfig },
+      },
+    });
+  });
+
+  logEvent("admin.settings.default_generation_models.updated", {
+    actorId: opts.actorId,
+    key: DEFAULT_GENERATION_MODELS_KEY,
+    from: current,
+    to: updatedConfig,
+  });
+
+  return { key: DEFAULT_GENERATION_MODELS_KEY, value: updatedConfig };
 }
 
 async function serializeAdminUser(
@@ -208,6 +354,7 @@ function serializeAdminModel(row: {
   providerId: string;
   costPoints: { toString(): string } | number;
   enabled: boolean;
+  isSpicy: boolean;
   createdAt: Date;
 }) {
   return {
@@ -218,6 +365,7 @@ function serializeAdminModel(row: {
     providerId: row.providerId,
     costPoints: Number(row.costPoints),
     enabled: row.enabled,
+    isSpicy: row.isSpicy,
     createdAt: row.createdAt.toISOString(),
   };
 }
@@ -245,38 +393,56 @@ export async function updateAdminModel(opts: {
   costPoints?: number;
   displayName?: string;
   enabled?: boolean;
+  isSpicy?: boolean;
   actorId: string;
   ip: string;
 }) {
-  const model = await prisma.modelCatalog.findUnique({ where: { id: opts.id } });
+  const cleanId = opts.id.trim();
+  let model = await prisma.modelCatalog.findUnique({ where: { id: cleanId } });
+  if (!model) {
+    const decoded = decodeURIComponent(cleanId);
+    model = await prisma.modelCatalog.findFirst({
+      where: {
+        OR: [
+          { modelId: cleanId },
+          { modelId: decoded },
+          { modelId: { endsWith: cleanId } },
+          { modelId: { endsWith: decoded } },
+        ],
+      },
+    });
+  }
   if (!model) throw new AppError(ErrorCodes.NOT_FOUND, "Model catalog tidak ditemukan", 404);
+
+  const modelRecordId = model.id;
 
   const updated = await prisma.$transaction(async (tx) => {
     const res = await tx.modelCatalog.update({
-      where: { id: opts.id },
+      where: { id: modelRecordId },
       data: {
         ...(typeof opts.costPoints === "number" ? { costPoints: opts.costPoints } : {}),
         ...(typeof opts.displayName === "string" ? { displayName: opts.displayName.trim() } : {}),
         ...(typeof opts.enabled === "boolean" ? { enabled: opts.enabled } : {}),
+        ...(typeof opts.isSpicy === "boolean" ? { isSpicy: opts.isSpicy } : {}),
       },
     });
     await tx.auditLog.create({
       data: {
         actorId: opts.actorId,
         action: "model_catalog.updated",
-        target: model.id,
+        target: modelRecordId,
         ip: opts.ip,
         meta: {
           modelId: model.modelId,
-          from: { costPoints: Number(model.costPoints), enabled: model.enabled, displayName: model.displayName },
-          to: { costPoints: Number(res.costPoints), enabled: res.enabled, displayName: res.displayName },
+          from: { costPoints: Number(model.costPoints), enabled: model.enabled, displayName: model.displayName, isSpicy: model.isSpicy },
+          to: { costPoints: Number(res.costPoints), enabled: res.enabled, displayName: res.displayName, isSpicy: res.isSpicy },
         },
       },
     });
     return res;
   });
 
-  logEvent("admin.model_catalog.updated", { actorId: opts.actorId, id: model.id, modelId: model.modelId });
+  logEvent("admin.model_catalog.updated", { actorId: opts.actorId, id: modelRecordId, modelId: model.modelId });
 
   return {
     id: updated.id,
@@ -286,6 +452,7 @@ export async function updateAdminModel(opts: {
     providerId: updated.providerId,
     costPoints: Number(updated.costPoints),
     enabled: updated.enabled,
+    isSpicy: updated.isSpicy,
     createdAt: updated.createdAt.toISOString(),
   };
 }

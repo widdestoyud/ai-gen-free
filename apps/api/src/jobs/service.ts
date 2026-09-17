@@ -1,5 +1,5 @@
 import { JobStatus, LedgerStatus, LedgerType, Prisma } from "@prisma/client";
-import { AppError, ErrorCodes, jobClientErrorMessage, type ObjectStorage } from "@ai-gen-free/core";
+import { AppError, AuthResponses, ErrorCodes, jobClientErrorMessage, type ObjectStorage } from "@ai-gen-free/core";
 import { prisma } from "@ai-gen-free/db";
 import { assertEnoughPoints, computeBalance, refreshWalletCache } from "@ai-gen-free/wallet";
 import { resolveModel } from "./catalog.js";
@@ -36,6 +36,14 @@ export async function submitJob(opts: {
   }
 
   const user = await prisma.user.findUniqueOrThrow({ where: { id: opts.userId } });
+  if (model.isSpicy && !user.spicyModeEnabled) {
+    throw new AppError(
+      ErrorCodes.SPICY_MODE_REQUIRED,
+      AuthResponses.errors.SPICY_MODE_REQUIRED.message,
+      403,
+    );
+  }
+
   const now = Date.now();
   if (user.nextGenerateAt && user.nextGenerateAt.getTime() > now) {
     const retry = Math.ceil((user.nextGenerateAt.getTime() - now) / 1000);

@@ -86,15 +86,15 @@ export function AdminUserDetail({ user }: { user: AdminUserRow }) {
           Saldo <strong>{available}</strong> poin
           {held > 0 ? ` (terkunci ${held})` : ""}
         </Text>
-        <Text c="dimmed" size="sm">
+        <Text c="dimmed" size="sm" suppressHydrationWarning>
           Jeda sampai: {nextGenerateAt ? formatDateId(nextGenerateAt) : "tidak ada"}
         </Text>
         {user.emailVerifiedAt ? (
-          <Text c="dimmed" size="sm">
+          <Text c="dimmed" size="sm" suppressHydrationWarning>
             Email terverifikasi: {formatDateId(user.emailVerifiedAt)}
           </Text>
         ) : null}
-        <Text c="dimmed" size="sm">
+        <Text c="dimmed" size="sm" suppressHydrationWarning>
           Dibuat: {formatDateId(user.createdAt)}
         </Text>
         <AppLink href={`/admin/jobs?userId=${encodeURIComponent(user.id)}`}>Lihat job user ini</AppLink>

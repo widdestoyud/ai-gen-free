@@ -7,8 +7,14 @@ const DISPLAY_FALLBACK: Record<string, string> = {
   "openai/gpt-image-2-t2i": "GPT Image 2",
   "openai/gpt-image-2-edit": "GPT Image 2 Edit",
   "bytedance/seedream-5.0-pro-t2i-spicy": "Seedream 5.0 Pro Spicy",
+  "alibaba/qwen-image-3-edit-spicy": "Qwen Image 3 Edit Spicy",
+  "bytedance/seedance-2.5-i2v": "Seedance 2.5 I2V",
+  "bytedance/seedance-2.0-i2v-spicy": "Seedance 2.0 I2V Spicy",
+  "alibaba/wan-2.7-i2v-uncensored": "Wan 2.7 I2V Uncensored",
   "dummy-t2i": "Dummy",
 };
+
+const VALID_MODES = new Set<string>(["t2i", "i2i", "t2v", "i2v"]);
 
 function asInt(value: { toString(): string } | number): number {
   return typeof value === "number" ? value : Number(value);
@@ -20,6 +26,7 @@ export type CatalogRow = {
   displayName: string;
   providerId: string;
   costPoints: number;
+  isSpicy: boolean;
 };
 
 export function humanDisplayName(modelId: string, displayName?: string | null): string {
@@ -29,7 +36,7 @@ export function humanDisplayName(modelId: string, displayName?: string | null): 
 }
 
 export function pickEnabledModel(rows: CatalogRow[], modeRaw: unknown, modelIdRaw: unknown): CatalogRow {
-  if (modeRaw !== "t2i" && modeRaw !== "i2i") {
+  if (typeof modeRaw !== "string" || !VALID_MODES.has(modeRaw)) {
     throw new AppError(ErrorCodes.VALIDATION_ERROR, "Mode ini belum tersedia");
   }
   const mode = modeRaw as JobMode;
@@ -59,11 +66,12 @@ export async function listEnabledModels() {
     displayName: humanDisplayName(row.modelId, row.displayName),
     providerId: row.providerId,
     costPoints: asInt(row.costPoints),
+    isSpicy: Boolean(row.isSpicy),
   }));
 }
 
 export async function resolveModel(modeRaw: unknown, modelIdRaw: unknown) {
-  if (modeRaw !== "t2i" && modeRaw !== "i2i") {
+  if (typeof modeRaw !== "string" || !VALID_MODES.has(modeRaw)) {
     throw new AppError(ErrorCodes.VALIDATION_ERROR, "Mode ini belum tersedia");
   }
   const mode = modeRaw as JobMode;
@@ -78,6 +86,7 @@ export async function resolveModel(modeRaw: unknown, modelIdRaw: unknown) {
       displayName: humanDisplayName(row.modelId, row.displayName),
       providerId: row.providerId,
       costPoints: asInt(row.costPoints),
+      isSpicy: Boolean(row.isSpicy),
     })),
     modeRaw,
     modelIdRaw,

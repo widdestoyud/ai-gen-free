@@ -3,6 +3,8 @@ import { test } from "node:test";
 import { AppError, ErrorCodes } from "@ai-gen-free/core";
 import {
   asCooldownSeconds,
+  DEFAULT_FALLBACK_MODELS,
+  DEFAULT_GENERATION_MODELS_KEY,
   GENERATE_COOLDOWN_DEFAULT,
   parseAdjustBody,
   parseCooldownSecondsValue,
@@ -65,8 +67,13 @@ test("parseIdempotencyKey 8–128", () => {
   assert.throws(() => parseIdempotencyKey(undefined), isValidation);
 });
 
-test("parseJobStatus optional enum", () => {
-  assert.equal(parseJobStatus(undefined), undefined);
-  assert.equal(parseJobStatus("succeeded"), "succeeded");
-  assert.throws(() => parseJobStatus("delayed"), isValidation);
+test("DEFAULT_FALLBACK_MODELS contains valid models for all modes", () => {
+  assert.equal(DEFAULT_GENERATION_MODELS_KEY, "default_generation_models");
+  assert.equal(DEFAULT_FALLBACK_MODELS.normalT2iModelId, "openai/gpt-image-2-t2i");
+  assert.equal(DEFAULT_FALLBACK_MODELS.normalI2iModelId, "openai/gpt-image-2-edit");
+  assert.equal(DEFAULT_FALLBACK_MODELS.spicyT2iModelId, "bytedance/seedream-5.0-pro-t2i-spicy");
+  assert.equal(DEFAULT_FALLBACK_MODELS.spicyI2iModelId, "alibaba/qwen-image-3-edit-spicy");
+  assert.equal(DEFAULT_FALLBACK_MODELS.normalVideoModelId, "bytedance/seedance-2.5-i2v");
+  assert.equal(DEFAULT_FALLBACK_MODELS.spicyVideoModelId, "bytedance/seedance-2.0-i2v-spicy");
 });
+

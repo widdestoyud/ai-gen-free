@@ -14,6 +14,7 @@ import {
   Text,
   Tooltip,
 } from "@mantine/core";
+import { useState } from "react";
 import Link from "next/link";
 import { ErrorAlert } from "@/components/error-alert";
 import {
@@ -23,6 +24,7 @@ import {
   jobStatusLabel,
   type JobView,
 } from "@/lib/job-status";
+import { downloadMediaFile } from "@/lib/download-media";
 import type { ComputedLedgerItem } from "./credit-history";
 import classes from "./task-detail-modal.module.css";
 
@@ -164,6 +166,21 @@ export function TaskDetailModal({
   const isFailed = job?.status === "failed";
   const isSucceeded = job?.status === "succeeded";
   const isActive = job ? isJobActive(job.status) : false;
+  const [isDownloading, setIsDownloading] = useState(false);
+
+  const handleDownload = async () => {
+    if (!job?.output?.url) return;
+    setIsDownloading(true);
+    try {
+      await downloadMediaFile({
+        url: job.output.url,
+        filename: `ai-gen-${job.id}`,
+        isVideo,
+      });
+    } finally {
+      setIsDownloading(false);
+    }
+  };
 
   return (
     <Modal
@@ -257,10 +274,8 @@ export function TaskDetailModal({
               {/* Tombol Download Utama jika sukses */}
               {isSucceeded && job?.output?.url ? (
                 <Button
-                  component="a"
-                  href={job.output.url}
-                  target="_blank"
-                  download={`ai-gen-${job.id}`}
+                  onClick={() => void handleDownload()}
+                  loading={isDownloading}
                   variant="filled"
                   color="dark.4"
                   size="md"
@@ -275,6 +290,7 @@ export function TaskDetailModal({
                 <Button
                   component={Link}
                   href="/app/generate"
+                  prefetch={false}
                   variant="light"
                   color="blue"
                   size="sm"

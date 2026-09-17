@@ -82,7 +82,7 @@ export function AdminAuditList({
                 {meta}
               </Text>
             ) : null}
-            <Text c="dimmed" size="sm">
+            <Text c="dimmed" size="sm" suppressHydrationWarning>
               {formatDateId(item.createdAt)}
             </Text>
           </ItemCard>

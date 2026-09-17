@@ -11,6 +11,7 @@ import classes from "./app-workspace.module.css";
 
 const ADMIN_NAV = [
   { href: "/admin", label: "Kurasi", matchExact: true },
+  { href: "/admin/models", label: "Model AI", matchExact: false },
   { href: "/admin/packages", label: "Paket Poin", matchExact: false },
   { href: "/admin/settings", label: "Cooldown", matchExact: false },
   { href: "/admin/users", label: "User", matchExact: false },
@@ -59,6 +60,7 @@ export function AdminWorkspace({ children }: { children: ReactNode }) {
                   key={item.href}
                   component={Link}
                   href={item.href}
+                  prefetch={false}
                   label={item.label}
                   active={isNavActive(item.href, item.matchExact)}
                   className={classes.nav}

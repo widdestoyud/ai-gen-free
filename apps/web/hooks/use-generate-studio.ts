@@ -11,15 +11,16 @@ import {
   type JobsListView,
   type JobView,
 } from "@/lib/job-status";
-import type { Model } from "@/views/app/generate";
+import type { Model, DefaultGenerationModelsConfig } from "@/views/app/generate";
+import {
+  STUDIO_ASPECTS,
+  getAspectMetadata,
+  transformAspectRatioToSize,
+  type AspectRatioId,
+  type AspectRatioOption,
+} from "@/lib/aspect-ratio";
 
-export const STUDIO_ASPECTS = [
-  { value: "2:3", label: "2:3 Tall", preview: "tall" },
-  { value: "3:2", label: "3:2 Wide", preview: "wide" },
-  { value: "1:1", label: "1:1 Square", preview: "square" },
-  { value: "9:16", label: "9:16 Vertical", preview: "tall" },
-  { value: "16:9", label: "16:9 Widescreen", preview: "wide" },
-] as const;
+export { STUDIO_ASPECTS, getAspectMetadata, transformAspectRatioToSize, type AspectRatioId, type AspectRatioOption };
 
 export type StudioRef = {
   id: string;
@@ -73,18 +74,45 @@ export function getRefTag(ref: StudioRef, index?: number): string {
 
 const DEFAULT_T2I_MODEL_ID = "openai/gpt-image-2-t2i";
 const DEFAULT_I2I_MODEL_ID = "openai/gpt-image-2-edit";
+const DEFAULT_SPICY_T2I_MODEL_ID = "bytedance/seedream-5.0-pro-t2i-spicy";
+const DEFAULT_SPICY_I2I_MODEL_ID = "alibaba/qwen-image-3-edit-spicy";
+const DEFAULT_I2V_MODEL_ID = "bytedance/seedance-2.5-i2v";
+const DEFAULT_SPICY_I2V_MODEL_ID = "bytedance/seedance-2.0-i2v-spicy";
 
-function pickInitialModel(catalog: Model[], mode: "t2i" | "i2i" = "t2i"): string {
+function pickInitialModel(
+  catalog: Model[],
+  mode: "t2i" | "i2i" | "t2v" | "i2v" = "t2i",
+  spicyFilter: "normal" | "spicy" = "normal",
+  defaults?: Partial<DefaultGenerationModelsConfig>,
+): string {
   if (catalog.length === 0) return "";
-  const defaultId = mode === "i2i" ? DEFAULT_I2I_MODEL_ID : DEFAULT_T2I_MODEL_ID;
+  const isSpicy = spicyFilter === "spicy";
+  let defaultId = "";
+  if (mode === "i2v" || mode === "t2v") {
+    defaultId = isSpicy
+      ? (defaults?.spicyVideoModelId || DEFAULT_SPICY_I2V_MODEL_ID)
+      : (defaults?.normalVideoModelId || DEFAULT_I2V_MODEL_ID);
+  } else {
+    defaultId = isSpicy
+      ? (mode === "i2i" ? (defaults?.spicyI2iModelId || DEFAULT_SPICY_I2I_MODEL_ID) : (defaults?.spicyT2iModelId || DEFAULT_SPICY_T2I_MODEL_ID))
+      : (mode === "i2i" ? (defaults?.normalI2iModelId || DEFAULT_I2I_MODEL_ID) : (defaults?.normalT2iModelId || DEFAULT_T2I_MODEL_ID));
+  }
   const preferred = catalog.find((m) => m.modelId === defaultId);
-  return (preferred ?? catalog[0])!.modelId;
+  return (preferred ?? catalog.find((m) => m.mode === mode) ?? catalog[0])!.modelId;
 }
 
-function filterModels(models: Model[], mode: "t2i" | "i2i"): Model[] {
-  const forMode = models.filter((m) => m.mode === mode);
+function filterModels(models: Model[], mode: "t2i" | "i2i" | "t2v" | "i2v", spicyFilter: "normal" | "spicy" = "normal"): Model[] {
+  let list = models;
+  if (spicyFilter === "spicy") {
+    const spicyOnly = models.filter((m) => m.isSpicy);
+    if (spicyOnly.length > 0) list = spicyOnly;
+  } else {
+    const nonSpicy = models.filter((m) => !m.isSpicy);
+    if (nonSpicy.length > 0) list = nonSpicy;
+  }
+  const forMode = list.filter((m) => m.mode === mode);
   if (forMode.length > 0) return forMode;
-  return models.filter((m) => m.mode === "t2i" || m.mode === "i2i");
+  return list;
 }
 
 function nearestSignedRefresh(jobs: JobView[]): number | null {
@@ -101,23 +129,29 @@ export function useGenerateStudio(props: {
   available: number;
   held: number;
   models: Model[];
+  defaults?: Partial<DefaultGenerationModelsConfig>;
   jobs: JobView[];
   nextGenerateAt: string | null;
   initialUploads?: StudioUpload[];
   initialUploadsTotal?: number;
 }) {
+  const [models, setModels] = useState<Model[]>(() => props.models ?? []);
+  const [defaults, setDefaults] = useState<Partial<DefaultGenerationModelsConfig> | undefined>(() => props.defaults);
   const [mediaType, setMediaType] = useState<"image" | "video">("image");
+  const [spicyModeEnabled, setSpicyModeEnabled] = useState(false);
+  const [spicyFilter, setSpicyFilter] = useState<"normal" | "spicy">("normal");
   const [selectedRefs, setSelectedRefs] = useState<StudioRef[]>([]);
   const hasImageRefs = selectedRefs.length > 0;
-  const effectiveMode: "t2i" | "i2i" = hasImageRefs ? "i2i" : "t2i";
+  const effectiveMode: "t2i" | "i2i" | "t2v" | "i2v" =
+    mediaType === "video" ? (hasImageRefs ? "i2v" : "t2v") : (hasImageRefs ? "i2i" : "t2i");
   const catalog = useMemo(
-    () => filterModels(props.models ?? [], effectiveMode),
-    [props.models, effectiveMode],
+    () => filterModels(models, effectiveMode, spicyFilter),
+    [models, effectiveMode, spicyFilter],
   );
   const [jobs, setJobs] = useState<JobView[]>(() => props.jobs ?? []);
-  const [modelId, setModelId] = useState(() => pickInitialModel(catalog, effectiveMode));
+  const [modelId, setModelId] = useState(() => pickInitialModel(catalog, effectiveMode, spicyFilter, props.defaults));
   const [videoDuration, setVideoDuration] = useState<"6s" | "10s" | "15s">("6s");
-  const [videoResolution, setVideoResolution] = useState<"720p" | "1080p">("720p");
+  const [videoResolution, setVideoResolution] = useState<"480p" | "720p" | "1080p">("480p");
   const [prompt, setPrompt] = useState("");
   const [aspectRatio, setAspectRatio] = useState("3:2");
   const [error, setError] = useState("");
@@ -135,16 +169,85 @@ export function useGenerateStudio(props: {
   const [mentionIndex, setMentionIndex] = useState(0);
   const fileRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-
   const [resultModalOpened, setResultModalOpened] = useState(false);
+  const [uploadPolicyAccepted, setUploadPolicyAccepted] = useState(false);
+  const [uploadPolicyModalOpened, setUploadPolicyModalOpened] = useState(false);
+  const [policySaving, setPolicySaving] = useState(false);
+  const [policyError, setPolicyError] = useState<string | null>(null);
+
+  const userCheckedRef = useRef(false);
+
+  useEffect(() => {
+    if (props.models) setModels(props.models);
+  }, [props.models]);
+
+  useEffect(() => {
+    if (props.defaults) setDefaults(props.defaults);
+  }, [props.defaults]);
+
+  // Sync catalog & defaults real-time on client mount and focus
+  useEffect(() => {
+    let active = true;
+    async function syncCatalog() {
+      const res = await requestJson<{ models?: Model[]; defaults?: DefaultGenerationModelsConfig }>("/api/catalog/generate");
+      if (active && res.ok && res.data) {
+        if (res.data.models) setModels(res.data.models);
+        if (res.data.defaults) setDefaults(res.data.defaults);
+      }
+    }
+    void syncCatalog();
+    const onFocus = () => void syncCatalog();
+    window.addEventListener("focus", onFocus);
+    return () => {
+      active = false;
+      window.removeEventListener("focus", onFocus);
+    };
+  }, []);
+
+  async function checkUserStatus() {
+    if (userCheckedRef.current) return { accepted: uploadPolicyAccepted };
+    const res = await requestJson<{
+      user: {
+        uploadPolicyAcceptedAt: string | null;
+        hasUploads?: boolean;
+        nextGenerateAt: string | null;
+        spicyModeEnabled?: boolean;
+      };
+    }>("/api/me");
+    if (!res.ok || !res.data?.user) return null;
+    userCheckedRef.current = true;
+    const accepted = Boolean(res.data.user.uploadPolicyAcceptedAt);
+    setUploadPolicyAccepted(accepted);
+    if (res.data.user.spicyModeEnabled) {
+      setSpicyModeEnabled(true);
+    }
+    return {
+      accepted,
+      hasUploads: res.data.user.hasUploads,
+      spicyModeEnabled: res.data.user.spicyModeEnabled,
+    };
+  }
   const [lastGeneratedJob, setLastGeneratedJob] = useState<JobView | null>(null);
   const initialActive = (props.jobs ?? []).find((j) => isJobActive(j.status));
   const [activeJobId, setActiveJobId] = useState<string | null>(initialActive?.id ?? null);
   const [activeJob, setActiveJob] = useState<JobView | null>(initialActive ?? null);
 
+  const isSpicy = spicyFilter === "spicy";
+  const preferredDefaultId = isSpicy
+    ? (effectiveMode === "i2v" || effectiveMode === "t2v"
+        ? (defaults?.spicyVideoModelId || DEFAULT_SPICY_I2V_MODEL_ID)
+        : effectiveMode === "i2i"
+          ? (defaults?.spicyI2iModelId || DEFAULT_SPICY_I2I_MODEL_ID)
+          : (defaults?.spicyT2iModelId || DEFAULT_SPICY_T2I_MODEL_ID))
+    : (effectiveMode === "i2v" || effectiveMode === "t2v"
+        ? (defaults?.normalVideoModelId || DEFAULT_I2V_MODEL_ID)
+        : effectiveMode === "i2i"
+          ? (defaults?.normalI2iModelId || DEFAULT_I2I_MODEL_ID)
+          : (defaults?.normalT2iModelId || DEFAULT_T2I_MODEL_ID));
+
   const selected =
     catalog.find((m) => m.modelId === modelId) ??
-    catalog.find((m) => m.modelId === (effectiveMode === "i2i" ? DEFAULT_I2I_MODEL_ID : DEFAULT_T2I_MODEL_ID)) ??
+    catalog.find((m) => m.modelId === preferredDefaultId) ??
     catalog[0];
   const active = activeJob ?? jobs.find((j) => isJobActive(j.status));
   const isGenerating = busy || Boolean(activeJobId) || Boolean(active);
@@ -233,12 +336,24 @@ export function useGenerateStudio(props: {
     setCooldownUntil(props.nextGenerateAt ?? null);
   }, [props.jobs, props.nextGenerateAt]);
 
+  const prevModeRef = useRef(effectiveMode);
+  const prevSpicyRef = useRef(spicyFilter);
+
   useEffect(() => {
+    if (prevModeRef.current !== effectiveMode || prevSpicyRef.current !== spicyFilter) {
+      prevModeRef.current = effectiveMode;
+      prevSpicyRef.current = spicyFilter;
+      const nextDefault = preferredDefaultId || pickInitialModel(catalog, effectiveMode, spicyFilter, defaults);
+      if (nextDefault) {
+        setModelId(nextDefault);
+      }
+      return;
+    }
     if (catalog.length === 0) return;
     if (!catalog.some((m) => m.modelId === modelId)) {
-      setModelId(pickInitialModel(catalog, effectiveMode));
+      setModelId(preferredDefaultId || pickInitialModel(catalog, effectiveMode, spicyFilter, defaults));
     }
-  }, [catalog, modelId, effectiveMode]);
+  }, [catalog, modelId, effectiveMode, spicyFilter, defaults, preferredDefaultId]);
 
   useEffect(() => {
     const tick = window.setInterval(() => setNow(Date.now()), 1000);
@@ -251,12 +366,13 @@ export function useGenerateStudio(props: {
     };
   }, [uploads]);
 
-  // Polling spesifik pada job yang sedang aktif / baru disubmit (/api/generate/:id)
+  // Streaming SSE realtime spesifik pada job yang sedang aktif (/api/generate/:id/events)
   useEffect(() => {
     if (!activeJobId) return;
     let cancelled = false;
 
-    async function pollJob() {
+    async function checkJobFallback() {
+      if (cancelled) return;
       const result = await requestJson<JobView>(`/api/generate/${activeJobId}`);
       if (cancelled || !result.ok) return;
       const data = result.data;
@@ -265,7 +381,6 @@ export function useGenerateStudio(props: {
       if (data.status === "succeeded") {
         if (hasLiveOutput(data.output)) {
           setLastGeneratedJob(data);
-          setResultModalOpened(true);
         }
         setCooldownUntil(data.nextGenerateAt ?? null);
         setActiveJobId(null);
@@ -280,14 +395,52 @@ export function useGenerateStudio(props: {
       }
     }
 
-    void pollJob();
-    const timer = window.setInterval(() => {
-      void pollJob();
-    }, 1500);
+    let eventSource: EventSource | null = null;
+    try {
+      eventSource = new EventSource(`/api/generate/${activeJobId}/events`);
+
+      eventSource.onmessage = (event) => {
+        if (cancelled || !event.data) return;
+        try {
+          const payload = JSON.parse(event.data);
+          if (payload.status === "running") {
+            setActiveJob((prev) =>
+              prev ? { ...prev, progressPct: payload.progressPct ?? prev.progressPct } : null
+            );
+          } else if (payload.status === "succeeded") {
+            void checkJobFallback();
+            eventSource?.close();
+          } else if (payload.status === "failed" || payload.status === "canceled") {
+            setError(jobErrorMessage(payload.errorCode, payload.errorMessage));
+            setErrorCode(payload.errorCode ?? "JOB_FAILED");
+            setActiveJobId(null);
+            setActiveJob(null);
+            eventSource?.close();
+            void (async () => {
+              const res = await requestJson<JobView>(`/api/generate/${activeJobId}`);
+              if (res.ok) setJobs((prev) => [res.data, ...prev.filter((j) => j.id !== res.data.id)]);
+            })();
+          }
+        } catch {
+          void checkJobFallback();
+        }
+      };
+
+      eventSource.onerror = () => {
+        eventSource?.close();
+        if (!cancelled) {
+          void checkJobFallback();
+        }
+      };
+    } catch {
+      void checkJobFallback();
+    }
 
     return () => {
       cancelled = true;
-      window.clearInterval(timer);
+      if (eventSource) {
+        eventSource.close();
+      }
     };
   }, [activeJobId]);
 
@@ -340,13 +493,22 @@ export function useGenerateStudio(props: {
     setLastGeneratedJob(null);
 
     const mode = mediaType === "video" ? (hasImageRefs ? "i2v" : "t2v") : (hasImageRefs ? "i2i" : "t2i");
-    const targetModelId = mediaType === "video"
-      ? (selected?.modelId ?? (hasImageRefs ? "bytedance/seedance-2.0-i2v" : "bytedance/seedance-2.0-t2v"))
-      : (hasImageRefs
-          ? (catalog.find((m) => m.mode === "i2i")?.modelId ?? DEFAULT_I2I_MODEL_ID)
-          : (catalog.find((m) => m.mode === "t2i" && m.modelId === modelId)?.modelId ?? DEFAULT_T2I_MODEL_ID));
+    const targetModelId =
+      selected?.modelId ||
+      preferredDefaultId ||
+      pickInitialModel(catalog, mode, spicyFilter, defaults) ||
+      (mode === "i2v" || mode === "t2v"
+        ? (isSpicy ? DEFAULT_SPICY_I2V_MODEL_ID : DEFAULT_I2V_MODEL_ID)
+        : isSpicy
+          ? (mode === "i2i" ? DEFAULT_SPICY_I2I_MODEL_ID : DEFAULT_SPICY_T2I_MODEL_ID)
+          : (mode === "i2i" ? DEFAULT_I2I_MODEL_ID : DEFAULT_T2I_MODEL_ID));
 
-    const params: Record<string, unknown> = { aspectRatio };
+    const currentAspectMeta = getAspectMetadata(aspectRatio);
+    const params: Record<string, unknown> = {
+      aspectRatio: currentAspectMeta.value,
+      size: currentAspectMeta.dimension,
+      tierSize: currentAspectMeta.tierSize,
+    };
     if (mediaType === "video") {
       params.duration = videoDuration;
       params.resolution = videoResolution;
@@ -401,13 +563,24 @@ export function useGenerateStudio(props: {
 
   function openLibrary() {
     setLibraryOpened(true);
+    void checkUserStatus();
   }
 
   function closeLibrary() {
     setLibraryOpened(false);
   }
 
-  function openFilePicker() {
+  async function openFilePicker() {
+    if (!userCheckedRef.current) {
+      const status = await checkUserStatus();
+      if (status && !status.accepted) {
+        setUploadPolicyModalOpened(true);
+        return;
+      }
+    } else if (!uploadPolicyAccepted) {
+      setUploadPolicyModalOpened(true);
+      return;
+    }
     fileRef.current?.click();
   }
 
@@ -506,6 +679,11 @@ export function useGenerateStudio(props: {
     e.target.value = "";
     if (files.length === 0) return;
 
+    if (!uploadPolicyAccepted) {
+      setUploadPolicyModalOpened(true);
+      return;
+    }
+
     const newUploads: StudioUpload[] = [];
     const newRefs: StudioRef[] = [];
 
@@ -570,6 +748,10 @@ export function useGenerateStudio(props: {
   }
 
   function toggleUpload(item: StudioUpload) {
+    if (!uploadPolicyAccepted) {
+      setUploadPolicyModalOpened(true);
+      return;
+    }
     if (item.uploading) return;
     const ext = (item.name.split(".").pop() ?? "webp").toUpperCase();
     setSelectedRefs((prev) => {
@@ -754,6 +936,24 @@ export function useGenerateStudio(props: {
     }
   }
 
+  async function acceptUploadPolicy(): Promise<boolean> {
+    setPolicySaving(true);
+    setPolicyError(null);
+    const res = await requestJson<{ ok: boolean; message?: string }>("/api/customer/profile", {
+      method: "PATCH",
+      body: JSON.stringify({ acceptUploadPolicy: true }),
+    });
+    setPolicySaving(false);
+    if (!res.ok) {
+      setPolicyError(res.message ?? "Gagal menyetujui kebijakan upload.");
+      return false;
+    }
+    setUploadPolicyAccepted(true);
+    userCheckedRef.current = true;
+    setUploadPolicyModalOpened(false);
+    return true;
+  }
+
   return {
     catalog,
     selected,
@@ -821,5 +1021,14 @@ export function useGenerateStudio(props: {
     resultModalOpened,
     openResultModal: () => setResultModalOpened(true),
     closeResultModal: () => setResultModalOpened(false),
+    uploadPolicyAccepted,
+    uploadPolicyModalOpened,
+    setUploadPolicyModalOpened,
+    policySaving,
+    policyError,
+    acceptUploadPolicy,
+    spicyModeEnabled,
+    spicyFilter,
+    setSpicyFilter,
   };
 }

@@ -517,24 +517,25 @@ export function AdminInbox({
                     </div>
                   </Table.Td>
 
-                  <Table.Td className={classes.dateCell}>
+                  <Table.Td className={classes.dateCell} suppressHydrationWarning>
                     {activeTab === "kurasi" ? (
                       item.proofSubmittedAt ? formatDateId(item.proofSubmittedAt) : "-"
                     ) : (
                       <div>
-                        <Text size="xs">{item.createdAt ? formatDateId(item.createdAt) : "-"}</Text>
+                        <Text size="xs" suppressHydrationWarning>{item.createdAt ? formatDateId(item.createdAt) : "-"}</Text>
                         {isMidtrans && item.gatewayExpiredAt && isUnpaid && (
                           <Text
                             size="xs"
                             c={isGatewayExpired ? "red" : "dimmed"}
+                            suppressHydrationWarning
                           >
                             {isGatewayExpired
                               ? "Sesi kedaluwarsa"
-                              : `Sesi s/d: ${new Date(item.gatewayExpiredAt).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}`}
+                              : `Sesi s/d: ${formatDateId(item.gatewayExpiredAt)}`}
                           </Text>
                         )}
                         {isPaid && item.paidAt && (
-                          <Text size="xs" c="teal">
+                          <Text size="xs" c="teal" suppressHydrationWarning>
                             Lunas: {formatDateId(item.paidAt)}
                           </Text>
                         )}

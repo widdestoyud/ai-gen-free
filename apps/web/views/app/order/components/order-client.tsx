@@ -72,7 +72,7 @@ export function OrderClient(props: {
   const [search, setSearch] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const [gatewayEnabled, setGatewayEnabled] = useState(false);
+  const [gatewayEnabled, setGatewayEnabled] = useState(true);
   const [payingInvoiceId, setPayingInvoiceId] = useState<string | null>(null);
 
   // Snap Payment Modal state
@@ -86,18 +86,9 @@ export function OrderClient(props: {
   const [cancelingInvoice, setCancelingInvoice] = useState<Invoice | null>(null);
 
   const {
-    getPaymentMethods,
     error: paymentError,
     clearError: clearPaymentError,
   } = usePayment();
-
-  // Check if online payment gateway is enabled
-  useEffect(() => {
-    getPaymentMethods().then((methods) => {
-      const online = methods.find((m) => m.id === "midtrans" || m.id === "doku");
-      setGatewayEnabled(online?.enabled ?? false);
-    });
-  }, [getPaymentMethods]);
 
   const filteredInvoices = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -381,10 +372,10 @@ export function OrderClient(props: {
                       </Group>
                     </Table.Td>
 
-                    <Table.Td className={classes.dateCell}>
+                    <Table.Td className={classes.dateCell} suppressHydrationWarning>
                       {inv.createdAt ? formatDateId(inv.createdAt) : "-"}
                       {inv.paidAt && isPaid ? (
-                        <Text size="xs" c="teal">
+                        <Text size="xs" c="teal" suppressHydrationWarning>
                           Lunas: {formatDateId(inv.paidAt)}
                           {inv.gateway?.paymentChannel ? ` (${inv.gateway.paymentChannel})` : ""}
                         </Text>

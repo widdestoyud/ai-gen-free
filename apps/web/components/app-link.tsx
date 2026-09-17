@@ -8,10 +8,12 @@ export function AppLink({
   href,
   children,
   external,
+  prefetch = false,
 }: {
   href: string;
   children: ReactNode;
   external?: boolean;
+  prefetch?: boolean;
 }) {
   if (external) {
     return (
@@ -21,7 +23,7 @@ export function AppLink({
     );
   }
   return (
-    <Anchor component={Link} href={href}>
+    <Anchor component={Link} href={href} prefetch={prefetch}>
       {children}
     </Anchor>
   );
