@@ -35,6 +35,13 @@ test("known slugs map to catalog modelIds and modes", () => {
   assert.equal(resolveSirayGenerateSlug("seedance-2.0-i2v-spicy").defaultParams.resolution, "480");
   assert.equal(resolveSirayGenerateSlug("seedance-2.0-i2v-spicy").defaultParams.duration, 6);
   assert.equal(
+    resolveSirayGenerateSlug("seedance-2.5-i2v-spicy").modelId,
+    "bytedance/seedance-2.5-i2v-spicy",
+  );
+  assert.equal(resolveSirayGenerateSlug("seedance-2.5-i2v-spicy").mode, "i2v");
+  assert.equal(resolveSirayGenerateSlug("seedance-2.5-i2v-spicy").defaultParams.resolution, "480");
+  assert.equal(resolveSirayGenerateSlug("seedance-2.5-i2v-spicy").defaultParams.duration, 6);
+  assert.equal(
     resolveSirayGenerateSlug("wan-2.7-i2v-uncensored").modelId,
     "alibaba/wan-2.7-i2v-uncensored",
   );

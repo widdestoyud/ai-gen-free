@@ -10,6 +10,7 @@ const DISPLAY_FALLBACK: Record<string, string> = {
   "alibaba/qwen-image-3-edit-spicy": "Qwen Image 3 Edit Spicy",
   "bytedance/seedance-2.5-i2v": "Seedance 2.5 I2V",
   "bytedance/seedance-2.0-i2v-spicy": "Seedance 2.0 I2V Spicy",
+  "bytedance/seedance-2.5-i2v-spicy": "Seedance 2.5 I2V Spicy",
   "alibaba/wan-2.7-i2v-uncensored": "Wan 2.7 I2V Uncensored",
   "dummy-t2i": "Dummy",
 };

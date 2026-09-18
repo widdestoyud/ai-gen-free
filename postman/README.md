@@ -87,6 +87,7 @@ Jangan impor folder `postman/postman/` atau file `.yaml` hasil export app — it
 - `POST /generate/siray/qwen-image-3-edit-spicy`: Submit khusus model I2I Edit Spicy `alibaba/qwen-image-3-edit-spicy`.
 - `POST /generate/siray/seedance-2.5-i2v`: Submit khusus model I2V Normal `bytedance/seedance-2.5-i2v` (default duration: `6s`, resolution: `480`).
 - `POST /generate/siray/seedance-2.0-i2v-spicy`: Submit khusus model I2V Spicy `bytedance/seedance-2.0-i2v-spicy` (default duration: `6s`, resolution: `480`).
+- `POST /generate/siray/seedance-2.5-i2v-spicy`: Submit khusus model I2V Spicy 2.5 `bytedance/seedance-2.5-i2v-spicy` (default duration: `6s`, resolution: `480`).
 - `POST /generate/siray/wan-2.7-i2v-uncensored`: Submit khusus model I2V Uncensored `alibaba/wan-2.7-i2v-uncensored` (default duration: `6s`, resolution: `480`).
 - `GET /customer/generated-lists`: Menampilkan riwayat hasil generate AI pengguna.
 - `GET /customer/generated/:jobId`: Polling status pekerjaan generate tertentu.

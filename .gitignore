@@ -22,6 +22,7 @@ scratch/
 .turbo
 referensi
 logs
+destotoshokan
 
 # Postman: tepat 1 koleksi JSON + 1 environment JSON. Tolak dump nested dari app.
 postman/postman/

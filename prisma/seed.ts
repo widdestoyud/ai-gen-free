@@ -150,6 +150,26 @@ async function main() {
   });
 
   await prisma.modelCatalog.upsert({
+    where: { mode_modelId: { mode: "i2v", modelId: "bytedance/seedance-2.5-i2v-spicy" } },
+    update: {
+      displayName: "Seedance 2.5 I2V Spicy",
+      providerId: "siray",
+      costPoints: 10,
+      enabled: true,
+      isSpicy: true,
+    },
+    create: {
+      mode: "i2v",
+      modelId: "bytedance/seedance-2.5-i2v-spicy",
+      displayName: "Seedance 2.5 I2V Spicy",
+      providerId: "siray",
+      costPoints: 10,
+      enabled: true,
+      isSpicy: true,
+    },
+  });
+
+  await prisma.modelCatalog.upsert({
     where: { mode_modelId: { mode: "i2v", modelId: "alibaba/wan-2.7-i2v-uncensored" } },
     update: {
       displayName: "Wan 2.7 I2V Uncensored",

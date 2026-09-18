@@ -1420,6 +1420,53 @@
           "response": []
         },
         {
+          "name": "POST /generate/siray/seedance-2.5-i2v-spicy",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 202) {",
+                  "    var json = pm.response.json();",
+                  "    if (json.job_id) {",
+                  "        pm.environment.set(\"jobId\", json.job_id);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-session-token",
+                "value": "{{userSessionToken}}"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "idemp-siray-seedance-25-spicy-001"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"prompt\": \"Cinematic fluid camera movement around character with enhanced motion\",\n  \"image\": \"https://example.com/source-image.webp\",\n  \"duration\": \"6s\",\n  \"resolution\": \"480\",\n  \"aspect_ratio\": \"16:9\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/generate/siray/seedance-2.5-i2v-spicy",
+              "host": ["{{baseUrl}}"],
+              "path": ["generate", "siray", "seedance-2.5-i2v-spicy"]
+            },
+            "description": "Submit Seedance 2.5 I2V Spicy mode (bytedance/seedance-2.5-i2v-spicy). Memerlukan user dengan spicyModeEnabled=true. Default duration 6s, default resolution 480."
+          },
+          "response": []
+        },
+        {
           "name": "POST /generate/siray/wan-2.7-i2v-uncensored",
           "event": [
             {

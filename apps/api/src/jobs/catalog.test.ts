@@ -78,6 +78,7 @@ test("displayName fallback from map", () => {
   assert.equal(humanDisplayName("bytedance/seedream-5.0-pro-t2i-spicy", ""), "Seedream 5.0 Pro Spicy");
   assert.equal(humanDisplayName("bytedance/seedance-2.5-i2v", ""), "Seedance 2.5 I2V");
   assert.equal(humanDisplayName("bytedance/seedance-2.0-i2v-spicy", ""), "Seedance 2.0 I2V Spicy");
+  assert.equal(humanDisplayName("bytedance/seedance-2.5-i2v-spicy", ""), "Seedance 2.5 I2V Spicy");
   assert.equal(humanDisplayName("alibaba/wan-2.7-i2v-uncensored", ""), "Wan 2.7 I2V Uncensored");
   assert.equal(humanDisplayName("dummy-t2i", "Dummy"), "Dummy");
 });

@@ -435,6 +435,38 @@ test("submit bytedance/seedance-2.0-i2v-spicy defaults duration to 6 and resolut
   });
 });
 
+test("submit bytedance/seedance-2.5-i2v-spicy defaults duration to 6 and resolution to 480 and calls video endpoint", async () => {
+  const calls: { url: string; init?: RequestInit }[] = [];
+  const provider = new SirayProvider({
+    token: "secret",
+    fetch: async (url, init) => {
+      calls.push({ url: String(url), init });
+      return jsonResponse(200, { code: "success", data: { task_id: "seedance_25_spicy_task_1" } });
+    },
+  });
+  const handle = await provider.submit({
+    mode: "i2v",
+    modelId: "bytedance/seedance-2.5-i2v-spicy",
+    prompt: "karakter menari dengan efek dinamis",
+    params: {
+      image: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+      aspectRatio: "16:9",
+    },
+    inputFiles: [],
+  });
+  assert.equal(handle.providerJobId, "video:seedance_25_spicy_task_1");
+  assert.equal(calls[0]?.url, "https://api.siray.ai/v1/video/generations");
+  assert.deepEqual(JSON.parse(String(calls[0]?.init?.body)), {
+    model: "bytedance/seedance-2.5-i2v-spicy",
+    prompt: "karakter menari dengan efek dinamis",
+    image: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+    images: ["data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="],
+    duration: 6,
+    resolution: "480",
+    aspect_ratio: "16:9",
+  });
+});
+
 test("getStatus polls video endpoint when handle has video: prefix and extracts video_url", async () => {
   const calls: { url: string; init?: RequestInit }[] = [];
   const videoUrl = "https://api.siray.ai/redirect/video_123.mp4";

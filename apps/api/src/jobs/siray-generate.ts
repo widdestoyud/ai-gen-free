@@ -30,6 +30,11 @@ export const SIRAY_GENERATE_SLUGS: Record<string, { modelId: string; mode?: "t2i
     mode: "i2v",
     defaultParams: { resolution: "480", duration: 6 },
   },
+  "seedance-2.5-i2v-spicy": {
+    modelId: "bytedance/seedance-2.5-i2v-spicy",
+    mode: "i2v",
+    defaultParams: { resolution: "480", duration: 6 },
+  },
   "wan-2.7-i2v-uncensored": {
     modelId: "alibaba/wan-2.7-i2v-uncensored",
     mode: "i2v",

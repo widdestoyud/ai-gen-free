@@ -271,7 +271,7 @@ function mapWanAspectRatio(ratio?: string): string {
   return WAN_RATIO_MAP[ratio] ?? "16:9";
 }
 
-const DEFAULT_WAN_NEGATIVE_PROMPT = "Avoid extra limbs, deformed hands, fused bodies, face morphing, watermark, slow motion, low fps";
+const DEFAULT_WAN_NEGATIVE_PROMPT = "Avoid extra limbs, deformed hands, fused bodies, face morphing,  watermark";
 
 export function buildSiraySubmitPayload(input: CanonicalGenerateInput): Record<string, unknown> {
   const aspectRatio = typeof input.params.aspectRatio === "string" ? input.params.aspectRatio : undefined;
