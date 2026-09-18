@@ -14,9 +14,10 @@ Steering per-tool **menunjuk ke file ini**. Jangan mengarang aturan baru yang be
 4. `docs/adr/` — keputusan yang **sudah dikunci**
 5. `prisma/schema.prisma` — sumber kebenaran data
 6. `aidlc/README.md` — SDLC, orchestrator, PO/SA/BE/FE/QA
-7. `docs/github/milestones.md` — papan M0–M5
-8. `docs/catatan-risiko-hukum-platform.md` — batas produk, bukan nasihat hukum
-9. Scoped: `apps/web/AGENTS.md`, `apps/api/AGENTS.md` jika menyentuh folder itu
+7. `docs/strategy/business-strategy-references.md` & `docs/strategy/business-strategy-plan.md` — basis pengetahuan bisnis, marketing, sales & rencana strategi real
+8. `docs/github/milestones.md` — papan M0–M5
+9. `docs/catatan-risiko-hukum-platform.md` — batas produk, bukan nasihat hukum
+10. Scoped: `apps/web/AGENTS.md`, `apps/api/AGENTS.md` jika menyentuh folder itu
 
 Jangan mengarang ulang arsitektur. Jika ingin mengubah keputusan di `docs/adr/`, buat ADR baru yang mencabut yang lama. Jangan diam-diam menyimpang.
 

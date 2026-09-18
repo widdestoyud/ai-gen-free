@@ -12,6 +12,8 @@ Indeks untuk manusia dan agen AI. Baca `AGENTS.md` di root dulu.
 | [domain/jobs.md](./domain/jobs.md) | Antrian, cooldown, 1 job aktif |
 | [providers/generation-port.md](./providers/generation-port.md) | Kontrak provider + Siray |
 | [providers/storage-port.md](./providers/storage-port.md) | Port file: MinIO / S3 / R2 via parameter |
+| [strategy/business-strategy-references.md](./strategy/business-strategy-references.md) | Basis pengetahuan & referensi bisnis, marketing, sales dari destotoshokan |
+| [strategy/business-strategy-plan.md](./strategy/business-strategy-plan.md) | Rencana strategi bisnis real, GTM, pricing & unit economics |
 | [catatan-risiko-hukum-platform.md](./catatan-risiko-hukum-platform.md) | Risiko hukum platform (bukan nasihat hukum) |
 | [archify/](./archify/) | Diagram interaktif (buka HTML di browser) |
 | [archify/html/generate.workflow.html](./archify/html/generate.workflow.html) | Perjalanan generate: prompt sampai gambar |
