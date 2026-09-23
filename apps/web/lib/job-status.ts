@@ -14,6 +14,7 @@ const ERROR_COPY: Record<string, string> = {
   W004: "Terjadi kendala teknis saat memproses gambar Anda. Poin Anda aman dan tidak terpotong. Silakan coba beberapa saat lagi.",
   W005: "Server kami sedang mengalami antrean yang sangat padat. Poin Anda tetap aman. Silakan tunggu sejenak dan coba kembali.",
   W006: "Gambar berhasil dibuat tetapi terjadi kendala saat menyimpan berkas. Poin Anda telah dikembalikan sepenuhnya. Silakan coba lagi.",
+  W007: "Server GPU sedang mengalami antrian padat. Kredit Anda telah dikembalikan 100% otomatis. Silakan coba beberapa saat lagi.",
   PROVIDER_NOT_CONFIGURED: "Layanan pembuatan gambar sedang dalam persiapan sistem. Poin Anda tetap aman dan tidak berkurang.",
   PROVIDER_POLICY:
     "Maaf, prompt Anda belum dapat diproses karena mengandung konsep atau kata yang tidak sesuai dengan pedoman keamanan konten kami. Tenang, poin Anda tidak berkurang. Silakan sesuaikan pilihan kata pada prompt dan coba kembali.",
@@ -21,6 +22,7 @@ const ERROR_COPY: Record<string, string> = {
   PROVIDER_ERROR: "Terjadi kendala teknis saat memproses gambar Anda. Poin Anda aman dan tidak terpotong. Silakan coba beberapa saat lagi.",
   PROVIDER_UNAVAILABLE: "Server kami sedang mengalami antrean yang sangat padat. Poin Anda tetap aman. Silakan tunggu sejenak dan coba kembali.",
   OUTPUT_COPY_FAILED: "Gambar berhasil dibuat tetapi terjadi kendala saat menyimpan berkas. Poin Anda telah dikembalikan sepenuhnya. Silakan coba lagi.",
+  CIRCUIT_BREAKER_OPEN: "Server GPU sedang mengalami antrian padat. Kredit Anda telah dikembalikan 100% otomatis. Silakan coba beberapa saat lagi.",
 };
 
 export type JobOutputView = {
@@ -186,5 +188,19 @@ export function extractReferenceImages(params?: Record<string, unknown> | null, 
   }
 
   return results;
+}
+
+export function isJobVideo(job: JobView | { mode?: string | null; output?: { contentType?: string | null; url?: string | null } | null }): boolean {
+  const mode = job.mode?.toLowerCase() ?? "";
+  if (mode === "t2v" || mode === "i2v" || mode.includes("video")) return true;
+  const contentType = job.output?.contentType?.toLowerCase() ?? "";
+  if (contentType.startsWith("video/") || contentType.includes("mp4") || contentType.includes("webm")) return true;
+  const url = job.output?.url?.toLowerCase() ?? "";
+  if (url.endsWith(".mp4") || url.endsWith(".webm") || url.includes(".mp4?") || url.includes(".webm?")) return true;
+  return false;
+}
+
+export function isJobImage(job: JobView | { mode?: string | null; output?: { contentType?: string | null; url?: string | null } | null }): boolean {
+  return !isJobVideo(job);
 }
 

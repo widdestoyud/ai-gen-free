@@ -80,8 +80,8 @@ function isStorageFailure(blob: string, errorCode: string): boolean {
 }
 
 function isSirayFailure(blob: string, errorCode: string): boolean {
-  if (["W001", "W002", "W003", "W004", "W005"].includes(errorCode)) return true;
-  return /siray|provider_|output download|token bucket|task_id/.test(blob);
+  if (["W001", "W002", "W003", "W004", "W005", "W007"].includes(errorCode)) return true;
+  return /siray|provider_|output download|token bucket|task_id|circuit breaker/.test(blob);
 }
 
 function sirayMessage(errorCode: string, detail: string): string {
@@ -94,6 +94,8 @@ function sirayMessage(errorCode: string, detail: string): string {
       return `generate melebihi batas waktu. ${detail}`.trim();
     case "W005":
       return `jaringan/429/5xx, retry habis. ${detail}`.trim();
+    case "W007":
+      return `circuit breaker aktif (proteksi antrian padat). ${detail}`.trim();
     default:
       return detail || errorCode;
   }

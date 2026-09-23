@@ -7,6 +7,7 @@ export function AdminJobsPageView({
   jobs,
   q,
   status,
+  mode,
   userId,
   offset,
 }: {
@@ -14,6 +15,7 @@ export function AdminJobsPageView({
   jobs: AdminJobRow[];
   q: string;
   status: string;
+  mode: string;
   userId: string;
   offset: number;
 }) {
@@ -21,7 +23,14 @@ export function AdminJobsPageView({
 
   return (
     <AdminPageShell title="Daftar job">
-      <AdminJobsList jobs={jobs} q={q} status={status} userId={userId} offset={offset} />
+      <AdminJobsList
+        jobs={jobs}
+        q={q}
+        status={status}
+        mode={mode}
+        userId={userId}
+        offset={offset}
+      />
     </AdminPageShell>
   );
 }

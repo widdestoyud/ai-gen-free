@@ -9,42 +9,64 @@ import type { AdminModelItem, DefaultGenerationModelsConfig } from "../types";
 
 export function ModelDefaultsForm({
   initialConfig,
-  models,
+  models = [],
 }: {
   initialConfig: DefaultGenerationModelsConfig;
   models: AdminModelItem[];
 }) {
   const router = useRouter();
-  const [config, setConfig] = useState<DefaultGenerationModelsConfig>(initialConfig);
+  const [config, setConfig] = useState<DefaultGenerationModelsConfig>(() => initialConfig || {
+    normalT2iModelId: "openai/gpt-image-2-t2i",
+    normalI2iModelId: "openai/gpt-image-2-edit",
+    spicyT2iModelId: "bytedance/seedream-5.0-pro-t2i-spicy",
+    spicyI2iModelId: "alibaba/qwen-image-3-edit-spicy",
+    normalVideoModelId: "bytedance/seedance-2.5-i2v",
+    spicyVideoModelId: "bytedance/seedance-2.0-i2v-spicy",
+  });
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
   const [busy, setBusy] = useState(false);
 
-  // Filter video models (i2v / t2v)
-  const videoNormalOptions = models
-    .filter((m) => (m.mode === "i2v" || m.mode === "t2v") && !m.isSpicy && m.enabled)
-    .map((m) => ({ value: m.modelId, label: `${m.displayName || m.modelId} (${m.providerId} · ${m.costPoints} poin)` }));
+  function getUniqueOptions(items: AdminModelItem[]) {
+    const seen = new Set<string>();
+    const options: { value: string; label: string }[] = [];
+    for (const m of items) {
+      if (!seen.has(m.modelId)) {
+        seen.add(m.modelId);
+        options.push({
+          value: m.modelId,
+          label: `${m.isSpicy ? "🔥 " : ""}${m.displayName || m.modelId} (${m.providerId} · ${m.costPoints} poin)`,
+        });
+      }
+    }
+    return options;
+  }
 
-  const videoSpicyOptions = models
-    .filter((m) => (m.mode === "i2v" || m.mode === "t2v") && m.isSpicy && m.enabled)
-    .map((m) => ({ value: m.modelId, label: `🔥 ${m.displayName || m.modelId} (${m.providerId} · ${m.costPoints} poin)` }));
+  // Filter video models (i2v / t2v)
+  const videoNormalOptions = getUniqueOptions(
+    models.filter((m) => (m.mode === "i2v" || m.mode === "t2v") && !m.isSpicy && m.enabled)
+  );
+
+  const videoSpicyOptions = getUniqueOptions(
+    models.filter((m) => (m.mode === "i2v" || m.mode === "t2v") && m.isSpicy && m.enabled)
+  );
 
   // Filter image models (t2i / i2i)
-  const imageT2iNormalOptions = models
-    .filter((m) => m.mode === "t2i" && !m.isSpicy && m.enabled)
-    .map((m) => ({ value: m.modelId, label: `${m.displayName || m.modelId} (${m.providerId} · ${m.costPoints} poin)` }));
+  const imageT2iNormalOptions = getUniqueOptions(
+    models.filter((m) => m.mode === "t2i" && !m.isSpicy && m.enabled)
+  );
 
-  const imageI2iNormalOptions = models
-    .filter((m) => m.mode === "i2i" && !m.isSpicy && m.enabled)
-    .map((m) => ({ value: m.modelId, label: `${m.displayName || m.modelId} (${m.providerId} · ${m.costPoints} poin)` }));
+  const imageI2iNormalOptions = getUniqueOptions(
+    models.filter((m) => m.mode === "i2i" && !m.isSpicy && m.enabled)
+  );
 
-  const imageT2iSpicyOptions = models
-    .filter((m) => m.mode === "t2i" && m.isSpicy && m.enabled)
-    .map((m) => ({ value: m.modelId, label: `🔥 ${m.displayName || m.modelId} (${m.providerId} · ${m.costPoints} poin)` }));
+  const imageT2iSpicyOptions = getUniqueOptions(
+    models.filter((m) => m.mode === "t2i" && m.isSpicy && m.enabled)
+  );
 
-  const imageI2iSpicyOptions = models
-    .filter((m) => m.mode === "i2i" && m.isSpicy && m.enabled)
-    .map((m) => ({ value: m.modelId, label: `🔥 ${m.displayName || m.modelId} (${m.providerId} · ${m.costPoints} poin)` }));
+  const imageI2iSpicyOptions = getUniqueOptions(
+    models.filter((m) => m.mode === "i2i" && m.isSpicy && m.enabled)
+  );
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();

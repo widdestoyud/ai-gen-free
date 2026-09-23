@@ -17,6 +17,7 @@ import {
   signedRefreshDelayMs,
   type JobView,
 } from "@/lib/job-status";
+import { getProgressMessage } from "@/lib/progress-messages";
 
 export function JobClient({ initial }: { initial: JobView }) {
   const [job, setJob] = useState(initial);
@@ -89,8 +90,11 @@ export function JobClient({ initial }: { initial: JobView }) {
           {job.status === "queued" && job.queuePosition != null ? (
             <Text>Posisi antrean: {job.queuePosition}</Text>
           ) : null}
-          <Progress value={job.progressPct} mt="sm" />
-          <Text mt="sm">Boleh refresh. Job tetap jalan di server.</Text>
+          <Progress value={job.progressPct} mt="sm" animated color="violet" />
+          <Text mt="xs" size="sm" c="violet">
+            ✨ {getProgressMessage(job.progressPct, 0)}
+          </Text>
+          <Text mt="xs" size="xs" c="dimmed">Boleh refresh. Job tetap jalan di server.</Text>
         </>
       ) : null}
       {job.status === "succeeded" ? (

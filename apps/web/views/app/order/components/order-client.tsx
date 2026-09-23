@@ -21,6 +21,8 @@ import { useState, useMemo, useCallback, useEffect } from "react";
 import { EmptyState } from "@/components/empty-state";
 import { ErrorAlert } from "@/components/error-alert";
 import { SnapPaymentModal } from "@/components/snap-payment-modal";
+import { PackageCard } from "@/components/package-card";
+import { buildPlanFromPackage } from "@/lib/pricing-packages";
 import { requestJson } from "@/lib/api";
 import { formatDateId, formatIdr } from "@/lib/format";
 import { usePayment } from "@/hooks/use-payment";
@@ -211,54 +213,26 @@ export function OrderClient(props: {
         </Text>
       )}
 
-      <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing="md" className={classes.packagesGrid}>
-        {props.packages.map((p) => {
-          const hasDiscount = Boolean(p.originalAmountIdr && p.originalAmountIdr > p.amountIdr);
+      <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing="lg" className={classes.packagesGrid}>
+        {props.packages.map((pkg, idx) => {
+          const plan = buildPlanFromPackage(pkg, idx, props.packages.length);
           return (
-            <Card key={p.id} withBorder padding="lg" radius="md" className={classes.packageCard}>
-              <Group justify="space-between" align="flex-start" mb="xs">
-                <Text fw={600} size="lg">
-                  {p.name || p.label}
-                </Text>
-                {p.badgeText ? (
-                  <Badge color="red" variant="filled" size="sm">
-                    {p.badgeText}
-                  </Badge>
-                ) : null}
-              </Group>
-
-              {p.description ? (
-                <Text size="xs" c="dimmed" mb="xs">
-                  {p.description}
-                </Text>
-              ) : null}
-
-              <Group gap="xs" align="baseline" mt="xs">
-                <Text size="xl" fw={700} c="blue">
-                  {formatIdr(p.amountIdr)}
-                </Text>
-                {hasDiscount && (
-                  <Text size="sm" c="dimmed" td="line-through">
-                    {formatIdr(p.originalAmountIdr!)}
-                  </Text>
-                )}
-              </Group>
-
-              <Text size="sm" c="dimmed" mb="md" mt={4}>
-                Dapatkan <strong>+{p.points} Poin</strong> Generate
-              </Text>
-
-              <Button
-                type="button"
-                variant="filled"
-                color="blue"
-                fullWidth
-                disabled={busy}
-                onClick={() => void buy(p.id)}
-              >
-                Pesan Paket
-              </Button>
-            </Card>
+            <PackageCard
+              key={plan.id}
+              id={plan.id}
+              name={plan.name}
+              label={plan.label}
+              badgeText={plan.badgeText}
+              description={plan.description}
+              price={plan.price}
+              originalPrice={plan.originalPrice}
+              points={plan.points}
+              popular={plan.popular}
+              perks={plan.perks}
+              buttonLabel={`Pesan ${plan.name}`}
+              disabled={busy}
+              onSelect={(id) => void buy(id)}
+            />
           );
         })}
       </SimpleGrid>
@@ -364,7 +338,7 @@ export function OrderClient(props: {
                         </Badge>
                         {isRejected && inv.reviewNote ? (
                           <Tooltip label={`Alasan tolak: ${inv.reviewNote}`} withArrow>
-                            <Text size="xs" c="red" td="underline" style={{ cursor: "pointer" }}>
+                            <Text size="xs" c="red" td="underline" className={classes.pointerText}>
                               Lihat alasan
                             </Text>
                           </Tooltip>

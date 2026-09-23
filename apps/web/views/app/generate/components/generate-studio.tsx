@@ -14,8 +14,9 @@ import type { Model, DefaultGenerationModelsConfig } from "../types";
 import { GenerateAspectMenu } from "./generate-aspect-menu";
 import { GenerateLibraryModal } from "./generate-library-modal";
 import { GenerateResultModal } from "./generate-result-modal";
+import { GenerateSettingsModal } from "./generate-settings-modal";
 import { GenerateSkeleton } from "./generate-skeleton";
-import { CloseIcon, ImageIcon, SparkleIcon, VideoIcon } from "./generate-icons";
+import { CloseIcon, GearIcon, ImageIcon, SparkleIcon, VideoIcon } from "./generate-icons";
 import { GenerateDurationMenu, GenerateResolutionMenu } from "./generate-video-menu";
 import classes from "./generate-studio.module.css";
 
@@ -73,10 +74,13 @@ export function GenerateStudio(props: {
   nextGenerateAt: string | null;
   initialUploads?: StudioUpload[];
   initialUploadsTotal?: number;
+  initialSpicyModeEnabled?: boolean;
+  initialUploadPolicyAccepted?: boolean;
 }) {
   const ctrl = useGenerateStudio(props);
   const lastJob = ctrl.lastGeneratedJob;
   const [previewRef, setPreviewRef] = useState<StudioRef | null>(null);
+  const [settingsModalOpened, setSettingsModalOpened] = useState(false);
   const backdropRef = useRef<HTMLDivElement>(null);
 
   return (
@@ -234,11 +238,99 @@ export function GenerateStudio(props: {
                 classNames={{ input: classes.textarea }}
               />
             </div>
-            <Group justify="space-between" mt="sm" wrap="wrap" gap="xs">
-              <Group gap="xs" align="center">
-                <ActionIcon type="button" variant="subtle" size="lg" onClick={ctrl.openLibrary} aria-label="Tambah gambar">
-                  +
-                </ActionIcon>
+            {/* Desktop Controls Row */}
+            <div className={classes.desktopControlsRow}>
+              <Group justify="space-between" mt="sm" wrap="wrap" gap="xs">
+                <Group gap="xs" align="center">
+                  <ActionIcon type="button" variant="subtle" size="lg" onClick={ctrl.openLibrary} aria-label="Tambah gambar">
+                    +
+                  </ActionIcon>
+                  <div className={classes.pillSegment}>
+                    <button
+                      type="button"
+                      className={`${classes.pillBtn} ${ctrl.mediaType === "image" ? classes.pillBtnActive : classes.pillBtnIconOnly}`}
+                      onClick={() => ctrl.setMediaType("image")}
+                      aria-label="Mode Image"
+                    >
+                      <ImageIcon size={15} />
+                      {ctrl.mediaType === "image" ? <span>Image</span> : null}
+                    </button>
+                    <button
+                      type="button"
+                      className={`${classes.pillBtn} ${ctrl.mediaType === "video" ? classes.pillBtnActive : classes.pillBtnIconOnly}`}
+                      onClick={() => ctrl.setMediaType("video")}
+                      aria-label="Mode Video"
+                    >
+                      <VideoIcon size={15} />
+                      {ctrl.mediaType === "video" ? <span>Video</span> : null}
+                    </button>
+                  </div>
+
+                  {ctrl.spicyModeEnabled ? (
+                    <div className={classes.pillSegment}>
+                      <button
+                        type="button"
+                        className={`${classes.pillBtn} ${ctrl.spicyFilter === "normal" ? classes.pillBtnActive : ""}`}
+                        onClick={() => ctrl.setSpicyFilter("normal")}
+                        aria-label="Filter Standard Models"
+                      >
+                        <span>Standard</span>
+                      </button>
+                      <button
+                        type="button"
+                        className={`${classes.pillBtn} ${ctrl.spicyFilter === "spicy" ? classes.pillBtnSpicyActive : ""}`}
+                        onClick={() => ctrl.setSpicyFilter("spicy")}
+                        aria-label="Filter Spicy Models"
+                      >
+                        <span>Spicy</span>
+                      </button>
+                    </div>
+                  ) : null}
+                </Group>
+
+                <Group gap="xs" align="center">
+                  {ctrl.mediaType === "video" ? (
+                    <>
+                      <GenerateResolutionMenu
+                        value={ctrl.videoResolution}
+                        onChange={ctrl.setVideoResolution}
+                      />
+                      <GenerateDurationMenu
+                        value={ctrl.videoDuration}
+                        onChange={ctrl.setVideoDuration}
+                      />
+                    </>
+                  ) : null}
+
+                  <GenerateAspectMenu
+                    value={ctrl.aspectRatio}
+                    preview={ctrl.aspectMeta.preview}
+                    onChange={ctrl.setAspectRatio}
+                  />
+
+                  <Text size="sm" c="dimmed" fw={500}>
+                    {props.available} poin
+                  </Text>
+
+                  <button
+                    type="submit"
+                    className={classes.fancyGenerateBtn}
+                    disabled={!ctrl.canSend}
+                    aria-label="Generate"
+                  >
+                    <span>Generate</span>
+                    <span className={classes.generatePointBadge}>
+                      <SparkleIcon size={13} />
+                      <span>{ctrl.estimatedCost}</span>
+                    </span>
+                  </button>
+                </Group>
+              </Group>
+            </div>
+
+            {/* Mobile / Tablet Controls Row (Sesuai Referensi) */}
+            <div className={classes.mobileControlsRow}>
+              <div className={classes.mobileTopRow}>
                 <div className={classes.pillSegment}>
                   <button
                     type="button"
@@ -260,66 +352,33 @@ export function GenerateStudio(props: {
                   </button>
                 </div>
 
-                {ctrl.spicyModeEnabled ? (
-                  <div className={classes.pillSegment}>
-                    <button
-                      type="button"
-                      className={`${classes.pillBtn} ${ctrl.spicyFilter === "normal" ? classes.pillBtnActive : ""}`}
-                      onClick={() => ctrl.setSpicyFilter("normal")}
-                      aria-label="Filter Standard Models"
-                    >
-                      <span>Standard</span>
-                    </button>
-                    <button
-                      type="button"
-                      className={`${classes.pillBtn} ${ctrl.spicyFilter === "spicy" ? classes.pillBtnSpicyActive : ""}`}
-                      onClick={() => ctrl.setSpicyFilter("spicy")}
-                      aria-label="Filter Spicy Models"
-                    >
-                      <span>Spicy</span>
-                    </button>
-                  </div>
-                ) : null}
-              </Group>
-
-              <Group gap="xs" align="center">
-                {ctrl.mediaType === "video" ? (
-                  <>
-                    <GenerateResolutionMenu
-                      value={ctrl.videoResolution}
-                      onChange={ctrl.setVideoResolution}
-                    />
-                    <GenerateDurationMenu
-                      value={ctrl.videoDuration}
-                      onChange={ctrl.setVideoDuration}
-                    />
-                  </>
-                ) : null}
-
-                <GenerateAspectMenu
-                  value={ctrl.aspectRatio}
-                  preview={ctrl.aspectMeta.preview}
-                  onChange={ctrl.setAspectRatio}
-                />
-
-                <Text size="sm" c="dimmed" fw={500}>
-                  {props.available} poin
-                </Text>
-
                 <button
-                  type="submit"
-                  className={classes.fancyGenerateBtn}
-                  disabled={!ctrl.canSend}
-                  aria-label="Generate"
+                  type="button"
+                  className={classes.mobileGearBtn}
+                  onClick={() => setSettingsModalOpened(true)}
+                  aria-label="Pengaturan Studio"
                 >
-                  <span>Generate</span>
-                  <span className={classes.generatePointBadge}>
-                    <SparkleIcon size={13} />
-                    <span>{ctrl.estimatedCost}</span>
-                  </span>
+                  <GearIcon size={18} />
                 </button>
-              </Group>
-            </Group>
+              </div>
+
+              <button
+                type="submit"
+                className={classes.mobileGenerateBtn}
+                disabled={!ctrl.canSend}
+                aria-label="Generate"
+              >
+                <span>Generate</span>
+                <span className={classes.generatePointBadge}>
+                  <SparkleIcon size={13} />
+                  <span>{ctrl.estimatedCost}</span>
+                </span>
+              </button>
+
+              <Text size="xs" c="dimmed" ta="center" mt={4} fw={500}>
+                {props.available} poin
+              </Text>
+            </div>
           </Paper>
         </form>
         {!ctrl.selected ? <EmptyState>Tidak ada model t2i aktif.</EmptyState> : null}
@@ -332,6 +391,23 @@ export function GenerateStudio(props: {
         multiple
         className={classes.hiddenInput}
         onChange={ctrl.onFiles}
+      />
+
+      <GenerateSettingsModal
+        opened={settingsModalOpened}
+        onClose={() => setSettingsModalOpened(false)}
+        mediaType={ctrl.mediaType}
+        spicyModeEnabled={ctrl.spicyModeEnabled}
+        spicyFilter={ctrl.spicyFilter}
+        onSpicyFilterChange={ctrl.setSpicyFilter}
+        aspectRatio={ctrl.aspectRatio}
+        onAspectRatioChange={ctrl.setAspectRatio}
+        videoResolution={ctrl.videoResolution}
+        onVideoResolutionChange={ctrl.setVideoResolution}
+        videoDuration={ctrl.videoDuration}
+        onVideoDurationChange={ctrl.setVideoDuration}
+        selectedRefs={ctrl.selectedRefs}
+        onOpenLibrary={ctrl.openLibrary}
       />
 
       <GenerateLibraryModal

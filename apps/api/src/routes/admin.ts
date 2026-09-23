@@ -7,6 +7,7 @@ import {
   parseAdjustBody,
   parseCooldownSecondsValue,
   parseIdempotencyKey,
+  parseJobMode,
   parseJobStatus,
   parseLimitOffset,
   parseOptionalQueryString,
@@ -281,6 +282,7 @@ export async function registerAdminRoutes(app: FastifyInstance, deps: { storage:
     try {
       const query = req.query as {
         status?: unknown;
+        mode?: unknown;
         userId?: unknown;
         q?: unknown;
         limit?: unknown;
@@ -290,6 +292,7 @@ export async function registerAdminRoutes(app: FastifyInstance, deps: { storage:
       return {
         jobs: await listAdminJobs({
           status: parseJobStatus(query.status),
+          mode: parseJobMode(query.mode),
           userId: parseOptionalQueryString(query.userId),
           q: parseOptionalQueryString(query.q),
           ...page,
@@ -426,14 +429,25 @@ export async function registerAdminRoutes(app: FastifyInstance, deps: { storage:
     try {
       const params = (req.params ?? {}) as Record<string, string>;
       const modelCatalogId = params["*"] || params.modelCatalogId || params.id;
-      const body = (req.body ?? {}) as { costPoints?: unknown; displayName?: unknown; enabled?: unknown; isSpicy?: unknown };
+      const body = (req.body ?? {}) as {
+        costPoints?: unknown;
+        videoConfigPoints?: unknown;
+        displayName?: unknown;
+        enabled?: unknown;
+        isSpicy?: unknown;
+      };
       const costPoints = typeof body.costPoints === "number" ? body.costPoints : undefined;
+      const videoConfigPoints =
+        body.videoConfigPoints !== undefined
+          ? (body.videoConfigPoints as Record<string, number> | null)
+          : undefined;
       const displayName = typeof body.displayName === "string" ? body.displayName : undefined;
       const enabled = typeof body.enabled === "boolean" ? body.enabled : undefined;
       const isSpicy = typeof body.isSpicy === "boolean" ? body.isSpicy : undefined;
       return await updateAdminModel({
         id: modelCatalogId,
         costPoints,
+        videoConfigPoints,
         displayName,
         enabled,
         isSpicy,

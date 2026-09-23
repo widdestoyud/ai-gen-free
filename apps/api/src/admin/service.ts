@@ -353,6 +353,7 @@ function serializeAdminModel(row: {
   displayName: string;
   providerId: string;
   costPoints: { toString(): string } | number;
+  videoConfigPoints?: Prisma.JsonValue | null;
   enabled: boolean;
   isSpicy: boolean;
   createdAt: Date;
@@ -364,6 +365,7 @@ function serializeAdminModel(row: {
     displayName: row.displayName,
     providerId: row.providerId,
     costPoints: Number(row.costPoints),
+    videoConfigPoints: (row.videoConfigPoints as Record<string, number>) ?? null,
     enabled: row.enabled,
     isSpicy: row.isSpicy,
     createdAt: row.createdAt.toISOString(),
@@ -391,6 +393,7 @@ export async function listAdminModelsByProvider(provider: string) {
 export async function updateAdminModel(opts: {
   id: string;
   costPoints?: number;
+  videoConfigPoints?: Record<string, number> | null;
   displayName?: string;
   enabled?: boolean;
   isSpicy?: boolean;
@@ -416,11 +419,27 @@ export async function updateAdminModel(opts: {
 
   const modelRecordId = model.id;
 
+  // Sanitize videoConfigPoints if provided
+  let sanitizedVideoConfig: Record<string, number> | null | undefined = undefined;
+  if (opts.videoConfigPoints !== undefined) {
+    if (opts.videoConfigPoints === null) {
+      sanitizedVideoConfig = null;
+    } else if (typeof opts.videoConfigPoints === "object") {
+      sanitizedVideoConfig = {};
+      for (const [key, val] of Object.entries(opts.videoConfigPoints)) {
+        if (typeof val === "number" && !isNaN(val) && val >= 0) {
+          sanitizedVideoConfig[key] = Math.round(val);
+        }
+      }
+    }
+  }
+
   const updated = await prisma.$transaction(async (tx) => {
     const res = await tx.modelCatalog.update({
       where: { id: modelRecordId },
       data: {
         ...(typeof opts.costPoints === "number" ? { costPoints: opts.costPoints } : {}),
+        ...(sanitizedVideoConfig !== undefined ? { videoConfigPoints: sanitizedVideoConfig as Prisma.InputJsonValue } : {}),
         ...(typeof opts.displayName === "string" ? { displayName: opts.displayName.trim() } : {}),
         ...(typeof opts.enabled === "boolean" ? { enabled: opts.enabled } : {}),
         ...(typeof opts.isSpicy === "boolean" ? { isSpicy: opts.isSpicy } : {}),
@@ -434,8 +453,20 @@ export async function updateAdminModel(opts: {
         ip: opts.ip,
         meta: {
           modelId: model.modelId,
-          from: { costPoints: Number(model.costPoints), enabled: model.enabled, displayName: model.displayName, isSpicy: model.isSpicy },
-          to: { costPoints: Number(res.costPoints), enabled: res.enabled, displayName: res.displayName, isSpicy: res.isSpicy },
+          from: {
+            costPoints: Number(model.costPoints),
+            videoConfigPoints: model.videoConfigPoints,
+            enabled: model.enabled,
+            displayName: model.displayName,
+            isSpicy: model.isSpicy,
+          },
+          to: {
+            costPoints: Number(res.costPoints),
+            videoConfigPoints: res.videoConfigPoints,
+            enabled: res.enabled,
+            displayName: res.displayName,
+            isSpicy: res.isSpicy,
+          },
         },
       },
     });
@@ -451,6 +482,7 @@ export async function updateAdminModel(opts: {
     displayName: updated.displayName,
     providerId: updated.providerId,
     costPoints: Number(updated.costPoints),
+    videoConfigPoints: (updated.videoConfigPoints as Record<string, number>) ?? null,
     enabled: updated.enabled,
     isSpicy: updated.isSpicy,
     createdAt: updated.createdAt.toISOString(),

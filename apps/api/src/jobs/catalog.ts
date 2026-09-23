@@ -21,12 +21,72 @@ function asInt(value: { toString(): string } | number): number {
   return typeof value === "number" ? value : Number(value);
 }
 
+export type VideoConfigPoints = {
+  "6s_480p"?: number;
+  "6s_720p"?: number;
+  "6s_1080p"?: number;
+  "10s_480p"?: number;
+  "10s_720p"?: number;
+  "10s_1080p"?: number;
+  "15s_480p"?: number;
+  "15s_720p"?: number;
+  "15s_1080p"?: number;
+  [key: string]: number | undefined;
+};
+
+export const DEFAULT_VIDEO_CONFIG_POINTS: Record<string, number> = {
+  "6s_480p": 100,
+  "6s_720p": 210,
+  "6s_1080p": 500,
+  "10s_480p": 155,
+  "10s_720p": 345,
+  "10s_1080p": 820,
+  "15s_480p": 235,
+  "15s_720p": 510,
+  "15s_1080p": 1230,
+};
+
+export function normalizeVideoConfigKey(durationRaw: unknown, resolutionRaw: unknown): string {
+  let dur = "6s";
+  if (typeof durationRaw === "number") dur = `${durationRaw}s`;
+  else if (typeof durationRaw === "string") {
+    const d = durationRaw.trim().toLowerCase();
+    dur = d.endsWith("s") ? d : `${d}s`;
+  }
+
+  let res = "480p";
+  if (typeof resolutionRaw === "number") res = `${resolutionRaw}p`;
+  else if (typeof resolutionRaw === "string") {
+    const r = resolutionRaw.trim().toLowerCase();
+    res = r.endsWith("p") ? r : `${r}p`;
+  }
+
+  return `${dur}_${res}`;
+}
+
+export function resolveVideoPointCost(
+  durationRaw: unknown,
+  resolutionRaw: unknown,
+  customConfig?: VideoConfigPoints | null,
+  fallbackCost = 100,
+): number {
+  const key = normalizeVideoConfigKey(durationRaw, resolutionRaw);
+  if (customConfig && typeof customConfig[key] === "number" && (customConfig[key] as number) > 0) {
+    return Number(customConfig[key]);
+  }
+  if (typeof DEFAULT_VIDEO_CONFIG_POINTS[key] === "number") {
+    return DEFAULT_VIDEO_CONFIG_POINTS[key]!;
+  }
+  return fallbackCost > 0 ? fallbackCost : 100;
+}
+
 export type CatalogRow = {
   mode: JobMode;
   modelId: string;
   displayName: string;
   providerId: string;
   costPoints: number;
+  videoConfigPoints?: VideoConfigPoints | null;
   isSpicy: boolean;
 };
 
@@ -41,15 +101,16 @@ export function pickEnabledModel(rows: CatalogRow[], modeRaw: unknown, modelIdRa
     throw new AppError(ErrorCodes.VALIDATION_ERROR, "Mode ini belum tersedia");
   }
   const mode = modeRaw as JobMode;
-  const forMode = rows.filter((row) => row.mode === mode);
+  const isVideo = mode === "t2v" || mode === "i2v";
+  const forMode = rows.filter((row) => row.mode === mode || (isVideo && (row.mode === "t2v" || row.mode === "i2v")));
   if (typeof modelIdRaw === "string" && modelIdRaw.trim()) {
     const found = forMode.find((row) => row.modelId === modelIdRaw.trim());
     if (!found) {
       throw new AppError(ErrorCodes.VALIDATION_ERROR, "Model tidak tersedia");
     }
-    return found;
+    return { ...found, mode };
   }
-  if (forMode.length === 1) return forMode[0]!;
+  if (forMode.length === 1) return { ...forMode[0]!, mode };
   if (forMode.length === 0) {
     throw new AppError(ErrorCodes.VALIDATION_ERROR, "Tidak ada model aktif untuk mode ini");
   }
@@ -67,6 +128,7 @@ export async function listEnabledModels() {
     displayName: humanDisplayName(row.modelId, row.displayName),
     providerId: row.providerId,
     costPoints: asInt(row.costPoints),
+    videoConfigPoints: (row.videoConfigPoints as VideoConfigPoints) ?? null,
     isSpicy: Boolean(row.isSpicy),
   }));
 }
@@ -76,10 +138,17 @@ export async function resolveModel(modeRaw: unknown, modelIdRaw: unknown) {
     throw new AppError(ErrorCodes.VALIDATION_ERROR, "Mode ini belum tersedia");
   }
   const mode = modeRaw as JobMode;
-  const rows = await prisma.modelCatalog.findMany({
+  let rows = await prisma.modelCatalog.findMany({
     where: { mode, enabled: true },
     orderBy: { createdAt: "asc" },
   });
+  if (rows.length === 0 && (mode === "t2v" || mode === "i2v")) {
+    const altMode: JobMode = mode === "t2v" ? "i2v" : "t2v";
+    rows = await prisma.modelCatalog.findMany({
+      where: { mode: altMode, enabled: true },
+      orderBy: { createdAt: "asc" },
+    });
+  }
   return pickEnabledModel(
     rows.map((row) => ({
       mode: row.mode,
@@ -87,6 +156,7 @@ export async function resolveModel(modeRaw: unknown, modelIdRaw: unknown) {
       displayName: humanDisplayName(row.modelId, row.displayName),
       providerId: row.providerId,
       costPoints: asInt(row.costPoints),
+      videoConfigPoints: (row.videoConfigPoints as VideoConfigPoints) ?? null,
       isSpicy: Boolean(row.isSpicy),
     })),
     modeRaw,

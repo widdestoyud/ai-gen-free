@@ -9,8 +9,8 @@ echo [1/3] Status container saat ini:
 docker compose ps
 
 echo.
-echo [2/3] Melakukan build image terbaru (api, web, worker, migrate)...
-docker compose build api web worker migrate
+echo [2/3] Melakukan build image terbaru (api, web, worker, migrate, telemetry)...
+docker compose build api web worker migrate telemetry
 if %ERRORLEVEL% neq 0 (
   echo Build docker gagal.
   exit /b %ERRORLEVEL%
@@ -31,5 +31,6 @@ docker compose ps
 
 echo.
 echo === Pembaruan Docker selesai! ===
-echo Web UI   : http://localhost:3000
-echo API      : http://localhost:4000/api/health
+echo Web UI    : http://localhost:3000
+echo API       : http://localhost:4000/api/health
+echo Telemetry : http://localhost:5050

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+  CircuitBreaker,
   JobErrorCodes,
   RetryableProviderError,
   TerminalProviderError,
@@ -10,7 +11,12 @@ import {
 } from "@ai-gen-free/core";
 import { MemoryObjectStorage } from "@ai-gen-free/storage";
 import { DummyProvider, PNG_1X1 } from "./dummy.js";
-import { processGenerateJob, type GenerateJobRecord, type GenerateJobStore } from "./process-job.js";
+import {
+  processGenerateJob,
+  resolveJobTimeoutMs,
+  type GenerateJobRecord,
+  type GenerateJobStore,
+} from "./process-job.js";
 
 function baseJob(over: Partial<GenerateJobRecord> = {}): GenerateJobRecord {
   return {
@@ -721,5 +727,128 @@ test("publishes progress and success events to Redis Pub/Sub", async () => {
   assert.equal(event3.status, "succeeded");
   assert.equal(event3.progressPct, 100);
   assert.ok(event3.output?.url);
+});
+
+test("resolveJobTimeoutMs resolves 90s for image and 240s for video", () => {
+  assert.equal(resolveJobTimeoutMs("t2i"), 90_000);
+  assert.equal(resolveJobTimeoutMs("i2i"), 90_000);
+  assert.equal(resolveJobTimeoutMs("t2v"), 240_000);
+  assert.equal(resolveJobTimeoutMs("i2v"), 240_000);
+  assert.equal(resolveJobTimeoutMs("t2i", 45_000), 45_000);
+});
+
+test("fast-fails in 0s with W007 and releases hold when CircuitBreaker is OPEN", async () => {
+  const cb = new CircuitBreaker({ providerId: "siray", failureThreshold: 1, cooldownMs: 60_000 });
+  await cb.recordFailure("forced failure to trip");
+
+  let submitCalled = false;
+  const mockProvider: GenerationProvider = {
+    id: "siray",
+    capabilities: ["t2i"],
+    async submit() {
+      submitCalled = true;
+      return { providerId: "siray", providerJobId: "task-1" };
+    },
+    async getStatus() {
+      return { state: "succeeded" };
+    },
+  };
+
+  let releasedAmount = 0;
+  const store = memoryStore(baseJob({ mode: "t2i", cost: 25 }));
+  const storage = new MemoryObjectStorage();
+
+  await processGenerateJob({
+    jobId: "job1",
+    providers: new Map([["siray", mockProvider]]),
+    storage,
+    store,
+    circuitBreaker: cb,
+    wallet: {
+      async captureJob() {
+        return {};
+      },
+      async releaseJob({ amount }) {
+        releasedAmount = amount;
+        return {};
+      },
+    },
+  });
+
+  assert.equal(submitCalled, false, "Provider must NOT be called when circuit breaker is OPEN");
+  assert.equal(store.job.status, "failed");
+  assert.equal((store.job as any).errorCode, JobErrorCodes.CIRCUIT_BREAKER_OPEN);
+  assert.equal(releasedAmount, 25, "Hold credit must be released 100% immediately");
+});
+
+test("3 consecutive provider failures trip CircuitBreaker to OPEN and next job fast-fails", async () => {
+  const cb = new CircuitBreaker({ providerId: "siray", failureThreshold: 3, cooldownMs: 60_000 });
+
+  const failingProvider: GenerationProvider = {
+    id: "siray",
+    capabilities: ["t2i"],
+    async submit() {
+      throw new TerminalProviderError(JobErrorCodes.PROVIDER_TIMEOUT, "Siray gateway timed out");
+    },
+    async getStatus() {
+      return { state: "failed" };
+    },
+  };
+
+  const storage = new MemoryObjectStorage();
+
+  // Run 3 failing jobs
+  for (let i = 1; i <= 3; i++) {
+    const s = memoryStore(baseJob({ id: `job-${i}`, cost: 10 }));
+    await processGenerateJob({
+      jobId: `job-${i}`,
+      providers: new Map([["siray", failingProvider]]),
+      storage,
+      store: s,
+      circuitBreaker: cb,
+      wallet: {
+        async captureJob() { return {}; },
+        async releaseJob() { return {}; },
+      },
+    });
+    assert.equal(s.job.status, "failed");
+  }
+
+  const state = await cb.getState();
+  assert.equal(state.state, "OPEN");
+  assert.equal(state.consecutiveFailures, 3);
+
+  // 4th job should fast-fail before touching provider
+  let submitAttempted = false;
+  const probeProvider: GenerationProvider = {
+    id: "siray",
+    capabilities: ["t2i"],
+    async submit() {
+      submitAttempted = true;
+      return { providerId: "siray", providerJobId: "p-4" };
+    },
+    async getStatus() {
+      return { state: "succeeded" };
+    },
+  };
+
+  const store4 = memoryStore(baseJob({ id: "job-4", cost: 15 }));
+  let releasedAmount4 = 0;
+  await processGenerateJob({
+    jobId: "job-4",
+    providers: new Map([["siray", probeProvider]]),
+    storage,
+    store: store4,
+    circuitBreaker: cb,
+    wallet: {
+      async captureJob() { return {}; },
+      async releaseJob({ amount }) { releasedAmount4 = amount; return {}; },
+    },
+  });
+
+  assert.equal(submitAttempted, false, "Must fast-fail without calling provider");
+  assert.equal(store4.job.status, "failed");
+  assert.equal((store4.job as any).errorCode, JobErrorCodes.CIRCUIT_BREAKER_OPEN);
+  assert.equal(releasedAmount4, 15);
 });
 

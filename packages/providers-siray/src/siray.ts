@@ -271,7 +271,8 @@ function mapWanAspectRatio(ratio?: string): string {
   return WAN_RATIO_MAP[ratio] ?? "16:9";
 }
 
-const DEFAULT_WAN_NEGATIVE_PROMPT = "Avoid extra limbs, deformed hands, fused bodies, face morphing,  watermark";
+const DEFAULT_WAN_NEGATIVE_PROMPT = "deformed hands, fused bodies, face morphing, watermark, extra limbs, extra legs, extra arms, extra fingers, poorly drawn hands, deformed anatomy, mutilated, disfigured, malformed limbs, fused fingers, floating limbs, disconnected limbs, mutation, blurred, ugly, bad proportions, distorted face, cloned face, unnatural body pose";
+
 
 export function buildSiraySubmitPayload(input: CanonicalGenerateInput): Record<string, unknown> {
   const aspectRatio = typeof input.params.aspectRatio === "string" ? input.params.aspectRatio : undefined;
@@ -339,6 +340,15 @@ export function buildSiraySubmitPayload(input: CanonicalGenerateInput): Record<s
     payload.mask = input.params.mask;
   }
 
+  const audioEnable =
+    typeof input.params.audio_enable === "boolean"
+      ? input.params.audio_enable
+      : typeof input.params.audioEnable === "boolean"
+        ? input.params.audioEnable
+        : isVideoInput(input)
+          ? true
+          : undefined;
+
   if (isWan(input.modelId)) {
     payload.duration = duration ?? 6;
     const rawRes = resolution ?? size ?? "480";
@@ -352,15 +362,26 @@ export function buildSiraySubmitPayload(input: CanonicalGenerateInput): Record<s
           : DEFAULT_WAN_NEGATIVE_PROMPT;
     payload.negative_prompt = negativePrompt;
     if (seed !== undefined) payload.seed = seed;
+    payload.audio_enable = audioEnable ?? true;
     return payload;
   }
+
+function mapSeedanceAspectRatio(ratio?: string): string {
+  if (!ratio) return "16:9";
+  const r = ratio.trim();
+  if (r === "3:2") return "16:9";
+  if (r === "2:3") return "9:16";
+  const allowed = new Set(["16:9", "4:3", "1:1", "3:4", "9:16", "21:9", "adaptive"]);
+  return allowed.has(r) ? r : "16:9";
+}
 
   if (isSeedance(input.modelId)) {
     payload.duration = duration ?? 6;
     const rawRes = resolution ?? size ?? "480";
     payload.resolution = rawRes.replace(/p$/i, "");
-    if (aspectRatio) payload.aspect_ratio = aspectRatio;
+    if (aspectRatio) payload.aspect_ratio = mapSeedanceAspectRatio(aspectRatio);
     if (seed !== undefined) payload.seed = seed;
+    payload.audio_enable = audioEnable ?? true;
     return payload;
   }
 

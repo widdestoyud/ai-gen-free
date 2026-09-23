@@ -5,6 +5,7 @@ import {
   isTerminalProviderError,
   type Capability,
   type GenerationProvider,
+  type ICircuitBreaker,
   type ObjectStorage,
   type ProviderHandle,
 } from "@ai-gen-free/core";
@@ -17,8 +18,17 @@ import { classifyJobFailure, formatFailureLog, formatFailureNote } from "./failu
 import { appendSirayJobNote, rememberSirayTaskId } from "./siray-file-log.js";
 
 const RETENTION_MS = 14 * 24 * 60 * 60 * 1000;
-const IMAGE_TIMEOUT_MS = 5 * 60 * 1000;
+export const DEFAULT_IMAGE_TIMEOUT_MS = Number(process.env.IMAGE_JOB_TIMEOUT_MS ?? 90_000);
+export const DEFAULT_VIDEO_TIMEOUT_MS = Number(process.env.VIDEO_JOB_TIMEOUT_MS ?? 240_000);
 const POLL_INTERVAL_MS = 4_000;
+
+export function resolveJobTimeoutMs(mode: string, explicitTimeoutMs?: number): number {
+  if (typeof explicitTimeoutMs === "number" && explicitTimeoutMs > 0) {
+    return explicitTimeoutMs;
+  }
+  const isVideo = mode === "i2v" || mode === "t2v";
+  return isVideo ? DEFAULT_VIDEO_TIMEOUT_MS : DEFAULT_IMAGE_TIMEOUT_MS;
+}
 
 export type GenerateJobRecord = {
   id: string;
@@ -69,6 +79,7 @@ export type ProcessGenerateJobOpts = {
   store: GenerateJobStore;
   wallet?: WalletPort;
   redis?: { publish: (channel: string, message: string) => Promise<unknown> };
+  circuitBreaker?: ICircuitBreaker;
   now?: () => Date;
   sleep?: (ms: number) => Promise<void>;
   fetchBytes?: (url: string) => Promise<FetchedBytes>;
@@ -88,12 +99,13 @@ export async function processGenerateJob(opts: ProcessGenerateJobOpts): Promise<
   const fetchBytes = opts.fetchBytes ?? ((url) => fetchOutputBytes(url));
   const optimizeImage = opts.optimizeImage ?? ((input) => optimizeOutputImage(input));
   const pollIntervalMs = opts.pollIntervalMs ?? POLL_INTERVAL_MS;
-  const timeoutMs = opts.timeoutMs ?? IMAGE_TIMEOUT_MS;
   const chaosPauseAfterSuccessMs =
     opts.chaosPauseAfterSuccessMs ?? Number(process.env.CHAOS_PAUSE_AFTER_SUCCESS_MS ?? 0);
 
   const job = await opts.store.get(opts.jobId);
   if (!job || TERMINAL.has(job.status)) return;
+
+  const timeoutMs = resolveJobTimeoutMs(job.mode, opts.timeoutMs);
 
   const provider = opts.providers.get(job.providerId);
   if (!provider) {
@@ -108,10 +120,29 @@ export async function processGenerateJob(opts: ProcessGenerateJobOpts): Promise<
   const running = (await opts.store.get(job.id)) ?? job;
   const startedAt = running.startedAt ?? now();
 
+  if (running.startedAt && now().getTime() - running.startedAt.getTime() > timeoutMs) {
+    await failJob(running, JobErrorCodes.PROVIDER_TIMEOUT, opts, wallet, now, {
+      sourceHint: "siray",
+      err: new Error(`Generate job timed out after ${Math.round((now().getTime() - running.startedAt.getTime()) / 1000)}s`),
+    });
+    return;
+  }
+
   let providerJobId = running.providerJobId;
   if (providerJobId) rememberSirayTaskId(providerJobId);
   try {
     if (!providerJobId) {
+      if (opts.circuitBreaker) {
+        const check = await opts.circuitBreaker.canExecute();
+        if (!check.allowed) {
+          await failJob(running, JobErrorCodes.CIRCUIT_BREAKER_OPEN, opts, wallet, now, {
+            sourceHint: "siray",
+            err: new Error(check.reason ?? "Server GPU sedang mengalami antrian padat. Kredit Anda telah dikembalikan 100% otomatis."),
+          });
+          return;
+        }
+      }
+
       try {
         await opts.storage.put({
           key: "healthcheck/ping.txt",
@@ -211,14 +242,19 @@ export async function processGenerateJob(opts: ProcessGenerateJobOpts): Promise<
       return;
     }
     if (isRetryableProviderError(err) || isNetworkLike(err)) {
-      if (opts.lastAttempt) {
+      const isPastTimeout = running.startedAt && now().getTime() - running.startedAt.getTime() >= timeoutMs;
+      if (opts.lastAttempt || isPastTimeout) {
         if (shouldDeferCopy(running, err)) {
           await deferCopy(running, err);
           return;
         }
         await failJob(
           running,
-          isOutputCopyError(err) ? JobErrorCodes.OUTPUT_COPY_FAILED : JobErrorCodes.PROVIDER_UNAVAILABLE,
+          isOutputCopyError(err)
+            ? JobErrorCodes.OUTPUT_COPY_FAILED
+            : isPastTimeout
+              ? JobErrorCodes.PROVIDER_TIMEOUT
+              : JobErrorCodes.PROVIDER_UNAVAILABLE,
           opts,
           wallet,
           now,
@@ -324,6 +360,11 @@ async function completeSuccess(
       );
     } catch {}
   }
+  if (opts.circuitBreaker) {
+    const started = job.startedAt ? job.startedAt.getTime() : now().getTime();
+    const elapsedMs = Math.max(0, now().getTime() - started);
+    await opts.circuitBreaker.recordSuccess(elapsedMs);
+  }
   console.log(JSON.stringify({ event: "job.completed", jobId: job.id, status: "succeeded" }));
   await appendSirayJobNote(`RESULT=succeeded jobId=${job.id}`);
 }
@@ -342,6 +383,17 @@ async function failJob(
   if (extra?.sourceHint && classified.source !== extra.sourceHint && !extra.err) {
     classified.source = extra.sourceHint;
   }
+  if (opts.circuitBreaker) {
+    if (errorCode !== JobErrorCodes.PROVIDER_POLICY && errorCode !== JobErrorCodes.CIRCUIT_BREAKER_OPEN) {
+      const started = job.startedAt ? job.startedAt.getTime() : now().getTime();
+      const elapsedMs = Math.max(0, now().getTime() - started);
+      await opts.circuitBreaker.recordFailure(errorCode, elapsedMs);
+    }
+  }
+  const errorMessage =
+    errorCode === JobErrorCodes.CIRCUIT_BREAKER_OPEN
+      ? "Server GPU sedang mengalami antrian padat. Kredit Anda telah dikembalikan 100% otomatis. Silakan coba beberapa saat lagi."
+      : classified.message;
   if (opts.redis) {
     try {
       await opts.redis.publish(
@@ -350,7 +402,7 @@ async function failJob(
           jobId: job.id,
           status: "failed",
           errorCode,
-          errorMessage: classified.message,
+          errorMessage,
         }),
       );
     } catch {}

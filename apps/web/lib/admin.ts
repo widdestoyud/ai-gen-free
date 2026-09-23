@@ -1,6 +1,6 @@
 import type { JobView } from "./job-status";
 
-export const ADMIN_PAGE_SIZE = 50;
+export const ADMIN_PAGE_SIZE = 20;
 export const GENERATE_COOLDOWN_DEFAULT = 43200;
 export const GENERATE_COOLDOWN_MAX = 2_592_000;
 

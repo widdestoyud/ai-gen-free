@@ -1,6 +1,7 @@
 "use client";
 
-import { Button, Modal, PasswordInput, Stack, Text, TextInput } from "@mantine/core";
+import { Anchor, Button, Checkbox, Modal, PasswordInput, Stack, Text, TextInput } from "@mantine/core";
+import Link from "next/link";
 import { FormEvent } from "react";
 import { ErrorAlert } from "@/components/error-alert";
 
@@ -11,6 +12,8 @@ export function RegisterModal({
   password,
   onEmailChange,
   onPasswordChange,
+  termsAccepted,
+  onTermsAcceptedChange,
   success,
   error,
   errorCode,
@@ -24,6 +27,8 @@ export function RegisterModal({
   password: string;
   onEmailChange: (value: string) => void;
   onPasswordChange: (value: string) => void;
+  termsAccepted: boolean;
+  onTermsAcceptedChange: (value: boolean) => void;
   success?: string | null;
   error?: string | null;
   errorCode?: string | null;
@@ -32,7 +37,7 @@ export function RegisterModal({
   onSubmit: (e: FormEvent) => void;
 }) {
   return (
-    <Modal opened={opened} onClose={onClose} title="Daftar" centered size="xs">
+    <Modal opened={opened} onClose={onClose} title="Daftar Akun" centered size="sm">
       <form onSubmit={onSubmit}>
         <Stack gap="sm">
           <TextInput
@@ -50,9 +55,44 @@ export function RegisterModal({
             value={password}
             onChange={(ev) => onPasswordChange(ev.currentTarget.value)}
           />
-          {success ? <Text c="green">{success}</Text> : null}
+
+          <Checkbox
+            checked={termsAccepted}
+            onChange={(ev) => onTermsAcceptedChange(ev.currentTarget.checked)}
+            label={
+              <Text size="xs" c="gray.3">
+                Saya berusia 18+ dan menyetujui{" "}
+                <Anchor
+                  component={Link}
+                  href="/terms"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  size="xs"
+                  c="blue.4"
+                  underline="hover"
+                >
+                  Ketentuan
+                </Anchor>{" "}
+                &amp;{" "}
+                <Anchor
+                  component={Link}
+                  href="/privacy"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  size="xs"
+                  c="blue.4"
+                  underline="hover"
+                >
+                  Kebijakan Privasi
+                </Anchor>
+              </Text>
+            }
+          />
+
+          {success ? <Text c="green" size="xs">{success}</Text> : null}
           <ErrorAlert message={error} code={errorCode} transactionId={transactionId} />
-          <Button type="submit" disabled={pending} fullWidth>
+
+          <Button type="submit" disabled={pending || !termsAccepted} fullWidth>
             {pending ? "Mendaftar…" : "Daftar"}
           </Button>
         </Stack>

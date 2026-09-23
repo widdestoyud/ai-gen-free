@@ -9,6 +9,7 @@ import {
   parseAdjustBody,
   parseCooldownSecondsValue,
   parseIdempotencyKey,
+  parseJobMode,
   parseJobStatus,
   parseLimitOffset,
   parseProviderParam,
@@ -19,10 +20,25 @@ function isValidation(err: unknown): boolean {
 }
 
 test("parseLimitOffset defaults and caps", () => {
-  assert.deepEqual(parseLimitOffset({}), { limit: 50, offset: 0 });
+  assert.deepEqual(parseLimitOffset({}), { limit: 20, offset: 0 });
   assert.deepEqual(parseLimitOffset({ limit: "10", offset: "2" }), { limit: 10, offset: 2 });
   assert.throws(() => parseLimitOffset({ limit: 101 }), isValidation);
   assert.throws(() => parseLimitOffset({ offset: -1 }), isValidation);
+});
+
+test("parseJobStatus and parseJobMode handle values and all", () => {
+  assert.equal(parseJobStatus("succeeded"), "succeeded");
+  assert.equal(parseJobStatus("all"), undefined);
+  assert.equal(parseJobStatus(""), undefined);
+  assert.equal(parseJobStatus(undefined), undefined);
+  assert.throws(() => parseJobStatus("invalid-status"), isValidation);
+
+  assert.equal(parseJobMode("t2i"), "t2i");
+  assert.equal(parseJobMode("i2v"), "i2v");
+  assert.equal(parseJobMode("all"), undefined);
+  assert.equal(parseJobMode(""), undefined);
+  assert.equal(parseJobMode(undefined), undefined);
+  assert.throws(() => parseJobMode("invalid-mode"), isValidation);
 });
 
 test("parseCooldownSecondsValue rejects string and out of range", () => {

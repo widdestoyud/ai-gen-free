@@ -109,3 +109,30 @@ export async function loadLibrary() {
     return null;
   }
 }
+
+export type PublicPackage = {
+  id: string;
+  name: string;
+  label: string;
+  description?: string | null;
+  amountIdr: number;
+  originalAmountIdr?: number | null;
+  points: number;
+  active?: boolean;
+  sortOrder?: number;
+  badgeText?: string | null;
+};
+
+export async function loadPublicPackages(): Promise<PublicPackage[]> {
+  try {
+    const res = await fetch(`${apiBase()}/customer/packages`, {
+      cache: "no-store",
+    });
+    if (!res.ok) return [];
+    const json = (await res.json()) as { packages?: PublicPackage[] };
+    return Array.isArray(json.packages) ? json.packages : [];
+  } catch {
+    return [];
+  }
+}
+

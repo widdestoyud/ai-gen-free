@@ -7,6 +7,7 @@ export function useRegister() {
   const [opened, setOpened] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [termsAccepted, setTermsAccepted] = useState(false);
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
   const [errorCode, setErrorCode] = useState("");
@@ -18,12 +19,14 @@ export function useRegister() {
     setErrorCode("");
     setTransactionId("");
     setSuccess("");
+    setTermsAccepted(false);
     setOpened(true);
   }
 
   function closeRegister() {
     setOpened(false);
     setPassword("");
+    setTermsAccepted(false);
   }
 
   async function submitRegister(e: FormEvent) {
@@ -32,6 +35,12 @@ export function useRegister() {
     setErrorCode("");
     setTransactionId("");
     setSuccess("");
+
+    if (!termsAccepted) {
+      setError("Anda harus berusia 18+ dan menyetujui Ketentuan & Kebijakan Privasi.");
+      return;
+    }
+
     setPending(true);
 
     const result = await requestJson<{ ok?: boolean; message?: string }>("/api/register", {
@@ -60,6 +69,8 @@ export function useRegister() {
     setEmail,
     password,
     setPassword,
+    termsAccepted,
+    setTermsAccepted,
     success,
     error,
     errorCode,

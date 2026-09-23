@@ -16,6 +16,7 @@ const ADMIN_NAV = [
   { href: "/admin/settings", label: "Cooldown", matchExact: false },
   { href: "/admin/users", label: "User", matchExact: false },
   { href: "/admin/jobs", label: "Job", matchExact: false },
+  { href: "http://localhost:5050", label: "Telemetry Log ↗", matchExact: false, external: true },
   { href: "/admin/audit", label: "Audit", matchExact: false },
 ];
 
@@ -60,9 +61,11 @@ export function AdminWorkspace({ children }: { children: ReactNode }) {
                   key={item.href}
                   component={Link}
                   href={item.href}
+                  target={item.external ? "_blank" : undefined}
+                  rel={item.external ? "noreferrer" : undefined}
                   prefetch={false}
                   label={item.label}
-                  active={isNavActive(item.href, item.matchExact)}
+                  active={!item.external && isNavActive(item.href, item.matchExact)}
                   className={classes.nav}
                 />
               ))}

@@ -54,4 +54,24 @@ export {
   type UploadRateLimitRule,
   type AllowedUploadMimeType,
 } from "./config/upload.config.js";
-
+export {
+  type LogLevel,
+  type LogService,
+  type StructuredLogEvent,
+  redactSensitiveData,
+  formatStructuredLog,
+} from "./logging.js";
+export {
+  CircuitBreaker,
+  type CircuitBreakerState,
+  type CircuitBreakerConfig,
+  type CircuitBreakerData,
+  type MinimalRedisClient,
+  type ICircuitBreaker,
+} from "./circuit-breaker.js";
+export {
+  PROGRESS_MESSAGES,
+  getProgressStageKey,
+  getProgressMessage,
+  type ProgressStageKey,
+} from "./progress-messages.js";

@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
-import { loadCustomerProfile } from "@/lib/server-api";
+import { loadCustomerProfile, loadPublicPackages } from "@/lib/server-api";
 import { LandingPageView } from "@/views/landing";
 
 export const dynamic = "force-dynamic";
@@ -14,5 +14,8 @@ export default async function HomePage() {
     }
   }
 
-  return <LandingPageView />;
+  const packages = await loadPublicPackages();
+
+  return <LandingPageView packages={packages} />;
 }
+

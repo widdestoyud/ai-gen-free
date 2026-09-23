@@ -6,6 +6,7 @@ import { remainingSeconds, resolveUploadUrl } from "@/lib/format";
 import {
   hasLiveOutput,
   isJobActive,
+  isJobImage,
   jobErrorMessage,
   signedRefreshDelayMs,
   type JobsListView,
@@ -98,7 +99,12 @@ function pickInitialModel(
       : (mode === "i2i" ? (defaults?.normalI2iModelId || DEFAULT_I2I_MODEL_ID) : (defaults?.normalT2iModelId || DEFAULT_T2I_MODEL_ID));
   }
   const preferred = catalog.find((m) => m.modelId === defaultId);
-  return (preferred ?? catalog.find((m) => m.mode === mode) ?? catalog[0])!.modelId;
+  const isVideo = mode === "i2v" || mode === "t2v";
+  return (
+    preferred ??
+    catalog.find((m) => m.mode === mode || (isVideo && (m.mode === "t2v" || m.mode === "i2v"))) ??
+    catalog[0]
+  )!.modelId;
 }
 
 function filterModels(models: Model[], mode: "t2i" | "i2i" | "t2v" | "i2v", spicyFilter: "normal" | "spicy" = "normal"): Model[] {
@@ -110,8 +116,19 @@ function filterModels(models: Model[], mode: "t2i" | "i2i" | "t2v" | "i2v", spic
     const nonSpicy = models.filter((m) => !m.isSpicy);
     if (nonSpicy.length > 0) list = nonSpicy;
   }
-  const forMode = list.filter((m) => m.mode === mode);
-  if (forMode.length > 0) return forMode;
+  const isVideo = mode === "t2v" || mode === "i2v";
+  const forMode = list.filter((m) => m.mode === mode || (isVideo && (m.mode === "t2v" || m.mode === "i2v")));
+  if (forMode.length > 0) {
+    const seen = new Set<string>();
+    const result: Model[] = [];
+    for (const m of forMode) {
+      if (!seen.has(m.modelId)) {
+        seen.add(m.modelId);
+        result.push(m);
+      }
+    }
+    return result;
+  }
   return list;
 }
 
@@ -134,11 +151,13 @@ export function useGenerateStudio(props: {
   nextGenerateAt: string | null;
   initialUploads?: StudioUpload[];
   initialUploadsTotal?: number;
+  initialSpicyModeEnabled?: boolean;
+  initialUploadPolicyAccepted?: boolean;
 }) {
   const [models, setModels] = useState<Model[]>(() => props.models ?? []);
   const [defaults, setDefaults] = useState<Partial<DefaultGenerationModelsConfig> | undefined>(() => props.defaults);
   const [mediaType, setMediaType] = useState<"image" | "video">("image");
-  const [spicyModeEnabled, setSpicyModeEnabled] = useState(false);
+  const [spicyModeEnabled, setSpicyModeEnabled] = useState(() => props.initialSpicyModeEnabled ?? false);
   const [spicyFilter, setSpicyFilter] = useState<"normal" | "spicy">("normal");
   const [selectedRefs, setSelectedRefs] = useState<StudioRef[]>([]);
   const hasImageRefs = selectedRefs.length > 0;
@@ -170,7 +189,7 @@ export function useGenerateStudio(props: {
   const fileRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [resultModalOpened, setResultModalOpened] = useState(false);
-  const [uploadPolicyAccepted, setUploadPolicyAccepted] = useState(false);
+  const [uploadPolicyAccepted, setUploadPolicyAccepted] = useState(() => props.initialUploadPolicyAccepted ?? false);
   const [uploadPolicyModalOpened, setUploadPolicyModalOpened] = useState(false);
   const [policySaving, setPolicySaving] = useState(false);
   const [policyError, setPolicyError] = useState<string | null>(null);
@@ -184,6 +203,18 @@ export function useGenerateStudio(props: {
   useEffect(() => {
     if (props.defaults) setDefaults(props.defaults);
   }, [props.defaults]);
+
+  useEffect(() => {
+    if (typeof props.initialSpicyModeEnabled === "boolean") {
+      setSpicyModeEnabled(props.initialSpicyModeEnabled);
+    }
+  }, [props.initialSpicyModeEnabled]);
+
+  useEffect(() => {
+    if (typeof props.initialUploadPolicyAccepted === "boolean") {
+      setUploadPolicyAccepted(props.initialUploadPolicyAccepted);
+    }
+  }, [props.initialUploadPolicyAccepted]);
 
   // Sync catalog & defaults real-time on client mount and focus
   useEffect(() => {
@@ -204,8 +235,35 @@ export function useGenerateStudio(props: {
     };
   }, []);
 
+  // Sync user status (spicyModeEnabled, upload policy, etc.) on client mount and focus
+  useEffect(() => {
+    let active = true;
+    async function syncUserStatus() {
+      const res = await requestJson<{
+        user: {
+          uploadPolicyAcceptedAt: string | null;
+          hasUploads?: boolean;
+          nextGenerateAt: string | null;
+          spicyModeEnabled?: boolean;
+        };
+      }>("/api/me");
+      if (active && res.ok && res.data?.user) {
+        userCheckedRef.current = true;
+        setUploadPolicyAccepted(Boolean(res.data.user.uploadPolicyAcceptedAt));
+        setSpicyModeEnabled(Boolean(res.data.user.spicyModeEnabled));
+      }
+    }
+    void syncUserStatus();
+    const onFocus = () => void syncUserStatus();
+    window.addEventListener("focus", onFocus);
+    return () => {
+      active = false;
+      window.removeEventListener("focus", onFocus);
+    };
+  }, []);
+
   async function checkUserStatus() {
-    if (userCheckedRef.current) return { accepted: uploadPolicyAccepted };
+    if (userCheckedRef.current) return { accepted: uploadPolicyAccepted, spicyModeEnabled };
     const res = await requestJson<{
       user: {
         uploadPolicyAcceptedAt: string | null;
@@ -217,14 +275,13 @@ export function useGenerateStudio(props: {
     if (!res.ok || !res.data?.user) return null;
     userCheckedRef.current = true;
     const accepted = Boolean(res.data.user.uploadPolicyAcceptedAt);
+    const spicyEnabled = Boolean(res.data.user.spicyModeEnabled);
     setUploadPolicyAccepted(accepted);
-    if (res.data.user.spicyModeEnabled) {
-      setSpicyModeEnabled(true);
-    }
+    setSpicyModeEnabled(spicyEnabled);
     return {
       accepted,
       hasUploads: res.data.user.hasUploads,
-      spicyModeEnabled: res.data.user.spicyModeEnabled,
+      spicyModeEnabled: spicyEnabled,
     };
   }
   const [lastGeneratedJob, setLastGeneratedJob] = useState<JobView | null>(null);
@@ -251,7 +308,7 @@ export function useGenerateStudio(props: {
     catalog[0];
   const active = activeJob ?? jobs.find((j) => isJobActive(j.status));
   const isGenerating = busy || Boolean(activeJobId) || Boolean(active);
-  const gallery = jobs.filter((j) => j.status === "succeeded" && hasLiveOutput(j.output));
+  const gallery = jobs.filter((j) => j.status === "succeeded" && hasLiveOutput(j.output) && isJobImage(j));
   const cooldownLeft = remainingSeconds(cooldownUntil, now);
   const waiting = errorCode === "JOB_IN_PROGRESS" || errorCode === "COOLDOWN";
   const signedKey = jobs
@@ -315,12 +372,28 @@ export function useGenerateStudio(props: {
 
   const estimatedCost = useMemo(() => {
     if (mediaType === "video") {
-      if (videoDuration === "15s") return 12;
-      if (videoDuration === "10s") return 8;
-      return 5;
+      const key = `${videoDuration}_${videoResolution}`;
+      if (selected?.videoConfigPoints && typeof selected.videoConfigPoints[key] === "number") {
+        return Number(selected.videoConfigPoints[key]);
+      }
+      const DEFAULT_VIDEO_PRICING: Record<string, number> = {
+        "6s_480p": 100,
+        "6s_720p": 210,
+        "6s_1080p": 500,
+        "10s_480p": 155,
+        "10s_720p": 345,
+        "10s_1080p": 820,
+        "15s_480p": 235,
+        "15s_720p": 510,
+        "15s_1080p": 1230,
+      };
+      if (typeof DEFAULT_VIDEO_PRICING[key] === "number") {
+        return DEFAULT_VIDEO_PRICING[key];
+      }
+      return selected?.costPoints ?? 100;
     }
-    return selected?.costPoints ?? 1;
-  }, [mediaType, videoDuration, selected]);
+    return selected?.costPoints ?? 10;
+  }, [mediaType, videoDuration, videoResolution, selected]);
 
   const isUploadingRefs = selectedRefs.some((r) => r.uploading);
   const canSend =

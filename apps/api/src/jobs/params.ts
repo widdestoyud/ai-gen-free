@@ -44,6 +44,8 @@ export function parseGenerateParams(raw: unknown, providerId: string): Prisma.In
   if (typeof input.resolution === "string" || typeof input.resolution === "number") params.resolution = String(input.resolution);
   if (typeof input.negative_prompt === "string") params.negative_prompt = input.negative_prompt;
   if (typeof input.negativePrompt === "string") params.negative_prompt = input.negativePrompt;
+  if (typeof input.audio_enable === "boolean") params.audio_enable = input.audio_enable;
+  if (typeof input.audioEnable === "boolean") params.audio_enable = input.audioEnable;
 
   if (providerId === "dummy" && input.fail === true) {
     params.fail = true;

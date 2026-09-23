@@ -43,6 +43,8 @@ export function LandingAuth() {
         password={register.password}
         onEmailChange={register.setEmail}
         onPasswordChange={register.setPassword}
+        termsAccepted={register.termsAccepted}
+        onTermsAcceptedChange={register.setTermsAccepted}
         success={register.success}
         error={register.error}
         errorCode={register.errorCode}

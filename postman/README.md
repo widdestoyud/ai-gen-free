@@ -93,4 +93,18 @@ Jangan impor folder `postman/postman/` atau file `.yaml` hasil export app — it
 - `GET /customer/generated/:jobId`: Polling status pekerjaan generate tertentu.
 - `GET /customer/generated/:jobId/file`: Mengambil URL unduhan/berkas media hasil generate.
 
+### 11. Telemetry & Log Observability (`apps/telemetry` Port 5050)
+Aplikasi server & dashboard mandiri berbasis Splunk-style tracing & Redis Observability di `http://localhost:5050`:
+- `GET /`: Dashboard Web UI interaktif dengan tab navigasi:
+  - **Logs & Tracing (Splunk-style)**: Dark mode, date range filter, input tracing (transactionId, jobId, userId), histogram log volume harian, dan viewer JSON detail.
+  - **Redis & BullMQ Monitor**: Visualisasi memori, throughput ops/detik, keyspace hit ratio, BullMQ queues visualizer (`generate` dan `retention`), serta keyspace category distribution explorer.
+- `GET /api/logs`: Endpoint query log terstruktur dengan filter rentang tanggal, level (`info`, `warn`, `error`), service (`api`, `worker`, `siray`, `storage`), `transactionId`, `jobId`, `userId`, dan fulltext search `q`.
+- `GET /api/stats`: Endpoint statistik total log, error count, warning count, dan time-bucketed histogram.
+- `POST /api/ingest`: Ingest log event baru dari microservice lain.
+- `GET /health`: Health check service telemetry mandiri.
+- `GET /api/redis/info`: Kesehatan Redis, memori, ops/detik, hit ratio, dan connected clients.
+- `GET /api/redis/queues`: Status BullMQ queues (`generate`, `retention`), counts (waiting, active, completed, failed, delayed), dan sample jobs.
+- `GET /api/redis/keys`: Ringkasan distribusi kategori keyspace Redis (BullMQ, ratelimit, session, wallet, cooldown) dan sampel keys dengan TTL dan tipe data.
+- `GET /api/redis/summary`: Mengambil seluruh data telemetry Redis (server, queues, keyspace) dalam 1 panggilan API efisien.
+
 

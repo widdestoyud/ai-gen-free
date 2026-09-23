@@ -51,7 +51,7 @@ export async function registerJobRoutes(
   deps: { storage: ObjectStorage; queue: Queue; redis?: IORedis },
 ) {
   const enqueueGenerate = async (jobId: string) => {
-    await deps.queue.add("generate", { jobId }, { jobId, attempts: 10, backoff: { type: "custom" } });
+    await deps.queue.add("generate", { jobId }, { jobId, attempts: 3, backoff: { type: "custom" } });
   };
 
   app.post("/generate/siray/:modelSlug", async (req, reply) => {
@@ -103,7 +103,6 @@ export async function registerJobRoutes(
           modelId?: unknown;
           prompt?: unknown;
           params?: unknown;
-          cost?: unknown;
           providerId?: unknown;
         },
         enqueue: enqueueGenerate,

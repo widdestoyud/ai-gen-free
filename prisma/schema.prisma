@@ -276,15 +276,16 @@ model AppSetting {
 }
 
 model ModelCatalog {
-  id          String   @id @default(cuid())
-  mode        JobMode
-  modelId     String
-  displayName String   @default("")
-  providerId  String
-  costPoints  Decimal  @db.Decimal(20, 0)
-  enabled     Boolean  @default(true)
-  isSpicy     Boolean  @default(false)
-  createdAt   DateTime @default(now())
+  id                String   @id @default(cuid())
+  mode              JobMode
+  modelId           String
+  displayName       String   @default("")
+  providerId        String
+  costPoints        Decimal  @db.Decimal(20, 0)
+  videoConfigPoints Json?
+  enabled           Boolean  @default(true)
+  isSpicy           Boolean  @default(false)
+  createdAt         DateTime @default(now())
 
   @@unique([mode, modelId])
 }
@@ -337,4 +338,30 @@ model TopupPackage {
   updatedAt         DateTime @updatedAt
 
   @@index([active, sortOrder])
+}
+
+model SystemLog {
+  id            String   @id @default(cuid())
+  timestamp     DateTime @default(now())
+  level         String   /// "debug" | "info" | "warn" | "error" | "fatal"
+  service       String   /// "api" | "worker" | "web" | "siray" | "storage"
+  event         String   /// e.g. "provider.request", "job.failed", "http.error", etc.
+  message       String   @db.Text
+  transactionId String?  /// Tracing / Correlation ID (tx-...)
+  userId        String?
+  jobId         String?
+  durationMs    Float?
+  httpMethod    String?
+  httpPath      String?
+  httpStatus    Int?
+  error         Json?
+  context       Json?
+  createdAt     DateTime @default(now())
+
+  @@index([timestamp])
+  @@index([level, timestamp])
+  @@index([service, timestamp])
+  @@index([transactionId])
+  @@index([userId])
+  @@index([jobId])
 }

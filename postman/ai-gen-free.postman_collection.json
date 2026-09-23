@@ -1921,7 +1921,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"costPoints\": 15,\n  \"enabled\": true,\n  \"displayName\": \"GPT Image 2\"\n}"
+              "raw": "{\n  \"costPoints\": 100,\n  \"videoConfigPoints\": {\n    \"6s_480p\": 100,\n    \"6s_720p\": 210,\n    \"6s_1080p\": 500,\n    \"10s_480p\": 155,\n    \"10s_720p\": 345,\n    \"10s_1080p\": 820,\n    \"15s_480p\": 235,\n    \"15s_720p\": 510,\n    \"15s_1080p\": 1230\n  },\n  \"enabled\": true,\n  \"displayName\": \"Seedance 2.5\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/admin/model/{{modelCatalogId}}",
@@ -1934,7 +1934,7 @@
                 "{{modelCatalogId}}"
               ]
             },
-            "description": "Ubah costPoints, enabled, atau displayName satu model catalog."
+            "description": "Ubah costPoints, videoConfigPoints (matrix durasi & resolusi video), enabled, atau displayName satu model catalog."
           },
           "response": []
         },
@@ -2590,6 +2590,219 @@
               ]
             },
             "description": "Webhook notification dari Midtrans HTTP Notification (diverifikasi dengan SHA-512 signature key)."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "telemetry",
+      "item": [
+        {
+          "name": "GET / (Dashboard Web UI)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{telemetryUrl}}/",
+              "host": [
+                "{{telemetryUrl}}"
+              ],
+              "path": [
+                ""
+              ]
+            },
+            "description": "Splunk-style Log & Telemetry Observability Dashboard Web UI."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /api/logs (Query Logs with Tracing & Filters)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{telemetryUrl}}/api/logs?limit=30&level=all&service=all",
+              "host": [
+                "{{telemetryUrl}}"
+              ],
+              "path": [
+                "api",
+                "logs"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "30"
+                },
+                {
+                  "key": "level",
+                  "value": "all"
+                },
+                {
+                  "key": "service",
+                  "value": "all"
+                },
+                {
+                  "key": "transactionId",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "jobId",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "userId",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "q",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Mengambil log telemetry terstruktur dengan filter rentang tanggal, transactionId, jobId, userId, dan fulltext query."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /api/stats (Metrics & Timeline Histogram)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{telemetryUrl}}/api/stats",
+              "host": [
+                "{{telemetryUrl}}"
+              ],
+              "path": [
+                "api",
+                "stats"
+              ]
+            },
+            "description": "Mengambil ringkasan statistik total log, error count, warning count, dan distribusi volume harian."
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/ingest (Ingest Log Event)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"level\": \"info\",\n  \"service\": \"api\",\n  \"event\": \"user.login\",\n  \"message\": \"User berhasil login\",\n  \"transactionId\": \"tx-sample-123\",\n  \"userId\": \"usr-sample-456\",\n  \"httpMethod\": \"POST\",\n  \"httpPath\": \"/customer/login\",\n  \"httpStatus\": 200\n}"
+            },
+            "url": {
+              "raw": "{{telemetryUrl}}/api/ingest",
+              "host": [
+                "{{telemetryUrl}}"
+              ],
+              "path": [
+                "api",
+                "ingest"
+              ]
+            },
+            "description": "Mengirim log event baru ke sistem telemetry."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /health (Telemetry Healthcheck)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{telemetryUrl}}/health",
+              "host": [
+                "{{telemetryUrl}}"
+              ],
+              "path": [
+                "health"
+              ]
+            },
+            "description": "Health check server telemetry mandiri."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /api/redis/info (Redis Server & Memory)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{telemetryUrl}}/api/redis/info",
+              "host": [
+                "{{telemetryUrl}}"
+              ],
+              "path": [
+                "api",
+                "redis",
+                "info"
+              ]
+            },
+            "description": "Mengambil info kesehatan Redis, memori, ops/detik, hit ratio, dan connected clients."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /api/redis/queues (BullMQ Queues State)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{telemetryUrl}}/api/redis/queues",
+              "host": [
+                "{{telemetryUrl}}"
+              ],
+              "path": [
+                "api",
+                "redis",
+                "queues"
+              ]
+            },
+            "description": "Mengambil status seluruh BullMQ queues (generate, retention), job counts (waiting, active, failed, completed), dan sample jobs."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /api/redis/keys (Redis Keyspace Explorer)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{telemetryUrl}}/api/redis/keys",
+              "host": [
+                "{{telemetryUrl}}"
+              ],
+              "path": [
+                "api",
+                "redis",
+                "keys"
+              ]
+            },
+            "description": "Mengambil ringkasan distribusi kategori keyspace Redis dan sampel keys beserta TTL dan tipe data."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /api/redis/summary (Consolidated Redis Telemetry)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{telemetryUrl}}/api/redis/summary",
+              "host": [
+                "{{telemetryUrl}}"
+              ],
+              "path": [
+                "api",
+                "redis",
+                "summary"
+              ]
+            },
+            "description": "Mengambil seluruh payload telemetri Redis (server, memory, queues, keyspace) dalam 1 HTTP request."
           },
           "response": []
         }

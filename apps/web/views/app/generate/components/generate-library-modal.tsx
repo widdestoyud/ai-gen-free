@@ -6,7 +6,6 @@ import {
   Button,
   Group,
   Modal,
-  NavLink,
   Pagination,
   Progress,
   SimpleGrid,
@@ -17,7 +16,7 @@ import {
   UnstyledButton,
 } from "@mantine/core";
 import { CheckIcon, PencilIcon, TrashIcon, ZoomIcon } from "./generate-icons";
-import type { JobView } from "@/lib/job-status";
+import { isJobImage, type JobView } from "@/lib/job-status";
 import type { StudioUpload } from "@/hooks/use-generate-studio";
 import classes from "./generate-studio.module.css";
 
@@ -85,7 +84,8 @@ export function GenerateLibraryModal({
   const totalUploadPages = Math.max(1, Math.ceil(effectiveTotal / UPLOADS_PER_PAGE));
   const currentPage = Math.min(uploadPage, totalUploadPages);
 
-  const items = tab === "generations" ? generations : uploads;
+  const imageGenerations = generations.filter((job) => isJobImage(job));
+  const items = tab === "generations" ? imageGenerations : uploads;
 
   async function handleSaveAlias() {
     if (!editingItem || !onUpdateAlias) return;
@@ -105,48 +105,74 @@ export function GenerateLibraryModal({
 
   return (
     <>
-      <Modal opened={opened} onClose={onClose} title="Pilih gambar" size="xl" centered>
-        <Group align="flex-start" gap="lg" wrap="nowrap">
-          <Stack gap={4} className={classes.libraryNav}>
-            <NavLink
-              label="Generations"
-              active={tab === "generations"}
+      <Modal
+        opened={opened}
+        onClose={onClose}
+        title="Pilih gambar"
+        size="lg"
+        centered
+        radius="lg"
+      >
+        <Stack gap="sm">
+          {/* Top Segmented Tabs Switcher (Generations vs Upload media) */}
+          <div className={classes.libraryTabsRow}>
+            <button
+              type="button"
+              className={`${classes.libraryTabBtn} ${tab === "generations" ? classes.libraryTabBtnActive : ""}`}
               onClick={() => onTab("generations")}
-            />
-            <NavLink
-              label="Upload media"
-              active={tab === "uploads"}
+            >
+              Generations
+            </button>
+            <button
+              type="button"
+              className={`${classes.libraryTabBtn} ${tab === "uploads" ? classes.libraryTabBtnActive : ""}`}
               onClick={() => onTab("uploads")}
-            />
-          </Stack>
-          <Stack gap="sm" className={classes.libraryMain}>
-            <Group justify="space-between">
-              <Text fw={600}>{tab === "generations" ? "Generations" : "Upload media"}</Text>
-              {tab === "uploads" ? (
-                <Button type="button" size="xs" onClick={onUploadClick}>
-                  + Upload
-                </Button>
-              ) : null}
-            </Group>
-            {tab === "uploads" && !uploadPolicyAccepted ? (
-              <Alert color="yellow" variant="light" radius="sm">
-                <Group justify="space-between" align="center">
-                  <Text size="xs">
-                    Anda harus menyetujui kebijakan unggah media sebelum dapat memilih berkas referensi.
-                  </Text>
-                  <Button size="compact-xs" color="yellow" variant="filled" onClick={onUploadClick}>
-                    Setujui Sekarang
-                  </Button>
-                </Group>
-              </Alert>
+            >
+              Upload media
+            </button>
+          </div>
+
+          {/* Section Header */}
+          <div className={classes.librarySectionHeader}>
+            <Text fw={700} size="md" c="white" ta="center" className={classes.librarySectionTitle}>
+              {tab === "generations" ? "Generations" : "Upload media"}
+            </Text>
+            {tab === "uploads" ? (
+              <Button
+                type="button"
+                size="xs"
+                variant="light"
+                color="blue"
+                onClick={onUploadClick}
+                className={classes.libraryUploadActionBtn}
+              >
+                + Upload
+              </Button>
             ) : null}
+          </div>
+
+          {tab === "uploads" && !uploadPolicyAccepted ? (
+            <Alert color="yellow" variant="light" radius="sm">
+              <Group justify="space-between" align="center">
+                <Text size="xs">
+                  Anda harus menyetujui kebijakan unggah media sebelum dapat memilih berkas referensi.
+                </Text>
+                <Button size="compact-xs" color="yellow" variant="filled" onClick={onUploadClick}>
+                  Setujui Sekarang
+                </Button>
+              </Group>
+            </Alert>
+          ) : null}
+
+          {/* Media Items Grid */}
+          <div className={classes.libraryScrollArea}>
             {items.length === 0 ? (
-              <Text c="dimmed" size="sm">
-                {tab === "generations" ? "Belum ada hasil generate." : "Belum ada unggahan."}
+              <Text c="dimmed" size="sm" ta="center" py="xl">
+                {tab === "generations" ? "Belum ada hasil generate gambar." : "Belum ada unggahan."}
               </Text>
             ) : tab === "generations" ? (
-              <SimpleGrid cols={{ base: 2, sm: 3, md: 5 }} spacing="xs" className={classes.libraryGrid}>
-                {generations.map((job) => {
+              <SimpleGrid cols={{ base: 2, sm: 2, md: 4 }} spacing="xs" className={classes.libraryGrid}>
+                {imageGenerations.map((job) => {
                   const selected = isSelected(job.id);
                   const url = job.output?.url ?? "";
                   return (
@@ -224,7 +250,7 @@ export function GenerateLibraryModal({
               </SimpleGrid>
             ) : (
               <>
-                <SimpleGrid cols={{ base: 2, sm: 3, md: 5 }} spacing="xs" className={classes.libraryGrid}>
+                <SimpleGrid cols={{ base: 2, sm: 2, md: 4 }} spacing="xs" className={classes.libraryGrid}>
                   {uploads.map((item) => {
                     const selected = isSelected(item.id);
                     return (
@@ -344,8 +370,8 @@ export function GenerateLibraryModal({
                 ) : null}
               </>
             )}
-          </Stack>
-        </Group>
+          </div>
+        </Stack>
       </Modal>
 
       {/* Modal Zoom Gambar Dimensi Sesungguhnya */}

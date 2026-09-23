@@ -31,6 +31,15 @@
   border-color: var(--mantine-color-blue-6);
 }
 
+.packageCardPopular {
+  border-color: var(--mantine-color-blue-6);
+  box-shadow: 0 0 0 1px var(--mantine-color-blue-6);
+}
+
+.pointerText {
+  cursor: pointer;
+}
+
 .tableContainer {
   background-color: var(--mantine-color-body);
   border-radius: var(--mantine-radius-md);

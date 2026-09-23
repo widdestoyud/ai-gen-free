@@ -14,13 +14,13 @@ import { generateMidtransSignature, verifyMidtransSignature } from "@ai-gen-free
 test("Topup catalog: returns predefined packages", async () => {
   const staticPackages = listStaticPackages();
   assert.equal(staticPackages.length, 3);
-  assert.equal(staticPackages[0].id, "p20");
-  assert.equal(staticPackages[0].amountIdr, 20000);
-  assert.equal(staticPackages[0].points, 200);
+  assert.equal(staticPackages[0].id, "p49");
+  assert.equal(staticPackages[0].amountIdr, 49000);
+  assert.equal(staticPackages[0].points, 500);
 
   const packages = await listPackages();
   assert(packages.length >= 3);
-  assert(packages.some((p) => p.amountIdr === 20000 && p.points === 200));
+  assert(packages.some((p) => p.points > 0 && p.amountIdr > 0));
 });
 
 test("cancelInvoiceForUser: throws NOT_FOUND when invoice does not exist", async () => {

@@ -1,7 +1,7 @@
 import Fastify from "fastify";
 import { Queue, Worker } from "bullmq";
 import IORedis from "ioredis";
-import type { GenerationProvider } from "@ai-gen-free/core";
+import { CircuitBreaker, type GenerationProvider } from "@ai-gen-free/core";
 import { createObjectStorageFromEnv, objectStorageParamsFromEnv } from "@ai-gen-free/storage";
 import { SirayProvider } from "@ai-gen-free/providers-siray";
 import { DummyProvider } from "./dummy.js";
@@ -21,6 +21,12 @@ const redisUrl = process.env.REDIS_URL ?? "redis://127.0.0.1:6379";
 const concurrency = Number(process.env.WORKER_CONCURRENCY ?? 3);
 
 const connection = new IORedis(redisUrl, { maxRetriesPerRequest: null });
+const circuitBreaker = new CircuitBreaker({
+  providerId: "siray",
+  failureThreshold: 3,
+  cooldownMs: Number(process.env.CIRCUIT_BREAKER_COOLDOWN_MS ?? 90_000),
+  redis: connection,
+});
 const storageParams = objectStorageParamsFromEnv();
 let storage;
 try {
@@ -78,7 +84,7 @@ const retentionQueue = new Queue("retention", { connection: retentionConnection 
 const retentionStore = createPrismaRetentionStore();
 
 function backoffMs(attemptsMade: number): number {
-  return 5000 * 3 ** Math.max(0, attemptsMade - 1);
+  return Math.min(3000 * Math.max(1, attemptsMade), 15000);
 }
 
 const worker = new Worker(
@@ -95,6 +101,7 @@ const worker = new Worker(
         storage,
         store,
         redis: connection,
+        circuitBreaker,
         lastAttempt,
         fetchBytes,
       }),
@@ -104,8 +111,8 @@ const worker = new Worker(
   {
     connection,
     concurrency,
-    lockDuration: 120_000,
-    stalledInterval: 15_000,
+    lockDuration: 300_000,
+    stalledInterval: 30_000,
     settings: {
       backoffStrategy: (attemptsMade) => backoffMs(attemptsMade),
     },
@@ -158,6 +165,7 @@ worker.on("failed", async (job) => {
         storage,
         store,
         redis: connection,
+        circuitBreaker,
         lastAttempt: true,
         fetchBytes,
       }),
@@ -169,13 +177,17 @@ worker.on("failed", async (job) => {
 
 const app = Fastify({ logger: true });
 
-app.get("/health", async () => ({
-  ok: true,
-  service: "worker",
-  queue: queueName,
-  waiting: await queue.getWaitingCount(),
-  retentionWaiting: await retentionQueue.getWaitingCount(),
-}));
+app.get("/health", async () => {
+  const cb = await circuitBreaker.getState();
+  return {
+    ok: true,
+    service: "worker",
+    queue: queueName,
+    circuitBreaker: cb,
+    waiting: await queue.getWaitingCount(),
+    retentionWaiting: await retentionQueue.getWaitingCount(),
+  };
+});
 
 const shutdown = async () => {
   await worker.close();

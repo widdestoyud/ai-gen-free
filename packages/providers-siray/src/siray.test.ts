@@ -402,6 +402,7 @@ test("submit bytedance/seedance-2.5-i2v uses duration 6 and resolution 480 and c
     duration: 6,
     resolution: "480",
     aspect_ratio: "16:9",
+    audio_enable: true,
   });
 });
 
@@ -432,6 +433,7 @@ test("submit bytedance/seedance-2.0-i2v-spicy defaults duration to 6 and resolut
     images: ["data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="],
     duration: 6,
     resolution: "480",
+    audio_enable: true,
   });
 });
 
@@ -464,6 +466,7 @@ test("submit bytedance/seedance-2.5-i2v-spicy defaults duration to 6 and resolut
     duration: 6,
     resolution: "480",
     aspect_ratio: "16:9",
+    audio_enable: true,
   });
 });
 
@@ -523,6 +526,7 @@ test("submit alibaba/wan-2.7-i2v-uncensored maps 3:2 to 16:9 and injects default
     duration: 6,
     resolution: "480",
     aspect_ratio: "16:9",
-    negative_prompt: "Avoid extra limbs, deformed hands, fused bodies, face morphing,  watermark",
+    audio_enable: true,
+    negative_prompt: "deformed hands, fused bodies, face morphing, watermark, extra limbs, extra legs, extra arms, extra fingers, poorly drawn hands, deformed anatomy, mutilated, disfigured, malformed limbs, fused fingers, floating limbs, disconnected limbs, mutation, blurred, ugly, bad proportions, distorted face, cloned face, unnatural body pose",
   });
 });

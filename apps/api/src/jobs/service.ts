@@ -1,8 +1,8 @@
-import { JobStatus, LedgerStatus, LedgerType, Prisma } from "@prisma/client";
+import { JobMode, JobStatus, LedgerStatus, LedgerType, Prisma } from "@prisma/client";
 import { AppError, AuthResponses, ErrorCodes, jobClientErrorMessage, type ObjectStorage } from "@ai-gen-free/core";
 import { prisma } from "@ai-gen-free/db";
 import { assertEnoughPoints, computeBalance, refreshWalletCache } from "@ai-gen-free/wallet";
-import { resolveModel } from "./catalog.js";
+import { resolveModel, resolveVideoPointCost } from "./catalog.js";
 import { parseGenerateParams } from "./params.js";
 import { isOutputAssetLive, isOutputPurged, promptPreview, resolveJobOutput } from "./output.js";
 
@@ -11,7 +11,7 @@ const PROMPT_MAX = 4000;
 export async function submitJob(opts: {
   userId: string;
   idempotencyKey: unknown;
-  body: { mode?: unknown; modelId?: unknown; prompt?: unknown; params?: unknown; cost?: unknown; providerId?: unknown };
+  body: { mode?: unknown; modelId?: unknown; prompt?: unknown; params?: unknown; providerId?: unknown };
   enqueue: (jobId: string) => Promise<void>;
   assertReady?: () => Promise<void>;
 }) {
@@ -59,8 +59,14 @@ export async function submitJob(opts: {
     throw new AppError(ErrorCodes.JOB_IN_PROGRESS, "Masih ada generate yang berjalan", 409);
   }
 
+  const isVideo = model.mode === "t2v" || model.mode === "i2v";
+  const parsedParams = (params as Record<string, unknown>) ?? {};
+  const effectiveCost = isVideo
+    ? resolveVideoPointCost(parsedParams.duration, parsedParams.resolution, model.videoConfigPoints, model.costPoints)
+    : model.costPoints;
+
   const { available } = await computeBalance(opts.userId);
-  assertEnoughPoints(available, model.costPoints);
+  assertEnoughPoints(available, effectiveCost);
 
   let job;
   try {
@@ -71,7 +77,7 @@ export async function submitJob(opts: {
           userId: opts.userId,
           mode: model.mode,
           status: JobStatus.queued,
-          cost: model.costPoints,
+          cost: effectiveCost,
           modelId: model.modelId,
           providerId: model.providerId,
           prompt,
@@ -85,7 +91,7 @@ export async function submitJob(opts: {
           jobId: created.id,
           type: LedgerType.hold,
           status: LedgerStatus.pending,
-          amount: model.costPoints,
+          amount: effectiveCost,
           idempotencyKey: `hold:${created.id}`,
         },
       });
@@ -114,7 +120,7 @@ export async function submitJob(opts: {
       event: "job.accepted",
       jobId: job.id,
       userId: opts.userId,
-      costHeld: model.costPoints,
+      costHeld: effectiveCost,
       modelId: model.modelId,
       providerId: model.providerId,
     }),
@@ -399,6 +405,7 @@ const outputInclude = {
 
 export async function listAdminJobs(opts: {
   status?: JobStatus;
+  mode?: JobMode;
   userId?: string;
   q?: string;
   limit: number;
@@ -407,6 +414,7 @@ export async function listAdminJobs(opts: {
   const rows = await prisma.job.findMany({
     where: {
       ...(opts.status ? { status: opts.status } : {}),
+      ...(opts.mode ? { mode: opts.mode } : {}),
       ...(opts.userId ? { userId: opts.userId } : {}),
       ...(opts.q ? { user: { email: { contains: opts.q, mode: "insensitive" } } } : {}),
     },

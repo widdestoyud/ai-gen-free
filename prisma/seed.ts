@@ -109,12 +109,25 @@ async function main() {
     },
   });
 
+  const DEFAULT_VIDEO_CONFIG_POINTS = {
+    "6s_480p": 100,
+    "6s_720p": 210,
+    "6s_1080p": 500,
+    "10s_480p": 155,
+    "10s_720p": 345,
+    "10s_1080p": 820,
+    "15s_480p": 235,
+    "15s_720p": 510,
+    "15s_1080p": 1230,
+  };
+
   await prisma.modelCatalog.upsert({
     where: { mode_modelId: { mode: "i2v", modelId: "bytedance/seedance-2.5-i2v" } },
     update: {
       displayName: "Seedance 2.5 I2V",
       providerId: "siray",
-      costPoints: 10,
+      costPoints: 100,
+      videoConfigPoints: DEFAULT_VIDEO_CONFIG_POINTS,
       enabled: true,
       isSpicy: false,
     },
@@ -123,7 +136,8 @@ async function main() {
       modelId: "bytedance/seedance-2.5-i2v",
       displayName: "Seedance 2.5 I2V",
       providerId: "siray",
-      costPoints: 10,
+      costPoints: 100,
+      videoConfigPoints: DEFAULT_VIDEO_CONFIG_POINTS,
       enabled: true,
       isSpicy: false,
     },
@@ -134,7 +148,8 @@ async function main() {
     update: {
       displayName: "Seedance 2.0 I2V Spicy",
       providerId: "siray",
-      costPoints: 10,
+      costPoints: 100,
+      videoConfigPoints: DEFAULT_VIDEO_CONFIG_POINTS,
       enabled: true,
       isSpicy: true,
     },
@@ -143,7 +158,8 @@ async function main() {
       modelId: "bytedance/seedance-2.0-i2v-spicy",
       displayName: "Seedance 2.0 I2V Spicy",
       providerId: "siray",
-      costPoints: 10,
+      costPoints: 100,
+      videoConfigPoints: DEFAULT_VIDEO_CONFIG_POINTS,
       enabled: true,
       isSpicy: true,
     },
@@ -154,7 +170,8 @@ async function main() {
     update: {
       displayName: "Seedance 2.5 I2V Spicy",
       providerId: "siray",
-      costPoints: 10,
+      costPoints: 100,
+      videoConfigPoints: DEFAULT_VIDEO_CONFIG_POINTS,
       enabled: true,
       isSpicy: true,
     },
@@ -163,7 +180,8 @@ async function main() {
       modelId: "bytedance/seedance-2.5-i2v-spicy",
       displayName: "Seedance 2.5 I2V Spicy",
       providerId: "siray",
-      costPoints: 10,
+      costPoints: 100,
+      videoConfigPoints: DEFAULT_VIDEO_CONFIG_POINTS,
       enabled: true,
       isSpicy: true,
     },
@@ -174,7 +192,8 @@ async function main() {
     update: {
       displayName: "Wan 2.7 I2V Uncensored",
       providerId: "siray",
-      costPoints: 10,
+      costPoints: 100,
+      videoConfigPoints: DEFAULT_VIDEO_CONFIG_POINTS,
       enabled: true,
       isSpicy: true,
     },
@@ -183,7 +202,97 @@ async function main() {
       modelId: "alibaba/wan-2.7-i2v-uncensored",
       displayName: "Wan 2.7 I2V Uncensored",
       providerId: "siray",
-      costPoints: 10,
+      costPoints: 100,
+      videoConfigPoints: DEFAULT_VIDEO_CONFIG_POINTS,
+      enabled: true,
+      isSpicy: true,
+    },
+  });
+
+  // T2V Video Models (Text-to-Video)
+  await prisma.modelCatalog.upsert({
+    where: { mode_modelId: { mode: "t2v", modelId: "bytedance/seedance-2.5-i2v" } },
+    update: {
+      displayName: "Seedance 2.5",
+      providerId: "siray",
+      costPoints: 100,
+      videoConfigPoints: DEFAULT_VIDEO_CONFIG_POINTS,
+      enabled: true,
+      isSpicy: false,
+    },
+    create: {
+      mode: "t2v",
+      modelId: "bytedance/seedance-2.5-i2v",
+      displayName: "Seedance 2.5",
+      providerId: "siray",
+      costPoints: 100,
+      videoConfigPoints: DEFAULT_VIDEO_CONFIG_POINTS,
+      enabled: true,
+      isSpicy: false,
+    },
+  });
+
+  await prisma.modelCatalog.upsert({
+    where: { mode_modelId: { mode: "t2v", modelId: "bytedance/seedance-2.0-i2v-spicy" } },
+    update: {
+      displayName: "Seedance 2.0 Spicy",
+      providerId: "siray",
+      costPoints: 100,
+      videoConfigPoints: DEFAULT_VIDEO_CONFIG_POINTS,
+      enabled: true,
+      isSpicy: true,
+    },
+    create: {
+      mode: "t2v",
+      modelId: "bytedance/seedance-2.0-i2v-spicy",
+      displayName: "Seedance 2.0 Spicy",
+      providerId: "siray",
+      costPoints: 100,
+      videoConfigPoints: DEFAULT_VIDEO_CONFIG_POINTS,
+      enabled: true,
+      isSpicy: true,
+    },
+  });
+
+  await prisma.modelCatalog.upsert({
+    where: { mode_modelId: { mode: "t2v", modelId: "bytedance/seedance-2.5-i2v-spicy" } },
+    update: {
+      displayName: "Seedance 2.5 Spicy",
+      providerId: "siray",
+      costPoints: 100,
+      videoConfigPoints: DEFAULT_VIDEO_CONFIG_POINTS,
+      enabled: true,
+      isSpicy: true,
+    },
+    create: {
+      mode: "t2v",
+      modelId: "bytedance/seedance-2.5-i2v-spicy",
+      displayName: "Seedance 2.5 Spicy",
+      providerId: "siray",
+      costPoints: 100,
+      videoConfigPoints: DEFAULT_VIDEO_CONFIG_POINTS,
+      enabled: true,
+      isSpicy: true,
+    },
+  });
+
+  await prisma.modelCatalog.upsert({
+    where: { mode_modelId: { mode: "t2v", modelId: "alibaba/wan-2.7-i2v-uncensored" } },
+    update: {
+      displayName: "Wan 2.7 Uncensored",
+      providerId: "siray",
+      costPoints: 100,
+      videoConfigPoints: DEFAULT_VIDEO_CONFIG_POINTS,
+      enabled: true,
+      isSpicy: true,
+    },
+    create: {
+      mode: "t2v",
+      modelId: "alibaba/wan-2.7-i2v-uncensored",
+      displayName: "Wan 2.7 Uncensored",
+      providerId: "siray",
+      costPoints: 100,
+      videoConfigPoints: DEFAULT_VIDEO_CONFIG_POINTS,
       enabled: true,
       isSpicy: true,
     },

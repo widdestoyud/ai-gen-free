@@ -350,6 +350,24 @@ export const API_MAPPINGS: readonly ApiRouteMapping[] = [
     description: "Ubah model catalog kanonik",
   },
   {
+    FE: "/api/admin/jobs",
+    BE: "/admin/jobs",
+    method: "GET",
+    description: "Daftar job generate AI untuk admin dengan pagination dan filter status/mode",
+  },
+  {
+    FE: "/api/admin/jobs/:id",
+    BE: "/admin/jobs/:id",
+    method: "GET",
+    description: "Detail data job generate AI spesifik untuk admin",
+  },
+  {
+    FE: "/api/admin/jobs/:id/file",
+    BE: "/admin/jobs/:id/file",
+    method: "GET",
+    description: "Unduh / stream biner berkas hasil render job untuk admin",
+  },
+  {
     FE: "/api/admin/invoices",
     BE: "/admin/invoices",
     method: "GET",

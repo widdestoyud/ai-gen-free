@@ -4,6 +4,7 @@ export type Model = {
   displayName: string;
   providerId: string;
   costPoints: number;
+  videoConfigPoints?: Record<string, number> | null;
   isSpicy?: boolean;
 };
 

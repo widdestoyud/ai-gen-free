@@ -2,6 +2,7 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import { appendFile, mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import type { SirayTraceEvent } from "@ai-gen-free/providers-siray";
+import { prisma } from "@ai-gen-free/db";
 
 export type SirayJobLogContext = {
   jobId: string;
@@ -27,6 +28,9 @@ export async function appendSirayJobNote(note: string): Promise<void> {
   const store = ctx.getStore();
   if (!store) return;
   await writeToIds(store, `${isoNow()} ${note}\n`);
+
+  // Fail-safe direct persistence to SystemLog
+  persistNoteToDb(store.jobId, note).catch(() => {});
 }
 
 export async function appendSirayTrace(event: SirayTraceEvent): Promise<void> {
@@ -43,6 +47,80 @@ export async function appendSirayTrace(event: SirayTraceEvent): Promise<void> {
 
   const block = formatTrace(event, store?.jobId);
   await writeToIds({ jobId: store?.jobId ?? ids[0]!, providerJobId: taskId || store?.providerJobId }, block);
+
+  // Fail-safe direct persistence to SystemLog
+  persistTraceToDb(store?.jobId ?? ids[0]!, taskId || store?.providerJobId, event).catch(() => {});
+}
+
+async function persistTraceToDb(jobId: string, providerJobId: string | undefined, event: SirayTraceEvent): Promise<void> {
+  try {
+    const isError = Boolean(
+      (typeof event.httpStatus === "number" && event.httpStatus >= 400) ||
+      event.error
+    );
+    const job = await prisma.job.findUnique({ where: { id: jobId }, select: { userId: true } }).catch(() => null);
+
+    await prisma.systemLog.create({
+      data: {
+        timestamp: new Date(event.at),
+        level: isError ? "error" : "info",
+        service: "siray",
+        event: `siray.${event.phase}.${isError ? "failed" : "succeeded"}`,
+        message: isError
+          ? `Siray HTTP ${event.httpStatus || "ERR"}: ${event.error || "Provider call failed"}`
+          : `Siray ${event.phase} ${event.method} ${event.path} (${event.httpStatus || 200})`,
+        jobId,
+        transactionId: `tx-legacy-${jobId.slice(-8)}`,
+        userId: job?.userId,
+        httpMethod: event.method,
+        httpPath: event.path,
+        httpStatus: event.httpStatus,
+        error: isError ? { error: event.error } : undefined,
+        context: {
+          phase: event.phase,
+          providerJobId,
+        },
+      },
+    });
+  } catch {
+    // Fail-safe
+  }
+}
+
+async function persistNoteToDb(jobId: string, note: string): Promise<void> {
+  try {
+    const isFailed = note.includes("RESULT=failed");
+    const isSuccess = note.includes("RESULT=success");
+    if (!isFailed && !isSuccess) return;
+
+    const job = await prisma.job.findUnique({ where: { id: jobId }, select: { userId: true } }).catch(() => null);
+
+    const matchCode = note.match(/errorCode=([^\s]+)/);
+    const matchMsg = note.match(/message=(.*?)(?=\s*hint=|$)/);
+    const matchHint = note.match(/hint=(.*)$/);
+
+    await prisma.systemLog.create({
+      data: {
+        timestamp: new Date(),
+        level: isFailed ? "error" : "info",
+        service: "worker",
+        event: isFailed ? "job.failed" : "job.succeeded",
+        message: matchMsg ? matchMsg[1].trim() : (isFailed ? "Job gagal diproses" : "Job selesai"),
+        jobId,
+        transactionId: `tx-legacy-${jobId.slice(-8)}`,
+        userId: job?.userId,
+        error: isFailed
+          ? {
+              errorCode: matchCode ? matchCode[1] : undefined,
+              hint: matchHint ? matchHint[1].trim() : undefined,
+            }
+          : undefined,
+        context: { note },
+      },
+    });
+  } catch {
+    // Fail-safe
+  }
 }
 
 function formatTrace(event: SirayTraceEvent, jobId?: string): string {

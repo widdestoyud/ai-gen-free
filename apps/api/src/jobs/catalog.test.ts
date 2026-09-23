@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { AppError, ErrorCodes } from "@ai-gen-free/core";
-import { humanDisplayName, pickEnabledModel, type CatalogRow } from "./catalog.js";
+import { humanDisplayName, pickEnabledModel, resolveVideoPointCost, type CatalogRow } from "./catalog.js";
 
 const siray: CatalogRow = {
   mode: "t2i",
@@ -82,3 +82,33 @@ test("displayName fallback from map", () => {
   assert.equal(humanDisplayName("alibaba/wan-2.7-i2v-uncensored", ""), "Wan 2.7 I2V Uncensored");
   assert.equal(humanDisplayName("dummy-t2i", "Dummy"), "Dummy");
 });
+
+test("resolveVideoPointCost resolves all standard duration & resolution matrix tiers", () => {
+  // 6s tiers
+  assert.equal(resolveVideoPointCost("6s", "480p"), 100);
+  assert.equal(resolveVideoPointCost(6, 720), 210);
+  assert.equal(resolveVideoPointCost("6", "1080"), 500);
+
+  // 10s tiers
+  assert.equal(resolveVideoPointCost("10s", "480p"), 155);
+  assert.equal(resolveVideoPointCost(10, 720), 345);
+  assert.equal(resolveVideoPointCost("10", "1080p"), 820);
+
+  // 15s tiers
+  assert.equal(resolveVideoPointCost("15s", "480p"), 235);
+  assert.equal(resolveVideoPointCost(15, 720), 510);
+  assert.equal(resolveVideoPointCost("15", "1080"), 1230);
+});
+
+test("resolveVideoPointCost respects custom admin videoConfigPoints overrides", () => {
+  const customConfig = {
+    "6s_480p": 120,
+    "15s_1080p": 1500,
+  };
+
+  assert.equal(resolveVideoPointCost("6s", "480p", customConfig), 120);
+  assert.equal(resolveVideoPointCost("15s", "1080p", customConfig), 1500);
+  // Unconfigured key falls back to standard default matrix
+  assert.equal(resolveVideoPointCost("6s", "720p", customConfig), 210);
+});
+

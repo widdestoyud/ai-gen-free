@@ -103,9 +103,7 @@ export async function registerWalletRoutes(app: FastifyInstance, deps: { storage
     return { entries: await listLedger(session.userId) };
   });
 
-  app.get("/customer/packages", async (req, reply) => {
-    const session = await requireUser(req, reply);
-    if (!session) return;
+  app.get("/customer/packages", async () => {
     return { packages: await listPackages() };
   });
 

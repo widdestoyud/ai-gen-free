@@ -26,33 +26,33 @@ try {
 Write-Host "`n[2/4] Container saat ini:" -ForegroundColor Yellow
 docker compose ps
 
-# 3. Build image terbaru (api, web, worker, migrate)
+# 3. Build image terbaru (api, web, worker, migrate, telemetry)
 $buildArgs = @("compose", "build")
 if ($NoCache) {
   $buildArgs += "--no-cache"
 }
-$buildArgs += @("api", "web", "worker", "migrate")
+$buildArgs += @("api", "web", "worker", "migrate", "telemetry")
 
-Write-Host "`n[3/4] Melakukan build image terbaru (api, web, worker, migrate)..." -ForegroundColor Yellow
+Write-Host "`n[3/4] Melakukan build image terbaru (api, web, worker, migrate, telemetry)..." -ForegroundColor Yellow
 & docker @buildArgs
 if ($LASTEXITCODE -ne 0) {
   Write-Error "Build docker gagal."
   exit $LASTEXITCODE
 }
 
-# 4. Rerun container
-Write-Host "`n[4/4] Menjalankan container terbaru..." -ForegroundColor Yellow
-& docker compose up -d
+# 4. Rerun container dengan orphan cleanup
+Write-Host "`n[4/4] Menyalakan ulang container..." -ForegroundColor Yellow
+docker compose up -d --remove-orphans
 if ($LASTEXITCODE -ne 0) {
   Write-Error "Menyalakan container gagal."
   exit $LASTEXITCODE
 }
 
-# Verifikasi status container
-Write-Host "`nStatus container setelah pembaruan:" -ForegroundColor Yellow
+Write-Host "`nStatus akhir container:" -ForegroundColor Yellow
 Start-Sleep -Seconds 3
 docker compose ps
 
 Write-Host "`n=== Pembaruan Docker selesai! ===" -ForegroundColor Green
-Write-Host "Web UI   : http://localhost:3000" -ForegroundColor Cyan
-Write-Host "API      : http://localhost:4000/api/health" -ForegroundColor Cyan
+Write-Host "Web UI    : http://localhost:3000"
+Write-Host "API       : http://localhost:4000/api/health"
+Write-Host "Telemetry : http://localhost:5050" -ForegroundColor Cyan

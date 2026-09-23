@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import {
   Badge,
   Button,
@@ -110,19 +110,21 @@ export function AdminJobsList({
   jobs,
   q,
   status,
+  mode,
   userId,
   offset,
 }: {
   jobs: AdminJobRow[];
   q: string;
   status: string;
+  mode: string;
   userId: string;
   offset: number;
 }) {
   const router = useRouter();
   const [query, setQuery] = useState(q);
   const [statusValue, setStatusValue] = useState(status || "all");
-  const [modeFilter, setModeFilter] = useState<string | null>("all");
+  const [modeValue, setModeValue] = useState(mode || "all");
 
   function onSearch(e: FormEvent) {
     e.preventDefault();
@@ -130,6 +132,7 @@ export function AdminJobsList({
       adminHref("/admin/jobs", {
         q: query.trim(),
         status: statusValue === "all" ? "" : statusValue,
+        mode: modeValue === "all" ? "" : modeValue,
         userId,
         offset: 0,
       }),
@@ -141,25 +144,17 @@ export function AdminJobsList({
       adminHref("/admin/jobs", {
         q: query.trim(),
         status: statusValue === "all" ? "" : statusValue,
+        mode: modeValue === "all" ? "" : modeValue,
         userId: undefined,
         offset: 0,
       }),
     );
   }
 
-  const filteredJobs = useMemo(() => {
-    return jobs.filter((j) => {
-      if (modeFilter && modeFilter !== "all" && j.mode !== modeFilter) {
-        return false;
-      }
-      return true;
-    });
-  }, [jobs, modeFilter]);
-
   function exportCsv() {
-    if (filteredJobs.length === 0) return;
+    if (jobs.length === 0) return;
     const headers = ["ID", "Email", "Mode", "Model ID", "Status", "Biaya", "Prompt", "Dibuat", "Selesai"];
-    const rows = filteredJobs.map((j) => [
+    const rows = jobs.map((j) => [
       `"${j.id}"`,
       `"${j.email}"`,
       `"${j.mode}"`,
@@ -222,8 +217,8 @@ export function AdminJobsList({
           />
           <Select
             size="xs"
-            value={modeFilter}
-            onChange={setModeFilter}
+            value={modeValue}
+            onChange={(val) => setModeValue(val ?? "all")}
             data={MODE_OPTIONS}
             className={classes.selectInput}
             allowDeselect={false}
@@ -236,16 +231,16 @@ export function AdminJobsList({
             variant="default"
             leftSection={<DownloadIcon />}
             onClick={exportCsv}
-            disabled={filteredJobs.length === 0}
+            disabled={jobs.length === 0}
           >
             Export CSV
           </Button>
         </form>
       </div>
 
-      {filteredJobs.length === 0 ? (
+      {jobs.length === 0 ? (
         <EmptyState minHeight={220}>
-          {q || status || userId ? "Tidak ada job yang sesuai dengan filter pencarian." : "Belum ada job generate."}
+          {q || status || mode || userId ? "Tidak ada job yang sesuai dengan filter pencarian." : "Belum ada job generate."}
         </EmptyState>
       ) : (
         <Table verticalSpacing="sm" horizontalSpacing="md">
@@ -260,7 +255,7 @@ export function AdminJobsList({
             </Table.Tr>
           </Table.Thead>
           <Table.Tbody>
-            {filteredJobs.map((job) => {
+            {jobs.map((job) => {
               const statusColor = getStatusBadgeColor(job.status);
               const modeColor = getModeBadgeColor(job.mode);
               const statusText = jobStatusLabel(job.status);
@@ -324,7 +319,7 @@ export function AdminJobsList({
 
       <div className={classes.paginationRow}>
         <Text size="xs" c="dimmed">
-          Menampilkan {filteredJobs.length} job (Halaman {Math.floor(offset / ADMIN_PAGE_SIZE) + 1})
+          Menampilkan {jobs.length} job (Halaman {Math.floor(offset / ADMIN_PAGE_SIZE) + 1})
         </Text>
         <Group gap="xs">
           {offset > 0 ? (
@@ -333,6 +328,7 @@ export function AdminJobsList({
               href={adminHref("/admin/jobs", {
                 q,
                 status,
+                mode,
                 userId,
                 offset: Math.max(0, offset - ADMIN_PAGE_SIZE),
               })}
@@ -348,6 +344,7 @@ export function AdminJobsList({
               href={adminHref("/admin/jobs", {
                 q,
                 status,
+                mode,
                 userId,
                 offset: offset + ADMIN_PAGE_SIZE,
               })}

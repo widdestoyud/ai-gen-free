@@ -5,6 +5,7 @@ export type AdminModelItem = {
   displayName: string;
   providerId: string;
   costPoints: number;
+  videoConfigPoints?: Record<string, number> | null;
   enabled: boolean;
   isSpicy: boolean;
   createdAt: string;

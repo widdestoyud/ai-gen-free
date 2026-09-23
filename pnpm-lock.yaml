@@ -68,6 +68,34 @@ importers:
         specifier: ^8.0.1
         version: 8.0.1
 
+  apps/telemetry:
+    dependencies:
+      '@ai-gen-free/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@ai-gen-free/db':
+        specifier: workspace:*
+        version: link:../../packages/db
+      '@fastify/cors':
+        specifier: ^11.1.0
+        version: 11.3.0
+      bullmq:
+        specifier: ^5.58.5
+        version: 5.81.4
+      dotenv:
+        specifier: ^16.4.7
+        version: 16.6.1
+      fastify:
+        specifier: ^5.6.0
+        version: 5.12.3
+      ioredis:
+        specifier: ^5.7.0
+        version: 5.11.1
+    devDependencies:
+      '@types/node':
+        specifier: ^22.13.1
+        version: 22.20.1
+
   apps/web:
     dependencies:
       '@mantine/core':
@@ -148,12 +176,6 @@ importers:
       '@prisma/client':
         specifier: ^6.16.1
         version: 6.19.3(prisma@6.19.3(typescript@5.9.3))(typescript@5.9.3)
-
-  packages/providers-doku:
-    dependencies:
-      '@ai-gen-free/core':
-        specifier: workspace:*
-        version: link:../core
 
   packages/providers-midtrans:
     dependencies:

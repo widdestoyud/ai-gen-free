@@ -1,4 +1,4 @@
-import { JobStatus } from "@prisma/client";
+import { JobMode, JobStatus } from "@prisma/client";
 import { AppError, ErrorCodes } from "@ai-gen-free/core";
 
 export const GENERATE_COOLDOWN_KEY = "generate_cooldown_seconds";
@@ -24,8 +24,11 @@ export type DefaultGenerationModelsConfig = {
   spicyVideoModelId: string;
 };
 
-export function parseLimitOffset(query: { limit?: unknown; offset?: unknown }): { limit: number; offset: number } {
-  const limit = parseOptionalInt(query.limit, 50);
+export function parseLimitOffset(
+  query: { limit?: unknown; offset?: unknown },
+  defaultLimit: number = 20,
+): { limit: number; offset: number } {
+  const limit = parseOptionalInt(query.limit, defaultLimit);
   const offset = parseOptionalInt(query.offset, 0);
   if (limit < 1 || limit > 100 || offset < 0) {
     throw new AppError(ErrorCodes.VALIDATION_ERROR, "limit 1–100 dan offset ≥ 0");
@@ -52,11 +55,19 @@ export function parseOptionalQueryString(raw: unknown): string | undefined {
 }
 
 export function parseJobStatus(raw: unknown): JobStatus | undefined {
-  if (raw === undefined || raw === null || raw === "") return undefined;
+  if (raw === undefined || raw === null || raw === "" || raw === "all") return undefined;
   if (typeof raw !== "string" || !Object.values(JobStatus).includes(raw as JobStatus)) {
     throw new AppError(ErrorCodes.VALIDATION_ERROR, "Status job tidak valid");
   }
   return raw as JobStatus;
+}
+
+export function parseJobMode(raw: unknown): JobMode | undefined {
+  if (raw === undefined || raw === null || raw === "" || raw === "all") return undefined;
+  if (typeof raw !== "string" || !Object.values(JobMode).includes(raw as JobMode)) {
+    throw new AppError(ErrorCodes.VALIDATION_ERROR, "Mode job tidak valid");
+  }
+  return raw as JobMode;
 }
 
 export function parseCooldownSecondsValue(raw: unknown): number {
