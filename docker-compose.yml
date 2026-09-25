@@ -26,7 +26,7 @@ services:
     volumes:
       - redis_data:/data
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -54,7 +54,7 @@ services:
       APP_PUBLIC_URL: ${APP_PUBLIC_URL:-http://localhost:3000}
       API_PORT: "4000"
     ports:
-      - "4000:4000"
+      - "127.0.0.1:4000:4000"
     depends_on:
       redis:
         condition: service_healthy
@@ -120,7 +120,7 @@ services:
       ADMIN_BASIC_USER: ${ADMIN_BASIC_USER:-admin}
       ADMIN_BASIC_PASSWORD: ${ADMIN_BASIC_PASSWORD:-change-me}
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     depends_on:
       api:
         condition: service_started
@@ -138,7 +138,7 @@ services:
     volumes:
       - ./logs:/app/logs
     ports:
-      - "5050:5050"
+      - "127.0.0.1:5050:5050"
     depends_on:
       migrate:
         condition: service_completed_successfully

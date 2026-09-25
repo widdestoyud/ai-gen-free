@@ -42,7 +42,7 @@ export function TermsPageView() {
           </Title>
           <Text c="dimmed" size="sm">
             Harap baca syarat dan ketentuan ini secara saksama sebelum mendaftar atau
-            menggunakan platform <strong>ai-gen-free</strong>.
+            menggunakan platform <strong>satulabs.id</strong>.
           </Text>
         </div>
 

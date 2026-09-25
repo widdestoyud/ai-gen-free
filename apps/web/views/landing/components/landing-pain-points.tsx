@@ -111,7 +111,7 @@ export function LandingPainPoints() {
 
         <Stack align="center" ta="center" mt={48}>
           <Text size="md" c="blue.3" fw={600} maw={760}>
-            Di <strong>ai-gen-free</strong>, kamu memegang kendali penuh atas anggaran.
+            Di <strong>satulabs.id</strong>, kamu memegang kendali penuh atas anggaran.
             Tanpa biaya langganan mengikat, gunakan deskripsi bahasa alami sehari-hari, dan
             cukup beli poin saat kamu butuh mulai dari <strong>Rp 49.000</strong>.
           </Text>

@@ -35,7 +35,7 @@ export function LandingHeader({
             <path d="m12 3 3 6 6 3-6 3-3 6-3-6-6-3 6-3 3-6Z" />
           </svg>
           <Text span fw={800}>
-            ai-gen-free<span className={classes.brandDot}>.</span>
+            satulabs<span className={classes.brandDot}>.id</span>
           </Text>
         </div>
 

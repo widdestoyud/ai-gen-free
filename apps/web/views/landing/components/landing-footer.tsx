@@ -25,7 +25,7 @@ export function LandingFooter() {
                 <path d="m12 3 3 6 6 3-6 3-3 6-3-6-6-3 6-3 3-6Z" />
               </svg>
               <Text span fw={800} size="md">
-                ai-gen-free<span className={classes.brandDot}>.</span>
+                satulabs<span className={classes.brandDot}>.id</span>
               </Text>
             </div>
             <Text size="xs" c="dimmed">
@@ -41,7 +41,7 @@ export function LandingFooter() {
               Kebijakan Privasi
             </Anchor>
             <Text size="xs" c="dimmed">
-              &copy; {new Date().getFullYear()} ai-gen-free. Hak cipta dilindungi.
+              satulabs.id {new Date().getFullYear()}
             </Text>
           </Group>
         </Group>

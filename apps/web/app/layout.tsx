@@ -4,8 +4,8 @@ import type { ReactNode } from "react";
 import { AppProviders } from "@/components/app-providers";
 
 export const metadata = {
-  title: "ai-gen-free",
-  description: "Platform generator",
+  title: "satulabs.id",
+  description: "Platform AI Generator Kreatif - satulabs.id",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

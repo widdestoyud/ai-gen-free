@@ -42,7 +42,7 @@ export function PrivacyPageView() {
           </Title>
           <Text c="dimmed" size="sm">
             Privasi dan kerahasiaan data Anda adalah prioritas utama kami di{" "}
-            <strong>ai-gen-free</strong>.
+            <strong>satulabs.id</strong>.
           </Text>
         </div>
 
@@ -57,7 +57,7 @@ export function PrivacyPageView() {
               <Text size="sm" c="gray.3" lh={1.6}>
                 Berbeda dengan banyak layanan generasi AI yang secara otomatis menyebarkan hasil
                 karya ke galeri publik atau media sosial, seluruh media (gambar dan video) yang Anda
-                hasilkan di <strong>ai-gen-free</strong> tersimpan secara privat di akun pribadi Anda.
+                hasilkan di <strong>satulabs.id</strong> tersimpan secara privat di akun pribadi Anda.
                 Karya Anda <strong>bukan konsumsi publik</strong> dan tidak dapat diakses oleh pengguna
                 lain kecuali Anda sendiri yang mengunduh dan membagikannya.
               </Text>

@@ -43,7 +43,7 @@ export function AdminWorkspace({ children }: { children: ReactNode }) {
               <Burger opened={opened} onClick={toggle} hiddenFrom="sm" size="sm" />
               <Group gap="xs">
                 <Title order={4} className={classes.brand}>
-                  ai-gen-free
+                  satulabs.id
                 </Title>
                 <Badge size="xs" variant="light" color="blue">
                   Admin

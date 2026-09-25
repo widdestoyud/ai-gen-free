@@ -29,3 +29,4 @@ export * from "./admin/users";
 export * from "./admin/jobs";
 export * from "./admin/settings";
 export * from "./admin/audit";
+export * from "./not-found";

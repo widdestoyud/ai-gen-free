@@ -193,7 +193,7 @@ export function GenerateResultModal({
     try {
       await downloadMediaFile({
         url: job.output.url,
-        filename: `ai-gen-${job.id}`,
+        filename: `satulabs-${job.id}`,
         isVideo,
       });
     } finally {

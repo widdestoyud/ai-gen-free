@@ -35,7 +35,7 @@ export function AppWorkspace({ children }: { children: ReactNode }) {
             <Group gap="sm">
               <Burger opened={opened} onClick={toggle} hiddenFrom="sm" size="sm" />
               <Title order={4} className={classes.brand}>
-                ai-gen-free
+                satulabs.id
               </Title>
             </Group>
           </Group>

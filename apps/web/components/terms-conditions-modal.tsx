@@ -21,10 +21,10 @@ export function TermsConditionsModal({ opened, onClose }: TermsConditionsModalPr
           <ScrollArea.Autosize mah={360} type="scroll">
             <Stack gap="sm">
               <Text size="sm" fw={600}>
-                Ketentuan Penggunaan Platform AI-Gen-Free
+                Ketentuan Penggunaan Platform satulabs.id
               </Text>
               <Text size="xs" c="dimmed">
-                Selamat datang di platform AI-Gen-Free. Dengan mengakses dan menggunakan layanan kami, Anda menyetujui untuk terikat oleh Syarat dan Ketentuan berikut:
+                Selamat datang di platform satulabs.id. Dengan mengakses dan menggunakan layanan kami, Anda menyetujui untuk terikat oleh Syarat dan Ketentuan berikut:
               </Text>
               
               <Text size="xs" fw={600} mt="xs">
