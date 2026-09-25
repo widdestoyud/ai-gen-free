@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { requestJson } from "@/lib/api";
 
@@ -15,11 +15,23 @@ export function useLogin() {
   const [errorCode, setErrorCode] = useState("");
   const [transactionId, setTransactionId] = useState("");
   const [pending, setPending] = useState(false);
+  const [resendPending, setResendPending] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const [resendSuccessMessage, setResendSuccessMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const timer = setInterval(() => {
+      setResendCooldown((prev) => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [resendCooldown]);
 
   function resetErrors() {
     setError("");
     setErrorCode("");
     setTransactionId("");
+    setResendSuccessMessage(null);
   }
 
   function openLogin() {
@@ -58,12 +70,36 @@ export function useLogin() {
     if (result.data.requiresOtp) {
       setLoginOpened(false);
       setOtpModalOpened(true);
+      setResendCooldown(60); // Set 60s cooldown awal
       return;
     }
 
     setLoginOpened(false);
     router.push("/app/generate");
     router.refresh();
+  }
+
+  async function resendOtp() {
+    if (resendCooldown > 0 || resendPending) return;
+    resetErrors();
+    setResendPending(true);
+
+    const result = await requestJson<{ ok?: boolean; message?: string }>("/api/auth/otp", {
+      method: "POST",
+      body: JSON.stringify({ email: email.trim().toLowerCase() }),
+    });
+
+    setResendPending(false);
+
+    if (!result.ok) {
+      setError(result.message);
+      setErrorCode(result.code ?? "A008");
+      setTransactionId(result.transaction_id ?? "");
+      return;
+    }
+
+    setResendSuccessMessage("Kode OTP baru telah dikirimkan ke email Anda.");
+    setResendCooldown(60);
   }
 
   async function verifyCode(e: FormEvent) {
@@ -115,5 +151,9 @@ export function useLogin() {
     pending,
     submitLogin,
     verifyCode,
+    resendOtp,
+    resendPending,
+    resendCooldown,
+    resendSuccessMessage,
   };
 }

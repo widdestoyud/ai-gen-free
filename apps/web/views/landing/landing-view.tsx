@@ -111,6 +111,10 @@ export function LandingPageView({ packages }: LandingPageViewProps = {}) {
         transactionId={login.transactionId}
         pending={login.pending && login.otpModalOpened}
         onSubmit={login.verifyCode}
+        onResendOtp={login.resendOtp}
+        resendPending={login.resendPending}
+        resendCooldown={login.resendCooldown}
+        resendSuccessMessage={login.resendSuccessMessage}
       />
     </div>
   );

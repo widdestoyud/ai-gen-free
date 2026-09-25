@@ -96,7 +96,7 @@ export const AuthResponses = {
     NEW_DEVICE_OTP_REQUIRED: {
       code: "A016",
       status: 200, // Informasi bahwa OTP dibutuhkan untuk perangkat baru
-      message: "Login dari perangkat baru terdeteksi. Kode OTP telah dikirim ke email Anda untuk konfirmasi.",
+      message: "Kode verifikasi telah dikirim ke email Anda. Cek folder Inbox atau Spam email Anda.",
     },
     PROFILE_INVALID: {
       code: "A017",
