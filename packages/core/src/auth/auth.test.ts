@@ -26,7 +26,12 @@ test("validatePassword enforces min 8 chars, 1 uppercase, 1 digit", () => {
   assert.equal(validatePassword("MyStrongP@ss99").valid, true);
 });
 
-test("hashPassword and verifyPassword work correctly with scrypt", async () => {
+test("validatePassword accepts 64-character hex SHA-256 pre-hash", () => {
+  const sha256Hex = "5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8";
+  assert.equal(validatePassword(sha256Hex).valid, true);
+});
+
+test("hashPassword and verifyPassword work correctly with scrypt and pre-hashed SHA-256", async () => {
   const plain = "SuperSecret123!";
   const hash = await hashPassword(plain);
   assert.ok(hash.includes(":"));
@@ -36,4 +41,9 @@ test("hashPassword and verifyPassword work correctly with scrypt", async () => {
 
   const mismatched = await verifyPassword("WrongPassword1!", hash);
   assert.equal(mismatched, false);
+
+  const sha256Input = "5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8";
+  const storedScrypt = await hashPassword(sha256Input);
+  assert.equal(await verifyPassword(sha256Input, storedScrypt), true);
+  assert.equal(await verifyPassword("5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d9", storedScrypt), false);
 });

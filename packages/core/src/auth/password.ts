@@ -4,14 +4,24 @@ import { promisify } from "node:util";
 const scryptAsync = promisify(scrypt);
 
 /**
+ * Memeriksa apakah sebuah string merupakan hash SHA-256 berformat 64 karakter heksadesimal.
+ */
+export function isSha256Hex(str: unknown): boolean {
+  return typeof str === "string" && /^[a-f0-9]{64}$/i.test(str);
+}
+
+/**
  * Validasi password:
  * - Minimal 8 karakter
- * - Setidaknya 1 huruf kapital
- * - Setidaknya 1 angka
+ * - Mendukung format hash SHA-256 pre-hashed dari client (64 karakter hex)
+ * - Jika plaintext: setidaknya 1 huruf kapital dan 1 angka
  */
 export function validatePassword(password: unknown): { valid: boolean; message?: string } {
   if (typeof password !== "string" || password.length < 8) {
     return { valid: false, message: "Kata sandi minimal 8 karakter" };
+  }
+  if (isSha256Hex(password)) {
+    return { valid: true };
   }
   if (!/[A-Z]/.test(password)) {
     return { valid: false, message: "Kata sandi harus mengandung setidaknya 1 huruf kapital" };

@@ -7,6 +7,7 @@ import {
   type IndonesianPhoneInfo,
 } from "@/lib/validation";
 import { requestJson } from "@/lib/api";
+import { hashPasswordClient } from "@/lib/crypto";
 import type { CustomerProfile } from "@/views/app/profile/components/customer-home";
 
 export type EditableField = "displayName" | "phoneNumber" | "address" | "ktp" | "gender" | "dateOfBirth";
@@ -358,11 +359,15 @@ export function useAccountSettings(initialProfile: CustomerProfile): AccountSett
     }
 
     setPasswordSaving(true);
+    const [currentHash, newHash] = await Promise.all([
+      hashPasswordClient(passwordForm.currentPassword),
+      hashPasswordClient(passwordForm.newPassword),
+    ]);
     const res = await requestJson<{ ok: boolean; message?: string }>("/api/customer/password-change", {
       method: "POST",
       body: JSON.stringify({
-        currentPassword: passwordForm.currentPassword,
-        newPassword: passwordForm.newPassword,
+        currentPassword: currentHash,
+        newPassword: newHash,
       }),
     });
     setPasswordSaving(false);

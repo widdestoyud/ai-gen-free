@@ -2,6 +2,8 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { requestJson } from "@/lib/api";
+import { validatePasswordFormat } from "@/lib/validation";
+import { hashPasswordClient } from "@/lib/crypto";
 
 export function useResetPassword(token: string) {
   const hasToken = token.length > 0;
@@ -65,10 +67,19 @@ export function useResetPassword(token: string) {
     e.preventDefault();
     setError("");
     setSuccess("");
+
+    const passCheck = validatePasswordFormat(password);
+    if (!passCheck.valid) {
+      setError(passCheck.message ?? "Kata sandi tidak memenuhi kriteria keamanan.");
+      setErrorCode("A011");
+      return;
+    }
+
     setPending(true);
+    const passwordHash = await hashPasswordClient(password);
     const result = await requestJson<{ ok?: boolean; message?: string }>("/api/reset-password-confirm", {
       method: "POST",
-      body: JSON.stringify({ token, password }),
+      body: JSON.stringify({ token, password: passwordHash }),
     });
     setPending(false);
     if (!result.ok) {

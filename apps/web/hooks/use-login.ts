@@ -4,6 +4,8 @@ import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { requestJson } from "@/lib/api";
 
+import { hashPasswordClient } from "@/lib/crypto";
+
 export function useLogin() {
   const router = useRouter();
   const [loginOpened, setLoginOpened] = useState(false);
@@ -50,11 +52,12 @@ export function useLogin() {
     resetErrors();
     setPending(true);
 
+    const passwordHash = await hashPasswordClient(password);
     const result = await requestJson<{ ok?: boolean; requiresOtp?: boolean; message?: string }>(
       "/api/login",
       {
         method: "POST",
-        body: JSON.stringify({ email: email.trim().toLowerCase(), password }),
+        body: JSON.stringify({ email: email.trim().toLowerCase(), password: passwordHash }),
       },
     );
 

@@ -2,6 +2,8 @@
 
 import { FormEvent, useState } from "react";
 import { requestJson } from "@/lib/api";
+import { validatePasswordFormat } from "@/lib/validation";
+import { hashPasswordClient } from "@/lib/crypto";
 
 export function useRegister() {
   const [opened, setOpened] = useState(false);
@@ -41,11 +43,19 @@ export function useRegister() {
       return;
     }
 
+    const passCheck = validatePasswordFormat(password);
+    if (!passCheck.valid) {
+      setError(passCheck.message ?? "Kata sandi tidak memenuhi kriteria keamanan.");
+      setErrorCode("A011");
+      return;
+    }
+
     setPending(true);
 
+    const passwordHash = await hashPasswordClient(password);
     const result = await requestJson<{ ok?: boolean; message?: string }>("/api/register", {
       method: "POST",
-      body: JSON.stringify({ email: email.trim().toLowerCase(), password }),
+      body: JSON.stringify({ email: email.trim().toLowerCase(), password: passwordHash }),
     });
 
     setPending(false);

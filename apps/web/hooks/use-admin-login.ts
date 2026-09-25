@@ -3,6 +3,7 @@
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { requestJson } from "@/lib/api";
+import { hashPasswordClient } from "@/lib/crypto";
 
 export function useAdminLogin() {
   const router = useRouter();
@@ -20,9 +21,10 @@ export function useAdminLogin() {
     setTransactionId("");
     setPending(true);
 
+    const passwordHash = await hashPasswordClient(password);
     const result = await requestJson<{ ok?: boolean }>("/api/admin/login", {
       method: "POST",
-      body: JSON.stringify({ username: username.trim(), password }),
+      body: JSON.stringify({ username: username.trim(), password: passwordHash }),
     });
 
     setPending(false);

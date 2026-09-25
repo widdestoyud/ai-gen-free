@@ -40,7 +40,7 @@ export {
   type OperatorPrefixRule,
 } from "./auth/phone.js";
 export { hashSecret, safeEqualHex, randomOtp, randomToken } from "./auth/crypto.js";
-export { validatePassword, hashPassword, verifyPassword } from "./auth/password.js";
+export { validatePassword, hashPassword, verifyPassword, isSha256Hex } from "./auth/password.js";
 export { RateLimitConfig, getOtpTtlMs, getPasswordResetTokenTtlMs, type RateLimitRule } from "./config/rate-limit.config.js";
 export { AuthResponses, type ErrorDefinition, type SuccessDefinition } from "./config/responses.config.js";
 export {
