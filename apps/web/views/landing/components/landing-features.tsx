@@ -113,7 +113,7 @@ const FEATURES = [
     title: "Privasi Penuh & Penyimpanan 14 Hari",
     category: "DATA & HASIL AMAN",
     description:
-      "Karyamu adalah milikmu sepenuhnya. Seluruh hasil tersimpan privat di Library akunmu selama 14 hari dan tidak pernah dipamerkan ke galeri publik.",
+      "Seluruh hasil tersimpan privat di Library akunmu selama 14 hari dan tidak pernah dipamerkan ke galeri publik.",
     icon: (
       <svg
         width="22"
