@@ -1,0 +1,47 @@
+/* Global styles & backdrop enhancements */
+
+.mantine-Modal-overlay,
+.mantine-Drawer-overlay {
+  backdrop-filter: blur(8px) saturate(140%) !important;
+  -webkit-backdrop-filter: blur(8px) saturate(140%) !important;
+  background-color: rgba(0, 0, 0, 0.65) !important;
+  transition: backdrop-filter 200ms ease, background-color 200ms ease;
+}
+
+/* Modal Error Shake Animation */
+@keyframes modalShake {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  15%, 45%, 75% {
+    transform: translateX(-10px);
+  }
+  30%, 60%, 90% {
+    transform: translateX(10px);
+  }
+}
+
+.modal-shake {
+  animation: modalShake 0.5s cubic-bezier(0.36, 0.07, 0.19, 0.97) both !important;
+}
+
+/* Reusable Blue-to-Purple Gradient Button */
+.mantine-Button-root[data-variant="gradient"],
+.mantine-Button-root[data-variant="filled"]:not([data-color="red"]):not([data-color="teal"]):not([data-color="green"]):not([data-color="gray"]):not([data-color="yellow"]):not([data-color="pink"]):not([data-color="orange"]) {
+  background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%) !important;
+  color: #ffffff !important;
+  border: none !important;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.mantine-Button-root[data-variant="gradient"]:hover,
+.mantine-Button-root[data-variant="filled"]:not([data-color="red"]):not([data-color="teal"]):not([data-color="green"]):not([data-color="gray"]):not([data-color="yellow"]):not([data-color="pink"]):not([data-color="orange"]):hover {
+  background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%) !important;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 18px rgba(59, 130, 246, 0.4), 0 0 12px rgba(139, 92, 246, 0.3) !important;
+}
+
+.mantine-Button-root[data-variant="gradient"]:active,
+.mantine-Button-root[data-variant="filled"]:not([data-color="red"]):not([data-color="teal"]):not([data-color="green"]):not([data-color="gray"]):not([data-color="yellow"]):not([data-color="pink"]):not([data-color="orange"]):active {
+  transform: translateY(0) scale(0.98);
+}

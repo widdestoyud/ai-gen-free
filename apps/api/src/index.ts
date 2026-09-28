@@ -17,6 +17,7 @@ import { registerPaymentRoutes } from "./routes/payment.js";
 import { syncUploadsFromStorage } from "./uploads/service.js";
 import { rewriteRequestUrl } from "./http-rewrite.js";
 import { createMidtransPaymentGateway } from "./wallet/midtrans-factory.js";
+import { createXenditPaymentGateway } from "./wallet/xendit-factory.js";
 
 import { randomBytes } from "node:crypto";
 
@@ -172,10 +173,12 @@ await registerJobRoutes(app, { storage, queue, redis });
 await registerAdminRoutes(app, { storage, redis });
 await registerUploadRoutes(app, { storage, redis });
 
-// Payment routes (Midtrans integration)
+// Payment routes (Midtrans & Xendit integrations)
 const paymentGateway = createMidtransPaymentGateway(app.log);
+const xenditGateway = createXenditPaymentGateway(app.log);
 await registerPaymentRoutes(app, {
   paymentGateway,
+  xenditGateway,
   callbackBaseUrl: origin,
   paymentDueMinutes: 60,
 });

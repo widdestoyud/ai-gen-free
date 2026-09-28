@@ -1,0 +1,16 @@
+{
+  "name": "@ai-gen-free/providers-dana",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "tsx --test src/*.test.ts"
+  },
+  "dependencies": {
+    "@ai-gen-free/core": "workspace:*",
+    "dana-node": "^2.2.2"
+  }
+}

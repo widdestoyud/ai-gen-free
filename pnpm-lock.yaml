@@ -33,6 +33,9 @@ importers:
       '@ai-gen-free/providers-midtrans':
         specifier: workspace:*
         version: link:../../packages/providers-midtrans
+      '@ai-gen-free/providers-xendit':
+        specifier: workspace:*
+        version: link:../../packages/providers-xendit
       '@ai-gen-free/storage':
         specifier: workspace:*
         version: link:../../packages/storage
@@ -190,6 +193,12 @@ importers:
         version: link:../core
 
   packages/providers-types:
+    dependencies:
+      '@ai-gen-free/core':
+        specifier: workspace:*
+        version: link:../core
+
+  packages/providers-xendit:
     dependencies:
       '@ai-gen-free/core':
         specifier: workspace:*

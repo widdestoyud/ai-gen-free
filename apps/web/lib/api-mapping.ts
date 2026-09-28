@@ -567,6 +567,12 @@ export const API_MAPPINGS: readonly ApiRouteMapping[] = [
     method: "POST",
     description: "Webhook untuk menerima notifikasi dari Midtrans",
   },
+  {
+    FE: "/api/webhooks/xendit",
+    BE: "/webhooks/xendit",
+    method: "POST",
+    description: "Webhook untuk menerima notifikasi dari Xendit",
+  },
 
   // -------------------------------------------------------------
   // 8. System & Health

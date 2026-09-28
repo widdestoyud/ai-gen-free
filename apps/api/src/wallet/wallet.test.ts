@@ -9,7 +9,9 @@ import {
 } from "./service.js";
 import { AuthError } from "../auth/service.js";
 import { createMidtransPaymentGateway } from "./midtrans-factory.js";
+import { createXenditPaymentGateway } from "./xendit-factory.js";
 import { generateMidtransSignature, verifyMidtransSignature } from "@ai-gen-free/providers-midtrans";
+import { verifyXenditCallbackToken } from "@ai-gen-free/providers-xendit";
 
 test("Topup catalog: returns predefined packages", async () => {
   const staticPackages = listStaticPackages();
@@ -101,4 +103,41 @@ test("Midtrans signature integration: correctly verifies payload", () => {
   });
 
   assert.equal(valid, true);
+});
+
+test("createXenditPaymentGateway: returns null when XENDIT_API_KEY is not configured", () => {
+  const originalKey = process.env.XENDIT_API_KEY;
+  try {
+    delete process.env.XENDIT_API_KEY;
+    const gateway = createXenditPaymentGateway();
+    assert.equal(gateway, null);
+  } finally {
+    if (originalKey) {
+      process.env.XENDIT_API_KEY = originalKey;
+    }
+  }
+});
+
+test("createXenditPaymentGateway: returns instance when XENDIT_API_KEY is configured", () => {
+  const originalKey = process.env.XENDIT_API_KEY;
+  try {
+    process.env.XENDIT_API_KEY = "xnd_development_TESTKEY12345";
+    const gateway = createXenditPaymentGateway();
+    assert(gateway !== null);
+    assert.equal(gateway.provider, "xendit");
+  } finally {
+    if (originalKey) {
+      process.env.XENDIT_API_KEY = originalKey;
+    } else {
+      delete process.env.XENDIT_API_KEY;
+    }
+  }
+});
+
+test("Xendit callback token integration: correctly verifies valid and invalid tokens", () => {
+  const token = "xnd_webhook_secret_token_123";
+  assert.equal(verifyXenditCallbackToken(token, token), true);
+  assert.equal(verifyXenditCallbackToken("invalid_token", token), false);
+  assert.equal(verifyXenditCallbackToken("", token), false);
+  assert.equal(verifyXenditCallbackToken(null, token), false);
 });

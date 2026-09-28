@@ -108,10 +108,16 @@ export async function initiatePayment(
   }
 
   // Update invoice dengan gateway session info
+  const providerKey = deps.paymentGateway.provider.includes("xendit")
+    ? "xendit"
+    : deps.paymentGateway.provider.includes("midtrans")
+      ? "midtrans"
+      : deps.paymentGateway.provider;
+
   await prisma.invoice.update({
     where: { id: invoice.id },
     data: {
-      paymentMethod: "midtrans",
+      paymentMethod: providerKey,
       paymentGateway: deps.paymentGateway.provider,
       gatewayToken: result.tokenId,
       gatewaySessionId: result.sessionId,
@@ -265,8 +271,14 @@ async function processSuccessfulPayment(
       await tx.$queryRaw`SELECT "userId" FROM "Wallet" WHERE "userId" = ${userId} FOR UPDATE`;
 
       // Check if already paid (idempotency)
+      const providerTag = meta.provider?.includes("xendit") ? "xendit" : "midtrans";
       const existingEntry = await tx.ledgerEntry.findFirst({
-        where: { idempotencyKey: `midtrans:${invoiceId}` },
+        where: {
+          OR: [
+            { idempotencyKey: `${providerTag}:${invoiceId}` },
+            { idempotencyKey: `midtrans:${invoiceId}` },
+          ],
+        },
       });
 
       if (existingEntry) {
@@ -300,6 +312,7 @@ async function processSuccessfulPayment(
       });
 
       // Create ledger entry for topup
+      const gatewayName = meta.provider?.includes("xendit") ? "Xendit" : "Midtrans";
       await tx.ledgerEntry.create({
         data: {
           userId,
@@ -307,8 +320,8 @@ async function processSuccessfulPayment(
           type: LedgerType.topup,
           status: LedgerStatus.posted,
           amount: points,
-          idempotencyKey: `midtrans:${invoiceId}`,
-          reason: `Pembayaran Midtrans via ${meta.paymentChannel ?? "Midtrans"}`,
+          idempotencyKey: `${providerTag}:${invoiceId}`,
+          reason: `Pembayaran ${gatewayName} via ${meta.paymentChannel ?? gatewayName}`,
         },
       });
 
