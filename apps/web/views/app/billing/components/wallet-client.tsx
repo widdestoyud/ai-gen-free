@@ -32,9 +32,10 @@ function InvoiceCard({
   payingInvoiceId: string | null;
 }) {
   const isPaying = payingInvoiceId === inv.id;
-  const canPay = inv.status === "unpaid" || inv.status === "rejected";
   const hasGatewaySession = inv.gateway?.paymentUrl && inv.gateway?.expiredAt;
   const gatewayExpired = hasGatewaySession && new Date(inv.gateway!.expiredAt!) < new Date();
+  const isExpired = inv.status === "expired" || gatewayExpired;
+  const canPay = (inv.status === "unpaid" || inv.status === "rejected") && !isExpired;
 
   return (
     <ItemCard key={inv.id}>
@@ -48,10 +49,13 @@ function InvoiceCard({
                 ? "yellow"
                 : inv.status === "rejected"
                   ? "red"
-                  : "gray"
+                  : isExpired || inv.status === "canceled"
+                    ? "gray"
+                    : "blue"
           }
+          variant={isExpired || inv.status === "canceled" ? "outline" : "light"}
         >
-          {inv.statusLabel}
+          {isExpired ? "Kedaluwarsa" : inv.statusLabel}
         </Badge>
       </Group>
 
@@ -128,6 +132,12 @@ function InvoiceCard({
             </Group>
           )}
         </Stack>
+      )}
+
+      {isExpired && (
+        <Text size="xs" c="dimmed" mt="sm">
+          Pesanan ini telah kedaluwarsa dan tidak dapat diproses lebih lanjut.
+        </Text>
       )}
     </ItemCard>
   );

@@ -177,6 +177,21 @@ export async function submitProof(opts: {
     where: { id: opts.invoiceId, userId: opts.userId },
   });
   if (!invoice) throw new AuthError(ErrorCodes.NOT_FOUND, "Invoice tidak ditemukan", 404);
+  const now = new Date();
+  const isExpired =
+    invoice.status === "expired" ||
+    (invoice.gatewayExpiredAt && invoice.gatewayExpiredAt < now);
+
+  if (isExpired) {
+    if (invoice.status !== "expired") {
+      await prisma.invoice.update({
+        where: { id: invoice.id },
+        data: { status: "expired" },
+      });
+    }
+    throw new AuthError(ErrorCodes.INVOICE_NOT_PAYABLE, "Invoice sudah kedaluwarsa dan tidak dapat diunggah bukti transfer", 400);
+  }
+
   if (invoice.status !== "unpaid" && invoice.status !== "rejected") {
     throw new AuthError(ErrorCodes.INVOICE_NOT_PAYABLE, "Bukti hanya bisa diunggah untuk invoice yang belum lunas");
   }
@@ -366,9 +381,22 @@ export async function cancelInvoiceForUser(userId: string, invoiceId: string, re
   if (existing.status === "paid") {
     throw new AuthError(ErrorCodes.INVOICE_NOT_PAYABLE, "Invoice yang sudah dibayar tidak dapat dibatalkan", 400);
   }
-  if (existing.status === "expired") {
+
+  const now = new Date();
+  const isExpired =
+    existing.status === "expired" ||
+    (existing.gatewayExpiredAt && new Date(existing.gatewayExpiredAt) < now);
+
+  if (isExpired) {
+    if (existing.status !== "expired") {
+      await prisma.invoice.update({
+        where: { id: existing.id },
+        data: { status: "expired" },
+      });
+    }
     throw new AuthError(ErrorCodes.INVOICE_NOT_PAYABLE, "Invoice sudah kedaluwarsa dan tidak dapat dibatalkan", 400);
   }
+
   if (existing.status === "canceled") {
     return serializeInvoice(existing, false);
   }
@@ -490,18 +518,27 @@ function serializeInvoice(
   withInstructions: boolean,
 ) {
   const amountIdr = asInt(invoice.amountIdr);
+  const now = new Date();
+  const isExpired =
+    invoice.status === "expired" ||
+    ((invoice.status === "unpaid" || invoice.status === "rejected") &&
+      invoice.gatewayExpiredAt &&
+      new Date(invoice.gatewayExpiredAt) < now);
+
+  const effectiveStatus = isExpired ? "expired" : invoice.status;
+
   return {
     id: invoice.id,
     amountIdr,
     points: asInt(invoice.points),
-    status: invoice.status,
+    status: effectiveStatus,
     uniqueCode: invoice.uniqueCode,
     paidAt: invoice.paidAt?.toISOString() ?? null,
     createdAt: invoice.createdAt.toISOString(),
     hasProof: Boolean(invoice.proofStorageKey),
     proofSubmittedAt: invoice.proofSubmittedAt?.toISOString() ?? null,
     reviewNote: invoice.reviewNote ?? null,
-    statusLabel: statusLabel(invoice.status),
+    statusLabel: statusLabel(effectiveStatus),
     paymentMethod: invoice.paymentMethod ?? null,
     paymentGateway: invoice.paymentGateway ?? null,
     gatewayPaymentChannel: invoice.gatewayPaymentChannel ?? null,
@@ -523,7 +560,7 @@ function statusLabel(status: string): string {
     case "canceled":
       return "Dibatalkan";
     case "expired":
-      return "Kedaluarsa";
+      return "Kedaluwarsa";
     default:
       return status;
   }

@@ -59,9 +59,29 @@ export async function initiatePayment(
     );
   }
 
+  // Cek apakah invoice sudah kedaluwarsa
+  const now = new Date();
+  const isExpired =
+    invoice.status === "expired" ||
+    (invoice.gatewayExpiredAt && invoice.gatewayExpiredAt < now) ||
+    (!invoice.gatewayExpiredAt && now.getTime() - invoice.createdAt.getTime() > (deps.paymentDueMinutes ?? 10) * 60 * 1000);
+
+  if (isExpired) {
+    if (invoice.status !== "expired") {
+      await prisma.invoice.update({
+        where: { id: invoice.id },
+        data: { status: "expired" },
+      });
+    }
+    throw new AuthError(
+      ErrorCodes.INVOICE_NOT_PAYABLE,
+      "Invoice sudah kedaluwarsa dan tidak dapat dibayar. Silakan buat pesanan baru.",
+      400,
+    );
+  }
+
   // Cek jika sudah ada payment session yang belum expired
   if (invoice.gatewayPaymentUrl && invoice.gatewayExpiredAt) {
-    const now = new Date();
     if (invoice.gatewayExpiredAt > now) {
       // Masih ada session aktif, return existing URL & token
       return {

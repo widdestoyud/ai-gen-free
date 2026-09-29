@@ -4,6 +4,7 @@ import {
   Badge,
   Button,
   Card,
+  CopyButton,
   FileInput,
   Group,
   Modal,
@@ -316,13 +317,14 @@ export function OrderClient(props: {
                 const isPaid = inv.status === "paid";
                 const isAwaiting = inv.status === "awaiting_review";
                 const isRejected = inv.status === "rejected";
-                const isUnpaid = inv.status === "unpaid";
-                const canPay = isUnpaid || isRejected;
-                const canCancel = isUnpaid || isRejected || isAwaiting;
-
-                const isPaying = payingInvoiceId === inv.id;
                 const hasGatewaySession = inv.gateway?.paymentUrl && inv.gateway?.expiredAt;
                 const gatewayExpired = hasGatewaySession && new Date(inv.gateway!.expiredAt!) < new Date();
+                const isExpired = inv.status === "expired" || gatewayExpired;
+                const isUnpaid = inv.status === "unpaid" && !isExpired;
+                const canPay = (isUnpaid || isRejected) && !isExpired;
+                const canCancel = (isUnpaid || isRejected || isAwaiting) && !isExpired;
+
+                const isPaying = payingInvoiceId === inv.id;
 
                 return (
                   <Table.Tr key={inv.id} className={classes.tableRow}>
@@ -350,15 +352,15 @@ export function OrderClient(props: {
                                 ? "yellow"
                                 : isRejected
                                   ? "red"
-                                  : isCanceled
+                                  : isCanceled || isExpired
                                     ? "gray"
                                     : "blue"
                           }
                           size="sm"
                           radius="sm"
-                          variant={isCanceled ? "outline" : "light"}
+                          variant={isCanceled || isExpired ? "outline" : "light"}
                         >
-                          {inv.statusLabel}
+                          {isExpired ? "Kedaluwarsa" : inv.statusLabel}
                         </Badge>
                         {isRejected && inv.reviewNote ? (
                           <Tooltip label={`Alasan tolak: ${inv.reviewNote}`} withArrow>
@@ -446,6 +448,10 @@ export function OrderClient(props: {
                         <Text size="xs" c="dimmed">
                           Pesanan dibatalkan
                         </Text>
+                      ) : isExpired ? (
+                        <Text size="xs" c="dimmed">
+                          Pesanan kedaluwarsa
+                        </Text>
                       ) : null}
                     </Table.Td>
                   </Table.Tr>
@@ -456,7 +462,7 @@ export function OrderClient(props: {
         )}
       </Paper>
 
-      {/* Modal Upload Bukti Transfer */}
+      {/* Modal Upload Bukti Transfer & Rincian Pembayaran */}
       <Modal
         opened={Boolean(uploadInvoice)}
         onClose={() => {
@@ -465,34 +471,121 @@ export function OrderClient(props: {
             setSelectedFile(null);
           }
         }}
-        title={`Unggah Bukti Transfer: ${uploadInvoice?.uniqueCode ?? ""}`}
+        title={
+          <Group gap="xs">
+            <Text fw={700} size="md">
+              Rincian Pembayaran & Bukti Transfer
+            </Text>
+            {uploadInvoice?.uniqueCode && (
+              <Badge variant="light" color="blue" size="sm">
+                {uploadInvoice.uniqueCode}
+              </Badge>
+            )}
+          </Group>
+        }
         centered
+        size="lg"
+        radius="lg"
+        padding="lg"
       >
-        <Stack gap="sm">
-          <Text size="sm" c="dimmed">
-            Nominal Tagihan: <strong>{uploadInvoice ? formatIdr(uploadInvoice.amountIdr) : ""}</strong> (
-            +{uploadInvoice?.points} Poin)
-          </Text>
+        <Stack gap="md">
+          {/* Summary Box */}
+          <div className={classes.modalSummaryCard}>
+            <Group justify="space-between" align="center">
+              <div>
+                <Text size="xs" c="dimmed">
+                  Total Tagihan Pembayaran
+                </Text>
+                <Text size="xl" fw={800} c="blue.4">
+                  {uploadInvoice ? formatIdr(uploadInvoice.amountIdr) : "—"}
+                </Text>
+              </div>
+              <div style={{ textAlign: "right" }}>
+                <Text size="xs" c="dimmed">
+                  Sparks Diperoleh
+                </Text>
+                <Text size="md" fw={700} c="green.4">
+                  +{uploadInvoice?.points?.toLocaleString()} Sparks
+                </Text>
+              </div>
+            </Group>
+          </div>
 
-          {uploadInvoice?.instructions ? (
-            <Paper p="xs" withBorder>
-              <Text size="xs" c="dimmed">
-                {uploadInvoice.instructions}
+          {/* Bank Destination & Account Details */}
+          <div className={classes.accountCard}>
+            <Group justify="space-between" align="center" mb={4}>
+              <Text size="xs" fw={700} c="blue.4" tt="uppercase">
+                Rekening Tujuan Pembayaran
               </Text>
-            </Paper>
-          ) : null}
+              <Badge size="xs" color="blue" variant="light">
+                Bank Transfer
+              </Badge>
+            </Group>
 
+            <div className={classes.accountNumberBox}>
+              <div>
+                <Text size="xs" c="dimmed">
+                  Bank BCA — a.n PT Satulabs Kreasi Indonesia
+                </Text>
+                <Text className={classes.accountNumber}>
+                  8831 2345 6789
+                </Text>
+              </div>
+              <CopyButton value="883123456789" timeout={2000}>
+                {({ copied, copy }) => (
+                  <Button
+                    size="xs"
+                    variant={copied ? "filled" : "light"}
+                    color={copied ? "teal" : "blue"}
+                    onClick={copy}
+                  >
+                    {copied ? "Tersalin ✓" : "Salin No. Rek 📋"}
+                  </Button>
+                )}
+              </CopyButton>
+            </div>
+          </div>
+
+          {/* Step-by-Step Instructions */}
+          <div className={classes.instructionBox}>
+            <Stack gap="xs">
+              <div className={classes.instructionStep}>
+                <div className={classes.stepNumber}>1</div>
+                <Text size="xs" c="gray.3">
+                  Transfer sebesar <strong>{uploadInvoice ? formatIdr(uploadInvoice.amountIdr) : ""}</strong> ke rekening BCA di atas.
+                </Text>
+              </div>
+              <div className={classes.instructionStep}>
+                <div className={classes.stepNumber}>2</div>
+                <Text size="xs" c="gray.3">
+                  Simpan struk atau tangkapan layar (screenshot) bukti transfer m-Banking / ATM Anda.
+                </Text>
+              </div>
+              <div className={classes.instructionStep}>
+                <div className={classes.stepNumber}>3</div>
+                <Text size="xs" c="gray.3">
+                  Unggah berkas bukti transfer di bawah ini, lalu klik <strong>Kirim Bukti Pembayaran</strong>.
+                </Text>
+              </div>
+            </Stack>
+          </div>
+
+          {/* File Input */}
           <FileInput
-            label="Pilih berkas bukti transfer"
-            placeholder="Pilih file gambar atau PDF..."
+            label="Unggah File Bukti Pembayaran"
+            description="Format yang didukung: JPG, PNG, WebP, atau PDF (maks. 5MB)"
+            placeholder="Pilih foto / berkas bukti transfer..."
             accept="image/jpeg,image/png,image/webp,application/pdf"
             value={selectedFile}
             onChange={setSelectedFile}
             disabled={busy}
             required
+            size="sm"
+            radius="md"
           />
 
-          <Group justify="flex-end" mt="md">
+          {/* Actions */}
+          <Group justify="flex-end" mt="xs" gap="sm">
             <Button
               variant="default"
               onClick={() => {
@@ -501,7 +594,7 @@ export function OrderClient(props: {
               }}
               disabled={busy}
             >
-              Batal
+              Tutup
             </Button>
             <Button
               variant="gradient"
@@ -509,8 +602,9 @@ export function OrderClient(props: {
               onClick={() => void handleUploadProof()}
               disabled={!selectedFile || busy}
               loading={busy}
+              fw={700}
             >
-              Kirim Bukti
+              Kirim Bukti Pembayaran
             </Button>
           </Group>
         </Stack>
@@ -522,20 +616,56 @@ export function OrderClient(props: {
         onClose={() => {
           if (!busy) setCancelingInvoice(null);
         }}
-        title="Konfirmasi Pembatalan Pesanan"
+        title={
+          <Group gap="xs">
+            <Text fw={700} size="md" c="red.4">
+              Batalkan Pesanan?
+            </Text>
+            {cancelingInvoice?.uniqueCode && (
+              <Badge variant="light" color="red" size="sm">
+                {cancelingInvoice.uniqueCode}
+              </Badge>
+            )}
+          </Group>
+        }
         centered
+        size="md"
+        radius="lg"
+        padding="lg"
       >
-        <Stack gap="sm">
-          <Text size="sm">
-            Apakah Anda yakin ingin membatalkan tagihan invoice{" "}
-            <strong>{cancelingInvoice?.uniqueCode}</strong> senilai{" "}
-            <strong>{cancelingInvoice ? formatIdr(cancelingInvoice.amountIdr) : ""}</strong> (+
-            {cancelingInvoice?.points} Poin)?
-          </Text>
+        <Stack gap="md">
+          <div className={classes.cancelModalCard}>
+            <Group justify="space-between" mb="xs">
+              <Text size="xs" c="dimmed">
+                Nomor Tagihan
+              </Text>
+              <Text size="sm" fw={600}>
+                {cancelingInvoice?.uniqueCode}
+              </Text>
+            </Group>
+            <Group justify="space-between" mb="xs">
+              <Text size="xs" c="dimmed">
+                Total Nominal
+              </Text>
+              <Text size="sm" fw={700} c="red.4">
+                {cancelingInvoice ? formatIdr(cancelingInvoice.amountIdr) : ""}
+              </Text>
+            </Group>
+            <Group justify="space-between">
+              <Text size="xs" c="dimmed">
+                Jumlah Paket
+              </Text>
+              <Text size="sm" fw={600}>
+                +{cancelingInvoice?.points} Sparks
+              </Text>
+            </Group>
+          </div>
+
           <Text size="xs" c="dimmed">
-            Setelah dibatalkan, tagihan ini tidak dapat dibayar lagi dan Anda dapat membuat pesanan baru kapan saja.
+            Setelah dibatalkan, tagihan ini tidak dapat diproses lagi dan Anda dapat membuat pesanan baru kapan saja.
           </Text>
-          <Group justify="flex-end" mt="md">
+
+          <Group justify="flex-end" mt="xs" gap="sm">
             <Button
               variant="default"
               onClick={() => setCancelingInvoice(null)}
@@ -545,8 +675,10 @@ export function OrderClient(props: {
             </Button>
             <Button
               color="red"
+              variant="filled"
               onClick={() => void handleConfirmCancel()}
               loading={busy}
+              fw={600}
             >
               Ya, Batalkan Pesanan
             </Button>
