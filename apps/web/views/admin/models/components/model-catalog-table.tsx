@@ -23,6 +23,7 @@ import {
 import { useDisclosure } from "@mantine/hooks";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { ResponsiveTable } from "@/components/responsive-table";
 import { ErrorAlert } from "@/components/error-alert";
 import { requestJson } from "@/lib/api";
 import type { AdminModelItem } from "../types";
@@ -133,83 +134,164 @@ export function ModelCatalogTable({ models = [] }: { models?: AdminModelItem[] }
         </div>
       </Group>
 
-      <Table.ScrollContainer minWidth={650}>
-        <Table verticalSpacing="sm" striped highlightOnHover>
-          <Table.Thead>
-            <Table.Tr>
-              <Table.Th>Model & Display Name</Table.Th>
-              <Table.Th>Kategori / Mode</Table.Th>
-              <Table.Th>Provider</Table.Th>
-              <Table.Th>Tipe</Table.Th>
-              <Table.Th>Biaya Poin</Table.Th>
-              <Table.Th>Status</Table.Th>
-              <Table.Th>Aksi</Table.Th>
+      <ResponsiveTable
+        data={models}
+        keyExtractor={(model) => model.id}
+        striped
+        highlightOnHover
+        renderHeader={() => (
+          <Table.Tr>
+            <Table.Th>Model & Display Name</Table.Th>
+            <Table.Th>Kategori / Mode</Table.Th>
+            <Table.Th>Provider</Table.Th>
+            <Table.Th>Tipe</Table.Th>
+            <Table.Th>Biaya Poin</Table.Th>
+            <Table.Th>Status</Table.Th>
+            <Table.Th>Aksi</Table.Th>
+          </Table.Tr>
+        )}
+        renderRow={(model) => {
+          const isVideo = model.mode === "i2v" || model.mode === "t2v";
+          return (
+            <Table.Tr key={model.id}>
+              <Table.Td>
+                <Text fw={600} size="sm">
+                  {model.displayName || model.modelId}
+                </Text>
+                <Text size="xs" c="dimmed" ff="monospace">
+                  {model.modelId}
+                </Text>
+              </Table.Td>
+              <Table.Td>
+                <Badge color={isVideo ? "grape" : "blue"} variant="light" size="sm">
+                  {isVideo ? `Video (${model.mode})` : `Image (${model.mode})`}
+                </Badge>
+              </Table.Td>
+              <Table.Td>
+                <Text size="sm">{model.providerId}</Text>
+              </Table.Td>
+              <Table.Td>
+                {model.isSpicy ? (
+                  <Badge color="red" variant="filled" size="sm">
+                    🔥 Spicy
+                  </Badge>
+                ) : (
+                  <Badge color="gray" variant="light" size="sm">
+                    Standar
+                  </Badge>
+                )}
+              </Table.Td>
+              <Table.Td>
+                {isVideo ? (
+                  <div>
+                    <Text fw={600} size="sm" c="grape">
+                      100 – 1.230 poin
+                    </Text>
+                    <Text size="xs" c="dimmed">
+                      Tergantung durasi & resolusi
+                    </Text>
+                  </div>
+                ) : (
+                  <Text fw={600} size="sm">
+                    {model.costPoints} poin
+                  </Text>
+                )}
+              </Table.Td>
+              <Table.Td>
+                <Badge color={model.enabled ? "teal" : "gray"} variant="dot" size="sm">
+                  {model.enabled ? "Aktif" : "Nonaktif"}
+                </Badge>
+              </Table.Td>
+              <Table.Td>
+                <Button variant="subtle" size="xs" onClick={() => startEdit(model)}>
+                  Edit
+                </Button>
+              </Table.Td>
             </Table.Tr>
-          </Table.Thead>
-          <Table.Tbody>
-            {models.map((model) => {
-              const isVideo = model.mode === "i2v" || model.mode === "t2v";
-              return (
-                <Table.Tr key={model.id}>
-                  <Table.Td>
-                    <Text fw={600} size="sm">
-                      {model.displayName || model.modelId}
-                    </Text>
-                    <Text size="xs" c="dimmed" ff="monospace">
-                      {model.modelId}
-                    </Text>
-                  </Table.Td>
-                  <Table.Td>
-                    <Badge color={isVideo ? "grape" : "blue"} variant="light" size="sm">
-                      {isVideo ? `Video (${model.mode})` : `Image (${model.mode})`}
+          );
+        }}
+        renderMobileCard={(model) => {
+          const isVideo = model.mode === "i2v" || model.mode === "t2v";
+          return (
+            <div
+              key={model.id}
+              style={{
+                background: "rgba(255, 255, 255, 0.03)",
+                border: "1px solid var(--mantine-color-default-border)",
+                borderRadius: 12,
+                padding: "14px 16px",
+                display: "flex",
+                flexDirection: "column",
+                gap: 10,
+              }}
+            >
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
+                <div>
+                  <Text fw={600} size="sm">
+                    {model.displayName || model.modelId}
+                  </Text>
+                  <Text size="xs" c="dimmed" style={{ fontFamily: "monospace" }}>
+                    {model.modelId}
+                  </Text>
+                </div>
+                <Group gap={6}>
+                  <Badge color={isVideo ? "grape" : "blue"} variant="light" size="xs">
+                    {isVideo ? `Video (${model.mode})` : `Image (${model.mode})`}
+                  </Badge>
+                  {model.isSpicy && (
+                    <Badge color="red" variant="filled" size="xs">
+                      🔥 Spicy
                     </Badge>
-                  </Table.Td>
-                  <Table.Td>
-                    <Text size="sm">{model.providerId}</Text>
-                  </Table.Td>
-                  <Table.Td>
-                    {model.isSpicy ? (
-                      <Badge color="red" variant="filled" size="sm">
-                        🔥 Spicy
-                      </Badge>
-                    ) : (
-                      <Badge color="gray" variant="light" size="sm">
-                        Standar
-                      </Badge>
-                    )}
-                  </Table.Td>
-                  <Table.Td>
-                    {isVideo ? (
-                      <div>
-                        <Text fw={600} size="sm" c="grape">
-                          100 – 1.230 poin
-                        </Text>
-                        <Text size="xs" c="dimmed">
-                          Tergantung durasi & resolusi
-                        </Text>
-                      </div>
-                    ) : (
-                      <Text fw={600} size="sm">
-                        {model.costPoints} poin
-                      </Text>
-                    )}
-                  </Table.Td>
-                  <Table.Td>
-                    <Badge color={model.enabled ? "teal" : "gray"} variant="dot" size="sm">
+                  )}
+                </Group>
+              </div>
+
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  padding: "8px 0",
+                  borderTop: "1px solid rgba(255, 255, 255, 0.06)",
+                  borderBottom: "1px solid rgba(255, 255, 255, 0.06)",
+                }}
+              >
+                <div>
+                  <Text size="xs" c="dimmed">
+                    Provider & Status
+                  </Text>
+                  <Group gap={6} mt={2}>
+                    <Text size="xs">{model.providerId}</Text>
+                    <Badge color={model.enabled ? "teal" : "gray"} variant="dot" size="xs">
                       {model.enabled ? "Aktif" : "Nonaktif"}
                     </Badge>
-                  </Table.Td>
-                  <Table.Td>
-                    <Button variant="subtle" size="xs" onClick={() => startEdit(model)}>
-                      Edit
-                    </Button>
-                  </Table.Td>
-                </Table.Tr>
-              );
-            })}
-          </Table.Tbody>
-        </Table>
-      </Table.ScrollContainer>
+                  </Group>
+                </div>
+                <div style={{ textAlign: "right" }}>
+                  <Text size="xs" c="dimmed">
+                    Biaya Poin
+                  </Text>
+                  {isVideo ? (
+                    <Text fw={600} size="xs" c="grape">
+                      100 – 1.230 poin
+                    </Text>
+                  ) : (
+                    <Text fw={600} size="xs">
+                      {model.costPoints} poin
+                    </Text>
+                  )}
+                </div>
+              </div>
+
+              <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                <Button variant="light" size="xs" onClick={() => startEdit(model)}>
+                  Edit Model
+                </Button>
+              </div>
+            </div>
+          );
+        }}
+      />
 
       <Modal opened={opened} onClose={close} title="Edit Model Catalog" size={isEditingVideo ? "lg" : "md"} centered>
         {editingModel ? (

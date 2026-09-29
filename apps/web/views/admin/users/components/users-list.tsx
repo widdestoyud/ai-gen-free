@@ -15,6 +15,7 @@ import {
 } from "@mantine/core";
 import { useRouter } from "next/navigation";
 import { AppLink } from "@/components/app-link";
+import { ResponsiveTable } from "@/components/responsive-table";
 import { EmptyState } from "@/components/empty-state";
 import { ADMIN_PAGE_SIZE, adminHref, type AdminUserRow } from "@/lib/admin";
 import { formatDateId } from "@/lib/format";
@@ -177,9 +178,11 @@ export function AdminUsersList({
           {q ? `Tidak ada pengguna yang cocok dengan pencarian "${q}".` : "Belum ada data pengguna."}
         </EmptyState>
       ) : (
-        <Table verticalSpacing="sm" horizontalSpacing="md">
-          <Table.Thead className={classes.tableHeader}>
-            <Table.Tr>
+        <ResponsiveTable
+          data={filteredUsers}
+          keyExtractor={(user) => user.id}
+          renderHeader={() => (
+            <Table.Tr className={classes.tableHeader}>
               <Table.Th>Pengguna</Table.Th>
               <Table.Th>Role</Table.Th>
               <Table.Th>Saldo Poin</Table.Th>
@@ -187,69 +190,158 @@ export function AdminUsersList({
               <Table.Th>Terdaftar</Table.Th>
               <Table.Th className={classes.actionCell}>Aksi</Table.Th>
             </Table.Tr>
-          </Table.Thead>
-          <Table.Tbody>
-            {filteredUsers.map((user) => {
-              const isCooldown = Boolean(user.nextGenerateAt && new Date(user.nextGenerateAt).getTime() > Date.now());
+          )}
+          renderRow={(user) => {
+            const isCooldown = Boolean(user.nextGenerateAt && new Date(user.nextGenerateAt).getTime() > Date.now());
 
-              return (
-                <Table.Tr key={user.id} className={classes.tableRow}>
-                  <Table.Td>
-                    <div className={classes.userCell}>
-                      <span className={classes.userEmail}>{user.email}</span>
-                      <span className={classes.userIdText}>ID: {user.id}</span>
-                    </div>
-                  </Table.Td>
-                  <Table.Td>
-                    <Badge
-                      variant="light"
-                      color={user.role === "admin" ? "violet" : "blue"}
-                      size="sm"
-                      radius="sm"
-                    >
-                      {user.role}
+            return (
+              <Table.Tr key={user.id} className={classes.tableRow}>
+                <Table.Td>
+                  <div className={classes.userCell}>
+                    <span className={classes.userEmail}>{user.email}</span>
+                    <span className={classes.userIdText}>ID: {user.id}</span>
+                  </div>
+                </Table.Td>
+                <Table.Td>
+                  <Badge
+                    variant="light"
+                    color={user.role === "admin" ? "violet" : "blue"}
+                    size="sm"
+                    radius="sm"
+                  >
+                    {user.role}
+                  </Badge>
+                </Table.Td>
+                <Table.Td>
+                  <div className={classes.balanceCell}>
+                    <span className={classes.balanceValue}>{user.available} Poin</span>
+                    {user.held > 0 ? (
+                      <span className={classes.heldValue}>({user.held} terkunci)</span>
+                    ) : null}
+                  </div>
+                </Table.Td>
+                <Table.Td>
+                  {isCooldown ? (
+                    <Tooltip label={`Jeda sampai: ${formatDateId(user.nextGenerateAt!)}`} withArrow>
+                      <Badge variant="light" color="yellow" size="sm" radius="sm">
+                        Jeda Generate
+                      </Badge>
+                    </Tooltip>
+                  ) : (
+                    <Badge variant="light" color="teal" size="sm" radius="sm">
+                      Siap Generate
                     </Badge>
-                  </Table.Td>
-                  <Table.Td>
-                    <div className={classes.balanceCell}>
-                      <span className={classes.balanceValue}>{user.available} Poin</span>
-                      {user.held > 0 ? (
-                        <span className={classes.heldValue}>({user.held} terkunci)</span>
-                      ) : null}
-                    </div>
-                  </Table.Td>
-                  <Table.Td>
+                  )}
+                </Table.Td>
+                <Table.Td className={classes.dateCell} suppressHydrationWarning>
+                  {formatDateId(user.createdAt)}
+                </Table.Td>
+                <Table.Td className={classes.actionCell}>
+                  <Button
+                    component={AppLink}
+                    href={`/admin/users/${user.id}`}
+                    variant="light"
+                    size="xs"
+                    radius="md"
+                  >
+                    Kelola
+                  </Button>
+                </Table.Td>
+              </Table.Tr>
+            );
+          }}
+          renderMobileCard={(user) => {
+            const isCooldown = Boolean(user.nextGenerateAt && new Date(user.nextGenerateAt).getTime() > Date.now());
+
+            return (
+              <div
+                key={user.id}
+                style={{
+                  background: "rgba(255, 255, 255, 0.03)",
+                  border: "1px solid var(--mantine-color-default-border)",
+                  borderRadius: 12,
+                  padding: "14px 16px",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 10,
+                }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
+                  <div>
+                    <Text fw={600} size="sm">
+                      {user.email}
+                    </Text>
+                    <Text size="xs" c="dimmed" style={{ fontFamily: "monospace" }}>
+                      ID: {user.id}
+                    </Text>
+                  </div>
+                  <Badge
+                    variant="light"
+                    color={user.role === "admin" ? "violet" : "blue"}
+                    size="sm"
+                    radius="sm"
+                  >
+                    {user.role}
+                  </Badge>
+                </div>
+
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    padding: "8px 0",
+                    borderTop: "1px solid rgba(255, 255, 255, 0.06)",
+                    borderBottom: "1px solid rgba(255, 255, 255, 0.06)",
+                  }}
+                >
+                  <div>
+                    <Text size="xs" c="dimmed">
+                      Saldo Poin
+                    </Text>
+                    <Text size="sm" fw={700} c="blue.4">
+                      {user.available} Poin{" "}
+                      {user.held > 0 && (
+                        <Text span size="xs" c="dimmed">
+                          ({user.held} lock)
+                        </Text>
+                      )}
+                    </Text>
+                  </div>
+                  <div style={{ textAlign: "right" }}>
+                    <Text size="xs" c="dimmed">
+                      Status Generate
+                    </Text>
                     {isCooldown ? (
-                      <Tooltip label={`Jeda sampai: ${formatDateId(user.nextGenerateAt!)}`} withArrow>
-                        <Badge variant="light" color="yellow" size="sm" radius="sm">
-                          Jeda Generate
-                        </Badge>
-                      </Tooltip>
+                      <Badge variant="light" color="yellow" size="xs" radius="sm">
+                        Jeda
+                      </Badge>
                     ) : (
-                      <Badge variant="light" color="teal" size="sm" radius="sm">
-                        Siap Generate
+                      <Badge variant="light" color="teal" size="xs" radius="sm">
+                        Siap
                       </Badge>
                     )}
-                  </Table.Td>
-                  <Table.Td className={classes.dateCell} suppressHydrationWarning>
-                    {formatDateId(user.createdAt)}
-                  </Table.Td>
-                  <Table.Td className={classes.actionCell}>
-                    <Button
-                      component={AppLink}
-                      href={`/admin/users/${user.id}`}
-                      variant="light"
-                      size="xs"
-                      radius="md"
-                    >
-                      Kelola
-                    </Button>
-                  </Table.Td>
-                </Table.Tr>
-              );
-            })}
-          </Table.Tbody>
-        </Table>
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <Text size="xs" c="dimmed" suppressHydrationWarning>
+                    Daftar: {formatDateId(user.createdAt)}
+                  </Text>
+                  <Button
+                    component={AppLink}
+                    href={`/admin/users/${user.id}`}
+                    variant="light"
+                    size="xs"
+                    radius="md"
+                  >
+                    Kelola Pengguna
+                  </Button>
+                </div>
+              </div>
+            );
+          }}
+        />
       )}
 
       <div className={classes.paginationRow}>

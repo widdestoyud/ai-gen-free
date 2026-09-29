@@ -16,6 +16,7 @@ import {
 } from "@mantine/core";
 import { useRouter } from "next/navigation";
 import { AppLink } from "@/components/app-link";
+import { ResponsiveTable } from "@/components/responsive-table";
 import { EmptyState } from "@/components/empty-state";
 import { ADMIN_PAGE_SIZE, adminHref, type AdminJobRow } from "@/lib/admin";
 import { formatDateId } from "@/lib/format";
@@ -243,9 +244,11 @@ export function AdminJobsList({
           {q || status || mode || userId ? "Tidak ada job yang sesuai dengan filter pencarian." : "Belum ada job generate."}
         </EmptyState>
       ) : (
-        <Table verticalSpacing="sm" horizontalSpacing="md">
-          <Table.Thead className={classes.tableHeader}>
-            <Table.Tr>
+        <ResponsiveTable
+          data={jobs}
+          keyExtractor={(job) => job.id}
+          renderHeader={() => (
+            <Table.Tr className={classes.tableHeader}>
               <Table.Th>Pemilik / Email</Table.Th>
               <Table.Th>Prompt & Model</Table.Th>
               <Table.Th>Status</Table.Th>
@@ -253,68 +256,140 @@ export function AdminJobsList({
               <Table.Th>Waktu Dibuat</Table.Th>
               <Table.Th className={classes.actionCell}>Aksi</Table.Th>
             </Table.Tr>
-          </Table.Thead>
-          <Table.Tbody>
-            {jobs.map((job) => {
-              const statusColor = getStatusBadgeColor(job.status);
-              const modeColor = getModeBadgeColor(job.mode);
-              const statusText = jobStatusLabel(job.status);
+          )}
+          renderRow={(job) => {
+            const statusColor = getStatusBadgeColor(job.status);
+            const modeColor = getModeBadgeColor(job.mode);
+            const statusText = jobStatusLabel(job.status);
 
-              return (
-                <Table.Tr key={job.id} className={classes.tableRow}>
-                  <Table.Td>
-                    <div className={classes.userCell}>
-                      <span className={classes.userEmail} title={job.email}>
-                        {job.email}
-                      </span>
-                      <span className={classes.jobIdText}>ID: {job.id}</span>
+            return (
+              <Table.Tr key={job.id} className={classes.tableRow}>
+                <Table.Td>
+                  <div className={classes.userCell}>
+                    <span className={classes.userEmail} title={job.email}>
+                      {job.email}
+                    </span>
+                    <span className={classes.jobIdText}>ID: {job.id}</span>
+                  </div>
+                </Table.Td>
+                <Table.Td>
+                  <div className={classes.promptCell}>
+                    <Text lineClamp={2} className={classes.promptText} title={job.promptPreview}>
+                      {job.promptPreview || "—"}
+                    </Text>
+                    <div className={classes.modelMeta}>
+                      <Badge variant="light" color={modeColor} size="xs" radius="sm">
+                        {job.mode.toUpperCase()}
+                      </Badge>
+                      <span className={classes.modelIdText}>{job.modelId}</span>
                     </div>
-                  </Table.Td>
-                  <Table.Td>
-                    <div className={classes.promptCell}>
-                      <Text lineClamp={2} className={classes.promptText} title={job.promptPreview}>
-                        {job.promptPreview || "—"}
-                      </Text>
-                      <div className={classes.modelMeta}>
-                        <Badge variant="light" color={modeColor} size="xs" radius="sm">
-                          {job.mode.toUpperCase()}
-                        </Badge>
-                        <span className={classes.modelIdText}>{job.modelId}</span>
-                      </div>
-                    </div>
-                  </Table.Td>
-                  <Table.Td>
-                    <Badge variant="light" color={statusColor} size="sm" radius="sm">
+                  </div>
+                </Table.Td>
+                <Table.Td>
+                  <Badge variant="light" color={statusColor} size="sm" radius="sm">
+                    {statusText}
+                  </Badge>
+                </Table.Td>
+                <Table.Td className={classes.costCell}>
+                  {job.cost} Poin
+                </Table.Td>
+                <Table.Td className={classes.dateCell} suppressHydrationWarning>
+                  <Tooltip
+                    label={job.finishedAt ? `Selesai: ${formatDateId(job.finishedAt)}` : "Belum selesai"}
+                    withArrow
+                  >
+                    <span suppressHydrationWarning>{formatDateId(job.createdAt)}</span>
+                  </Tooltip>
+                </Table.Td>
+                <Table.Td className={classes.actionCell}>
+                  <Button
+                    component={AppLink}
+                    href={`/admin/jobs/${job.id}`}
+                    variant="light"
+                    size="xs"
+                    radius="md"
+                  >
+                    Detail
+                  </Button>
+                </Table.Td>
+              </Table.Tr>
+            );
+          }}
+          renderMobileCard={(job) => {
+            const statusColor = getStatusBadgeColor(job.status);
+            const modeColor = getModeBadgeColor(job.mode);
+            const statusText = jobStatusLabel(job.status);
+
+            return (
+              <div
+                key={job.id}
+                style={{
+                  background: "rgba(255, 255, 255, 0.03)",
+                  border: "1px solid var(--mantine-color-default-border)",
+                  borderRadius: 12,
+                  padding: "14px 16px",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 10,
+                }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
+                  <div>
+                    <Text fw={600} size="sm">
+                      {job.email}
+                    </Text>
+                    <Text size="xs" c="dimmed" style={{ fontFamily: "monospace" }}>
+                      ID: {job.id}
+                    </Text>
+                  </div>
+                  <Group gap={6}>
+                    <Badge variant="light" color={modeColor} size="xs" radius="sm">
+                      {job.mode.toUpperCase()}
+                    </Badge>
+                    <Badge variant="light" color={statusColor} size="xs" radius="sm">
                       {statusText}
                     </Badge>
-                  </Table.Td>
-                  <Table.Td className={classes.costCell}>
-                    {job.cost} Poin
-                  </Table.Td>
-                  <Table.Td className={classes.dateCell} suppressHydrationWarning>
-                    <Tooltip
-                      label={job.finishedAt ? `Selesai: ${formatDateId(job.finishedAt)}` : "Belum selesai"}
-                      withArrow
-                    >
-                      <span suppressHydrationWarning>{formatDateId(job.createdAt)}</span>
-                    </Tooltip>
-                  </Table.Td>
-                  <Table.Td className={classes.actionCell}>
-                    <Button
-                      component={AppLink}
-                      href={`/admin/jobs/${job.id}`}
-                      variant="light"
-                      size="xs"
-                      radius="md"
-                    >
-                      Detail
-                    </Button>
-                  </Table.Td>
-                </Table.Tr>
-              );
-            })}
-          </Table.Tbody>
-        </Table>
+                  </Group>
+                </div>
+
+                <div
+                  style={{
+                    padding: "8px 0",
+                    borderTop: "1px solid rgba(255, 255, 255, 0.06)",
+                    borderBottom: "1px solid rgba(255, 255, 255, 0.06)",
+                  }}
+                >
+                  <Text size="xs" c="dimmed" mb={2}>
+                    Prompt & Model ({job.modelId}):
+                  </Text>
+                  <Text size="xs" lineClamp={2} style={{ color: "var(--mantine-color-text)" }}>
+                    {job.promptPreview || "—"}
+                  </Text>
+                </div>
+
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div>
+                    <Text size="xs" c="dimmed">
+                      Biaya & Waktu
+                    </Text>
+                    <Text size="xs" fw={600} suppressHydrationWarning>
+                      {job.cost} Poin • {formatDateId(job.createdAt)}
+                    </Text>
+                  </div>
+                  <Button
+                    component={AppLink}
+                    href={`/admin/jobs/${job.id}`}
+                    variant="light"
+                    size="xs"
+                    radius="md"
+                  >
+                    Detail
+                  </Button>
+                </div>
+              </div>
+            );
+          }}
+        />
       )}
 
       <div className={classes.paginationRow}>

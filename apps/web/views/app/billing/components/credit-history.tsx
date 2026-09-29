@@ -9,6 +9,7 @@ import {
   Table,
   Text,
 } from "@mantine/core";
+import { ResponsiveTable } from "@/components/responsive-table";
 import { EmptyState } from "@/components/empty-state";
 import { requestJson } from "@/lib/api";
 import type { JobView } from "@/lib/job-status";
@@ -242,48 +243,119 @@ export function CreditHistory(props: {
         {filteredEntries.length === 0 ? (
           <EmptyState minHeight={220}>Belum ada data riwayat transaksi.</EmptyState>
         ) : (
-          <Table verticalSpacing="sm" horizontalSpacing="md">
-            <Table.Thead className={classes.tableHeader}>
-              <Table.Tr>
+          <ResponsiveTable
+            data={filteredEntries}
+            keyExtractor={(row) => row.id}
+            renderHeader={() => (
+              <Table.Tr className={classes.tableHeader}>
                 <Table.Th>Tanggal</Table.Th>
                 <Table.Th>Aktivitas</Table.Th>
                 <Table.Th>Sebanyak</Table.Th>
                 <Table.Th>Saldo</Table.Th>
                 <Table.Th className={classes.actionCell}></Table.Th>
               </Table.Tr>
-            </Table.Thead>
-            <Table.Tbody>
-              {filteredEntries.map((row) => {
-                const canShowDetail = row.source !== "Refund" && row.source !== "Top Up";
+            )}
+            renderRow={(row) => {
+              const canShowDetail = row.source !== "Refund" && row.source !== "Top Up";
 
-                return (
-                  <Table.Tr key={row.id} className={classes.tableRow}>
-                    <Table.Td className={classes.dateCell}>{row.formattedDate}</Table.Td>
-                    <Table.Td className={classes.sourceCell}>{row.source}</Table.Td>
-                    <Table.Td>
+              return (
+                <Table.Tr key={row.id} className={classes.tableRow}>
+                  <Table.Td className={classes.dateCell}>{row.formattedDate}</Table.Td>
+                  <Table.Td className={classes.sourceCell}>{row.source}</Table.Td>
+                  <Table.Td>
+                    <span className={row.isNegative ? classes.amountNegative : classes.amountPositive}>
+                      {row.signedAmount}
+                    </span>
+                  </Table.Td>
+                  <Table.Td className={classes.balanceCell}>{row.balance}</Table.Td>
+                  <Table.Td className={classes.actionCell}>
+                    {canShowDetail ? (
+                      <ActionIcon
+                        variant="subtle"
+                        color="gray"
+                        size="sm"
+                        onClick={() => setSelectedEntry(row)}
+                        aria-label="Detail transaksi"
+                      >
+                        <ExternalLinkIcon />
+                      </ActionIcon>
+                    ) : null}
+                  </Table.Td>
+                </Table.Tr>
+              );
+            }}
+            renderMobileCard={(row) => {
+              const canShowDetail = row.source !== "Refund" && row.source !== "Top Up";
+
+              return (
+                <div
+                  key={row.id}
+                  style={{
+                    background: "rgba(255, 255, 255, 0.03)",
+                    border: "1px solid var(--mantine-color-default-border)",
+                    borderRadius: 12,
+                    padding: "14px 16px",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 10,
+                  }}
+                >
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <Text size="xs" c="dimmed" suppressHydrationWarning>
+                      {row.formattedDate}
+                    </Text>
+                    {canShowDetail && (
+                      <Button
+                        variant="subtle"
+                        size="compact-xs"
+                        rightSection={<ExternalLinkIcon />}
+                        onClick={() => setSelectedEntry(row)}
+                      >
+                        Detail
+                      </Button>
+                    )}
+                  </div>
+
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      padding: "8px 0",
+                      borderTop: "1px solid rgba(255, 255, 255, 0.06)",
+                      borderBottom: "1px solid rgba(255, 255, 255, 0.06)",
+                    }}
+                  >
+                    <div>
+                      <Text size="xs" c="dimmed">
+                        Aktivitas
+                      </Text>
+                      <Text size="sm" fw={600}>
+                        {row.source}
+                      </Text>
+                    </div>
+                    <div style={{ textAlign: "right" }}>
+                      <Text size="xs" c="dimmed">
+                        Mutasi Poin
+                      </Text>
                       <span className={row.isNegative ? classes.amountNegative : classes.amountPositive}>
                         {row.signedAmount}
                       </span>
-                    </Table.Td>
-                    <Table.Td className={classes.balanceCell}>{row.balance}</Table.Td>
-                    <Table.Td className={classes.actionCell}>
-                      {canShowDetail ? (
-                        <ActionIcon
-                          variant="subtle"
-                          color="gray"
-                          size="sm"
-                          onClick={() => setSelectedEntry(row)}
-                          aria-label="Detail transaksi"
-                        >
-                          <ExternalLinkIcon />
-                        </ActionIcon>
-                      ) : null}
-                    </Table.Td>
-                  </Table.Tr>
-                );
-              })}
-            </Table.Tbody>
-          </Table>
+                    </div>
+                  </div>
+
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <Text size="xs" c="dimmed">
+                      Sisa Saldo
+                    </Text>
+                    <Text size="sm" fw={600} c="blue.4">
+                      {row.balance} Poin
+                    </Text>
+                  </div>
+                </div>
+              );
+            }}
+          />
         )}
       </Paper>
 

@@ -14,6 +14,7 @@ import {
   Text,
 } from "@mantine/core";
 import { ItemCard } from "@/components/item-card";
+import { ResponsiveTable } from "@/components/responsive-table";
 import { EmptyState } from "@/components/empty-state";
 import { requestJson } from "@/lib/api";
 import { formatDateId } from "@/lib/format";
@@ -113,9 +114,14 @@ export function UserActivityTable({ userId }: { userId: string }) {
         <EmptyState>Belum ada riwayat aktivitas yang tercatat untuk filter ini.</EmptyState>
       ) : (
         <Stack gap="xs">
-          <Paper withBorder radius="sm" p={0}>
-            <Table striped highlightOnHover verticalSpacing="xs" fz="xs">
-              <Table.Thead>
+          <Paper withBorder radius="sm" p={0} style={{ overflow: "hidden" }}>
+            <ResponsiveTable
+              data={items}
+              keyExtractor={(item) => item.id}
+              striped
+              highlightOnHover
+              verticalSpacing="xs"
+              renderHeader={() => (
                 <Table.Tr>
                   <Table.Th>Waktu</Table.Th>
                   <Table.Th>Aksi</Table.Th>
@@ -124,78 +130,167 @@ export function UserActivityTable({ userId }: { userId: string }) {
                   <Table.Th>Lokasi</Table.Th>
                   <Table.Th>Detail</Table.Th>
                 </Table.Tr>
-              </Table.Thead>
-              <Table.Tbody>
-                {items.map((item) => {
-                  const metaString =
-                    item.metadata && Object.keys(item.metadata).length > 0
-                      ? JSON.stringify(item.metadata, null, 2)
-                      : null;
-                  const isExpanded = expandedMetaId === item.id;
+              )}
+              renderRow={(item) => {
+                const metaString =
+                  item.metadata && Object.keys(item.metadata).length > 0
+                    ? JSON.stringify(item.metadata, null, 2)
+                    : null;
+                const isExpanded = expandedMetaId === item.id;
 
-                  return (
-                    <Table.Tr key={item.id}>
-                      <Table.Td suppressHydrationWarning>
-                        <Text size="xs" fw={500}>
-                          {formatDateId(item.createdAt)}
+                return (
+                  <Table.Tr key={item.id}>
+                    <Table.Td suppressHydrationWarning>
+                      <Text size="xs" fw={500}>
+                        {formatDateId(item.createdAt)}
+                      </Text>
+                    </Table.Td>
+                    <Table.Td>
+                      <Badge
+                        size="sm"
+                        variant="light"
+                        color={getActionBadgeColor(item.action)}
+                      >
+                        {activityActionLabel(item.action)}
+                      </Badge>
+                    </Table.Td>
+                    <Table.Td>
+                      <Text size="xs" fw={600} ff="monospace">
+                        {item.ip || "-"}
+                      </Text>
+                      {item.provider ? (
+                        <Text size="xs" c="dimmed">
+                          {item.provider}
                         </Text>
-                      </Table.Td>
-                      <Table.Td>
-                        <Badge
-                          size="sm"
-                          variant="light"
-                          color={getActionBadgeColor(item.action)}
-                        >
-                          {activityActionLabel(item.action)}
-                        </Badge>
-                      </Table.Td>
-                      <Table.Td>
+                      ) : null}
+                    </Table.Td>
+                    <Table.Td>
+                      <Text size="xs">{formatDevice(item)}</Text>
+                    </Table.Td>
+                    <Table.Td>
+                      <Text size="xs">{formatLocation(item)}</Text>
+                    </Table.Td>
+                    <Table.Td>
+                      {metaString ? (
+                        <div>
+                          <Button
+                            variant="subtle"
+                            size="compact-xs"
+                            onClick={() =>
+                              setExpandedMetaId(isExpanded ? null : item.id)
+                            }
+                          >
+                            {isExpanded ? "Tutup" : "Meta"}
+                          </Button>
+                          <Collapse in={isExpanded}>
+                            <Paper p="xs" mt="xs" withBorder>
+                              <Code block fz="xs">
+                                {metaString}
+                              </Code>
+                            </Paper>
+                          </Collapse>
+                        </div>
+                      ) : (
+                        <Text size="xs" c="dimmed">
+                          -
+                        </Text>
+                      )}
+                    </Table.Td>
+                  </Table.Tr>
+                );
+              }}
+              renderMobileCard={(item) => {
+                const metaString =
+                  item.metadata && Object.keys(item.metadata).length > 0
+                    ? JSON.stringify(item.metadata, null, 2)
+                    : null;
+                const isExpanded = expandedMetaId === item.id;
+
+                return (
+                  <div
+                    key={item.id}
+                    style={{
+                      background: "rgba(255, 255, 255, 0.03)",
+                      border: "1px solid var(--mantine-color-default-border)",
+                      borderRadius: 12,
+                      padding: "14px 16px",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 10,
+                    }}
+                  >
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <Text size="xs" fw={500} suppressHydrationWarning>
+                        {formatDateId(item.createdAt)}
+                      </Text>
+                      <Badge
+                        size="sm"
+                        variant="light"
+                        color={getActionBadgeColor(item.action)}
+                      >
+                        {activityActionLabel(item.action)}
+                      </Badge>
+                    </div>
+
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "flex-start",
+                        padding: "8px 0",
+                        borderTop: "1px solid rgba(255, 255, 255, 0.06)",
+                        borderBottom: "1px solid rgba(255, 255, 255, 0.06)",
+                        fontSize: 12,
+                      }}
+                    >
+                      <div>
+                        <Text size="xs" c="dimmed">
+                          IP &amp; Provider
+                        </Text>
                         <Text size="xs" fw={600} ff="monospace">
                           {item.ip || "-"}
                         </Text>
-                        {item.provider ? (
+                        {item.provider && (
                           <Text size="xs" c="dimmed">
                             {item.provider}
                           </Text>
-                        ) : null}
-                      </Table.Td>
-                      <Table.Td>
-                        <Text size="xs">{formatDevice(item)}</Text>
-                      </Table.Td>
-                      <Table.Td>
-                        <Text size="xs">{formatLocation(item)}</Text>
-                      </Table.Td>
-                      <Table.Td>
-                        {metaString ? (
-                          <div>
-                            <Button
-                              variant="subtle"
-                              size="compact-xs"
-                              onClick={() =>
-                                setExpandedMetaId(isExpanded ? null : item.id)
-                              }
-                            >
-                              {isExpanded ? "Tutup" : "Meta"}
-                            </Button>
-                            <Collapse in={isExpanded}>
-                              <Paper p="xs" mt="xs" withBorder>
-                                <Code block fz="xs">
-                                  {metaString}
-                                </Code>
-                              </Paper>
-                            </Collapse>
-                          </div>
-                        ) : (
-                          <Text size="xs" c="dimmed">
-                            -
-                          </Text>
                         )}
-                      </Table.Td>
-                    </Table.Tr>
-                  );
-                })}
-              </Table.Tbody>
-            </Table>
+                      </div>
+                      <div style={{ textAlign: "right" }}>
+                        <Text size="xs" c="dimmed">
+                          Perangkat &amp; Lokasi
+                        </Text>
+                        <Text size="xs">{formatDevice(item)}</Text>
+                        <Text size="xs" c="dimmed">
+                          {formatLocation(item)}
+                        </Text>
+                      </div>
+                    </div>
+
+                    {metaString && (
+                      <div>
+                        <Button
+                          variant="subtle"
+                          size="compact-xs"
+                          onClick={() =>
+                            setExpandedMetaId(isExpanded ? null : item.id)
+                          }
+                        >
+                          {isExpanded ? "Tutup Detail Meta" : "Lihat Detail Meta"}
+                        </Button>
+                        <Collapse in={isExpanded}>
+                          <Paper p="xs" mt="xs" withBorder>
+                            <Code block fz="xs">
+                              {metaString}
+                            </Code>
+                          </Paper>
+                        </Collapse>
+                      </div>
+                    )}
+                  </div>
+                );
+              }}
+            />
           </Paper>
 
           <Group justify="space-between" align="center" mt="xs">

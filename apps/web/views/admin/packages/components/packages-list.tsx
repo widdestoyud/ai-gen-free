@@ -16,6 +16,7 @@ import {
   Textarea,
 } from "@mantine/core";
 import { useRouter } from "next/navigation";
+import { ResponsiveTable } from "@/components/responsive-table";
 import { EmptyState } from "@/components/empty-state";
 import { ErrorAlert } from "@/components/error-alert";
 import { requestJson } from "@/lib/api";
@@ -274,9 +275,11 @@ export function AdminPackagesList({ packages }: { packages: AdminPackage[] }) {
             : "Belum ada paket topup. Klik 'Tambah Paket' untuk membuat paket baru."}
         </EmptyState>
       ) : (
-        <Table verticalSpacing="sm" horizontalSpacing="md">
-          <Table.Thead className={classes.tableHeader}>
-            <Table.Tr>
+        <ResponsiveTable
+          data={filteredPackages}
+          keyExtractor={(pkg) => pkg.id}
+          renderHeader={() => (
+            <Table.Tr className={classes.tableHeader}>
               <Table.Th>Urutan</Table.Th>
               <Table.Th>Nama Paket & Deskripsi</Table.Th>
               <Table.Th>Harga / Promo Coret</Table.Th>
@@ -285,105 +288,213 @@ export function AdminPackagesList({ packages }: { packages: AdminPackage[] }) {
               <Table.Th>Status</Table.Th>
               <Table.Th className={classes.actionCell}>Aksi</Table.Th>
             </Table.Tr>
-          </Table.Thead>
-          <Table.Tbody>
-            {filteredPackages.map((pkg) => {
-              const hasDiscount = Boolean(
-                pkg.originalAmountIdr && pkg.originalAmountIdr > pkg.amountIdr,
-              );
-              return (
-                <Table.Tr key={pkg.id} className={classes.tableRow}>
-                  <Table.Td>
-                    <Badge variant="outline" size="sm" color="gray">
+          )}
+          renderRow={(pkg) => {
+            const hasDiscount = Boolean(
+              pkg.originalAmountIdr && pkg.originalAmountIdr > pkg.amountIdr,
+            );
+            return (
+              <Table.Tr key={pkg.id} className={classes.tableRow}>
+                <Table.Td>
+                  <Badge variant="outline" size="sm" color="gray">
+                    #{pkg.sortOrder}
+                  </Badge>
+                </Table.Td>
+
+                <Table.Td>
+                  <div className={classes.nameCell}>
+                    <span className={classes.packageName}>{pkg.name}</span>
+                    {pkg.description ? (
+                      <span className={classes.packageDesc}>{pkg.description}</span>
+                    ) : null}
+                  </div>
+                </Table.Td>
+
+                <Table.Td>
+                  <div className={classes.amountCell}>
+                    <span className={classes.priceValue}>
+                      {formatIdr(pkg.amountIdr)}
+                    </span>
+                    {hasDiscount ? (
+                      <span className={classes.strikethroughPrice}>
+                        {formatIdr(pkg.originalAmountIdr!)}
+                      </span>
+                    ) : null}
+                  </div>
+                </Table.Td>
+
+                <Table.Td>
+                  <span className={classes.pointsValue}>
+                    +{pkg.points.toLocaleString("id-ID")} Poin
+                  </span>
+                </Table.Td>
+
+                <Table.Td>
+                  {pkg.badgeText ? (
+                    <Badge color="red" variant="filled" size="xs">
+                      {pkg.badgeText}
+                    </Badge>
+                  ) : (
+                    <Text size="xs" c="dimmed">
+                      -
+                    </Text>
+                  )}
+                </Table.Td>
+
+                <Table.Td>
+                  <Switch
+                    size="sm"
+                    checked={pkg.active}
+                    disabled={busy}
+                    onChange={() => void handleToggleActive(pkg)}
+                    label={
+                      <Badge
+                        size="xs"
+                        variant="light"
+                        color={pkg.active ? "teal" : "gray"}
+                      >
+                        {pkg.active ? "Aktif" : "Nonaktif"}
+                      </Badge>
+                    }
+                  />
+                </Table.Td>
+
+                <Table.Td className={classes.actionCell}>
+                  <Group gap="xs" justify="flex-end">
+                    <Button
+                      size="xs"
+                      variant="light"
+                      color="blue"
+                      onClick={() => openEditModal(pkg)}
+                      disabled={busy}
+                    >
+                      Edit
+                    </Button>
+                    <Button
+                      size="xs"
+                      variant="subtle"
+                      color="red"
+                      onClick={() => setDeletingPackage(pkg)}
+                      disabled={busy}
+                    >
+                      Hapus
+                    </Button>
+                  </Group>
+                </Table.Td>
+              </Table.Tr>
+            );
+          }}
+          renderMobileCard={(pkg) => {
+            const hasDiscount = Boolean(
+              pkg.originalAmountIdr && pkg.originalAmountIdr > pkg.amountIdr,
+            );
+            return (
+              <div
+                key={pkg.id}
+                style={{
+                  background: "rgba(255, 255, 255, 0.03)",
+                  border: "1px solid var(--mantine-color-default-border)",
+                  borderRadius: 12,
+                  padding: "14px 16px",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 10,
+                }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <Badge variant="outline" size="xs" color="gray">
                       #{pkg.sortOrder}
                     </Badge>
-                  </Table.Td>
-
-                  <Table.Td>
-                    <div className={classes.nameCell}>
-                      <span className={classes.packageName}>{pkg.name}</span>
-                      {pkg.description ? (
-                        <span className={classes.packageDesc}>{pkg.description}</span>
-                      ) : null}
-                    </div>
-                  </Table.Td>
-
-                  <Table.Td>
-                    <div className={classes.amountCell}>
-                      <span className={classes.priceValue}>
-                        {formatIdr(pkg.amountIdr)}
-                      </span>
-                      {hasDiscount ? (
-                        <span className={classes.strikethroughPrice}>
-                          {formatIdr(pkg.originalAmountIdr!)}
-                        </span>
-                      ) : null}
-                    </div>
-                  </Table.Td>
-
-                  <Table.Td>
-                    <span className={classes.pointsValue}>
-                      +{pkg.points.toLocaleString("id-ID")} Poin
-                    </span>
-                  </Table.Td>
-
-                  <Table.Td>
-                    {pkg.badgeText ? (
+                    <Text fw={700} size="sm">
+                      {pkg.name}
+                    </Text>
+                    {pkg.badgeText && (
                       <Badge color="red" variant="filled" size="xs">
                         {pkg.badgeText}
                       </Badge>
-                    ) : (
-                      <Text size="xs" c="dimmed">
-                        -
-                      </Text>
                     )}
-                  </Table.Td>
-
-                  <Table.Td>
-                    <Switch
-                      size="sm"
-                      checked={pkg.active}
-                      disabled={busy}
-                      onChange={() => void handleToggleActive(pkg)}
-                      label={
-                        <Badge
-                          size="xs"
-                          variant="light"
-                          color={pkg.active ? "teal" : "gray"}
-                        >
-                          {pkg.active ? "Aktif" : "Nonaktif"}
-                        </Badge>
-                      }
-                    />
-                  </Table.Td>
-
-                  <Table.Td className={classes.actionCell}>
-                    <Group gap="xs" justify="flex-end">
-                      <Button
+                  </div>
+                  <Switch
+                    size="xs"
+                    checked={pkg.active}
+                    disabled={busy}
+                    onChange={() => void handleToggleActive(pkg)}
+                    label={
+                      <Badge
                         size="xs"
                         variant="light"
-                        color="blue"
-                        onClick={() => openEditModal(pkg)}
-                        disabled={busy}
+                        color={pkg.active ? "teal" : "gray"}
                       >
-                        Edit
-                      </Button>
-                      <Button
-                        size="xs"
-                        variant="subtle"
-                        color="red"
-                        onClick={() => setDeletingPackage(pkg)}
-                        disabled={busy}
-                      >
-                        Hapus
-                      </Button>
-                    </Group>
-                  </Table.Td>
-                </Table.Tr>
-              );
-            })}
-          </Table.Tbody>
-        </Table>
+                        {pkg.active ? "Aktif" : "Nonaktif"}
+                      </Badge>
+                    }
+                  />
+                </div>
+
+                {pkg.description && (
+                  <Text size="xs" c="dimmed">
+                    {pkg.description}
+                  </Text>
+                )}
+
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    padding: "8px 0",
+                    borderTop: "1px solid rgba(255, 255, 255, 0.06)",
+                    borderBottom: "1px solid rgba(255, 255, 255, 0.06)",
+                  }}
+                >
+                  <div>
+                    <Text size="xs" c="dimmed">
+                      Harga
+                    </Text>
+                    <Text size="sm" fw={700} c="blue.4">
+                      {formatIdr(pkg.amountIdr)}{" "}
+                      {hasDiscount && (
+                        <Text span size="xs" c="dimmed" td="line-through">
+                          {formatIdr(pkg.originalAmountIdr!)}
+                        </Text>
+                      )}
+                    </Text>
+                  </div>
+                  <div style={{ textAlign: "right" }}>
+                    <Text size="xs" c="dimmed">
+                      Poin Didapat
+                    </Text>
+                    <Text size="sm" fw={700} c="teal.4">
+                      +{pkg.points.toLocaleString("id-ID")} Poin
+                    </Text>
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+                  <Button
+                    size="xs"
+                    variant="light"
+                    color="blue"
+                    onClick={() => openEditModal(pkg)}
+                    disabled={busy}
+                  >
+                    Edit Paket
+                  </Button>
+                  <Button
+                    size="xs"
+                    variant="subtle"
+                    color="red"
+                    onClick={() => setDeletingPackage(pkg)}
+                    disabled={busy}
+                  >
+                    Hapus
+                  </Button>
+                </div>
+              </div>
+            );
+          }}
+        />
       )}
 
       <div className={classes.summaryFooter}>

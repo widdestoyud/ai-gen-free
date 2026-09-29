@@ -18,6 +18,7 @@ import {
 } from "@mantine/core";
 import { useRouter } from "next/navigation";
 import { AppLink } from "@/components/app-link";
+import { ResponsiveTable } from "@/components/responsive-table";
 import { EmptyState } from "@/components/empty-state";
 import { ErrorAlert } from "@/components/error-alert";
 import { requestJson } from "@/lib/api";
@@ -453,9 +454,11 @@ export function AdminInbox({
                 : "Tidak ada bukti menunggu kurasi saat ini."}
         </EmptyState>
       ) : (
-        <Table verticalSpacing="sm" horizontalSpacing="md">
-          <Table.Thead className={classes.tableHeader}>
-            <Table.Tr>
+        <ResponsiveTable
+          data={filteredItems}
+          keyExtractor={(item) => item.invoiceId}
+          renderHeader={() => (
+            <Table.Tr className={classes.tableHeader}>
               <Table.Th>Kode Invoice & Pengguna</Table.Th>
               <Table.Th>Nominal & Poin</Table.Th>
               <Table.Th>Metode Pembayaran</Table.Th>
@@ -465,168 +468,314 @@ export function AdminInbox({
               <Table.Th>Status</Table.Th>
               <Table.Th className={classes.actionCell}>Aksi</Table.Th>
             </Table.Tr>
-          </Table.Thead>
-          <Table.Tbody>
-            {filteredItems.map((item) => {
-              const isPaid = item.status === "paid";
-              const isAwaiting = item.status === "awaiting_review";
-              const isRejected = item.status === "rejected";
-              const isCanceled = item.status === "canceled";
-              const isExpired = item.status === "expired";
-              const isUnpaid = item.status === "unpaid";
+          )}
+          renderRow={(item) => {
+            const isPaid = item.status === "paid";
+            const isAwaiting = item.status === "awaiting_review";
+            const isRejected = item.status === "rejected";
+            const isCanceled = item.status === "canceled";
+            const isExpired = item.status === "expired";
+            const isUnpaid = item.status === "unpaid";
 
-              const isMidtrans = item.paymentMethod === "midtrans";
-              const hasGatewayExpiry = Boolean(item.gatewayExpiredAt);
-              const isGatewayExpired =
-                hasGatewayExpiry && new Date(item.gatewayExpiredAt!) < new Date();
+            const isMidtrans = item.paymentMethod === "midtrans";
+            const hasGatewayExpiry = Boolean(item.gatewayExpiredAt);
+            const isGatewayExpired =
+              hasGatewayExpiry && new Date(item.gatewayExpiredAt!) < new Date();
 
-              const isChecking = checkingInvoiceId === item.invoiceId;
+            const isChecking = checkingInvoiceId === item.invoiceId;
 
-              return (
-                <Table.Tr key={item.invoiceId} className={classes.tableRow}>
-                  <Table.Td>
-                    <div className={classes.codeCell}>
-                      <span className={classes.uniqueCode}>{item.uniqueCode}</span>
-                      <span className={classes.userEmail}>{item.email}</span>
-                    </div>
-                  </Table.Td>
+            return (
+              <Table.Tr key={item.invoiceId} className={classes.tableRow}>
+                <Table.Td>
+                  <div className={classes.codeCell}>
+                    <span className={classes.uniqueCode}>{item.uniqueCode}</span>
+                    <span className={classes.userEmail}>{item.email}</span>
+                  </div>
+                </Table.Td>
 
-                  <Table.Td>
-                    <div className={classes.amountCell}>
-                      <span className={classes.amountValue}>{formatIdr(item.amountIdr)}</span>
-                      <span className={classes.pointsValue}>+{item.points} Poin</span>
-                    </div>
-                  </Table.Td>
+                <Table.Td>
+                  <div className={classes.amountCell}>
+                    <span className={classes.amountValue}>{formatIdr(item.amountIdr)}</span>
+                    <span className={classes.pointsValue}>+{item.points} Poin</span>
+                  </div>
+                </Table.Td>
 
-                  <Table.Td>
-                    <div className={classes.methodCell}>
-                      <Group gap={4}>
-                        <Badge
+                <Table.Td>
+                  <div className={classes.methodCell}>
+                    <Group gap={4}>
+                      <Badge
+                        size="xs"
+                        variant="light"
+                        color={isMidtrans ? "blue" : "gray"}
+                      >
+                        {isMidtrans ? "Midtrans Snap" : "Manual Transfer"}
+                      </Badge>
+                    </Group>
+                    {item.gatewayPaymentChannel && (
+                      <Text size="xs" c="dimmed">
+                        {item.gatewayPaymentChannel}
+                      </Text>
+                    )}
+                  </div>
+                </Table.Td>
+
+                <Table.Td className={classes.dateCell} suppressHydrationWarning>
+                  {activeTab === "kurasi" ? (
+                    item.proofSubmittedAt ? formatDateId(item.proofSubmittedAt) : "-"
+                  ) : (
+                    <div>
+                      <Text size="xs" suppressHydrationWarning>{item.createdAt ? formatDateId(item.createdAt) : "-"}</Text>
+                      {isMidtrans && item.gatewayExpiredAt && isUnpaid && (
+                        <Text
                           size="xs"
-                          variant="light"
-                          color={isMidtrans ? "blue" : "gray"}
+                          c={isGatewayExpired ? "red" : "dimmed"}
+                          suppressHydrationWarning
                         >
-                          {isMidtrans ? "Midtrans Snap" : "Manual Transfer"}
-                        </Badge>
-                      </Group>
-                      {item.gatewayPaymentChannel && (
-                        <Text size="xs" c="dimmed">
-                          {item.gatewayPaymentChannel}
+                          {isGatewayExpired
+                            ? "Sesi kedaluwarsa"
+                            : `Sesi s/d: ${formatDateId(item.gatewayExpiredAt)}`}
+                        </Text>
+                      )}
+                      {isPaid && item.paidAt && (
+                        <Text size="xs" c="teal" suppressHydrationWarning>
+                          Lunas: {formatDateId(item.paidAt)}
                         </Text>
                       )}
                     </div>
-                  </Table.Td>
+                  )}
+                </Table.Td>
 
-                  <Table.Td className={classes.dateCell} suppressHydrationWarning>
-                    {activeTab === "kurasi" ? (
-                      item.proofSubmittedAt ? formatDateId(item.proofSubmittedAt) : "-"
-                    ) : (
-                      <div>
-                        <Text size="xs" suppressHydrationWarning>{item.createdAt ? formatDateId(item.createdAt) : "-"}</Text>
-                        {isMidtrans && item.gatewayExpiredAt && isUnpaid && (
-                          <Text
-                            size="xs"
-                            c={isGatewayExpired ? "red" : "dimmed"}
-                            suppressHydrationWarning
-                          >
-                            {isGatewayExpired
-                              ? "Sesi kedaluwarsa"
-                              : `Sesi s/d: ${formatDateId(item.gatewayExpiredAt)}`}
-                          </Text>
-                        )}
-                        {isPaid && item.paidAt && (
-                          <Text size="xs" c="teal" suppressHydrationWarning>
-                            Lunas: {formatDateId(item.paidAt)}
-                          </Text>
-                        )}
-                      </div>
+                <Table.Td>
+                  <Badge
+                    variant={isCanceled ? "outline" : "light"}
+                    color={
+                      isPaid
+                        ? "teal"
+                        : isAwaiting
+                          ? "yellow"
+                          : isRejected
+                            ? "red"
+                            : isCanceled
+                              ? "gray"
+                              : isExpired
+                                ? "orange"
+                                : "blue"
+                    }
+                    size="sm"
+                    radius="sm"
+                  >
+                    {item.statusLabel ||
+                      (isPaid
+                        ? "Lunas"
+                        : isAwaiting
+                          ? "Menunggu Kurasi"
+                          : isRejected
+                            ? "Ditolak"
+                            : isCanceled
+                              ? "Dibatalkan"
+                              : isExpired
+                                ? "Kedaluwarsa"
+                                : "Open / Belum Bayar")}
+                  </Badge>
+                </Table.Td>
+
+                <Table.Td className={classes.actionCell}>
+                  <Group gap="xs" justify="flex-end">
+                    {isAwaiting && (
+                      <Button
+                        size="xs"
+                        variant="light"
+                        color="blue"
+                        onClick={() => void loadProof(item)}
+                        loading={busy && previewItem?.invoiceId === item.invoiceId}
+                      >
+                        Bukti Bayar
+                      </Button>
                     )}
-                  </Table.Td>
 
-                  <Table.Td>
-                    <Badge
-                      variant={isCanceled ? "outline" : "light"}
-                      color={
-                        isPaid
-                          ? "teal"
-                          : isAwaiting
-                            ? "yellow"
-                            : isRejected
-                              ? "red"
-                              : isCanceled
-                                ? "gray"
-                                : isExpired
-                                  ? "orange"
-                                  : "blue"
-                      }
-                      size="sm"
-                      radius="sm"
-                    >
-                      {item.statusLabel ||
-                        (isPaid
-                          ? "Lunas"
-                          : isAwaiting
-                            ? "Menunggu Kurasi"
-                            : isRejected
-                              ? "Ditolak"
-                              : isCanceled
-                                ? "Dibatalkan"
-                                : isExpired
-                                  ? "Kedaluwarsa"
-                                  : "Open / Belum Bayar")}
+                    {isUnpaid && isMidtrans && (
+                      <Button
+                        size="xs"
+                        variant="default"
+                        leftSection={isChecking ? undefined : <RefreshIcon />}
+                        loading={isChecking}
+                        disabled={busy}
+                        onClick={() =>
+                          void handleCheckGatewayStatus(item.invoiceId, item.uniqueCode)
+                        }
+                      >
+                        Cek Gateway
+                      </Button>
+                    )}
+
+                    {(isUnpaid || isAwaiting || isRejected) && (
+                      <Button
+                        size="xs"
+                        variant="subtle"
+                        color="red"
+                        disabled={busy || isChecking}
+                        onClick={() => {
+                          setCancelingItem(item);
+                          setCancelReason("");
+                        }}
+                      >
+                        Batalkan
+                      </Button>
+                    )}
+                  </Group>
+                </Table.Td>
+              </Table.Tr>
+            );
+          }}
+          renderMobileCard={(item) => {
+            const isPaid = item.status === "paid";
+            const isAwaiting = item.status === "awaiting_review";
+            const isRejected = item.status === "rejected";
+            const isCanceled = item.status === "canceled";
+            const isExpired = item.status === "expired";
+            const isUnpaid = item.status === "unpaid";
+
+            const isMidtrans = item.paymentMethod === "midtrans";
+
+            const isChecking = checkingInvoiceId === item.invoiceId;
+
+            return (
+              <div
+                key={item.invoiceId}
+                style={{
+                  background: "rgba(255, 255, 255, 0.03)",
+                  border: "1px solid var(--mantine-color-default-border)",
+                  borderRadius: 12,
+                  padding: "14px 16px",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 10,
+                }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
+                  <div>
+                    <Text fw={700} size="sm" c="blue.4">
+                      {item.uniqueCode}
+                    </Text>
+                    <Text size="xs" c="dimmed">
+                      {item.email}
+                    </Text>
+                  </div>
+                  <Badge
+                    variant={isCanceled ? "outline" : "light"}
+                    color={
+                      isPaid
+                        ? "teal"
+                        : isAwaiting
+                          ? "yellow"
+                          : isRejected
+                            ? "red"
+                            : isCanceled
+                              ? "gray"
+                              : isExpired
+                                ? "orange"
+                                : "blue"
+                    }
+                    size="sm"
+                    radius="sm"
+                  >
+                    {item.statusLabel ||
+                      (isPaid
+                        ? "Lunas"
+                        : isAwaiting
+                          ? "Menunggu Kurasi"
+                          : isRejected
+                            ? "Ditolak"
+                            : isCanceled
+                              ? "Dibatalkan"
+                              : isExpired
+                                ? "Kedaluwarsa"
+                                : "Open / Belum Bayar")}
+                  </Badge>
+                </div>
+
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    padding: "8px 0",
+                    borderTop: "1px solid rgba(255, 255, 255, 0.06)",
+                    borderBottom: "1px solid rgba(255, 255, 255, 0.06)",
+                  }}
+                >
+                  <div>
+                    <Text size="xs" c="dimmed">
+                      Nominal & Poin
+                    </Text>
+                    <Text size="sm" fw={700}>
+                      {formatIdr(item.amountIdr)}{" "}
+                      <Text span size="xs" c="teal.4" fw={600}>
+                        (+{item.points} Poin)
+                      </Text>
+                    </Text>
+                  </div>
+                  <div style={{ textAlign: "right" }}>
+                    <Badge size="xs" variant="light" color={isMidtrans ? "blue" : "gray"}>
+                      {isMidtrans ? "Midtrans Snap" : "Manual Transfer"}
                     </Badge>
-                  </Table.Td>
+                    <Text size="xs" c="dimmed" suppressHydrationWarning mt={2}>
+                      {activeTab === "kurasi" && item.proofSubmittedAt
+                        ? formatDateId(item.proofSubmittedAt)
+                        : item.createdAt
+                          ? formatDateId(item.createdAt)
+                          : "-"}
+                    </Text>
+                  </div>
+                </div>
 
-                  <Table.Td className={classes.actionCell}>
-                    <Group gap="xs" justify="flex-end">
-                      {isAwaiting && (
-                        <Button
-                          size="xs"
-                          variant="light"
-                          color="blue"
-                          onClick={() => void loadProof(item)}
-                          loading={busy && previewItem?.invoiceId === item.invoiceId}
-                        >
-                          Bukti Bayar
-                        </Button>
-                      )}
+                <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, flexWrap: "wrap" }}>
+                  {isAwaiting && (
+                    <Button
+                      size="xs"
+                      variant="light"
+                      color="blue"
+                      onClick={() => void loadProof(item)}
+                      loading={busy && previewItem?.invoiceId === item.invoiceId}
+                    >
+                      Bukti Bayar
+                    </Button>
+                  )}
 
-                      {isUnpaid && isMidtrans && (
-                        <Button
-                          size="xs"
-                          variant="default"
-                          leftSection={isChecking ? undefined : <RefreshIcon />}
-                          loading={isChecking}
-                          disabled={busy}
-                          onClick={() =>
-                            void handleCheckGatewayStatus(item.invoiceId, item.uniqueCode)
-                          }
-                        >
-                          Cek Gateway
-                        </Button>
-                      )}
+                  {isUnpaid && isMidtrans && (
+                    <Button
+                      size="xs"
+                      variant="default"
+                      leftSection={isChecking ? undefined : <RefreshIcon />}
+                      loading={isChecking}
+                      disabled={busy}
+                      onClick={() =>
+                        void handleCheckGatewayStatus(item.invoiceId, item.uniqueCode)
+                      }
+                    >
+                      Cek Gateway
+                    </Button>
+                  )}
 
-                      {(isUnpaid || isAwaiting || isRejected) && (
-                        <Button
-                          size="xs"
-                          variant="subtle"
-                          color="red"
-                          disabled={busy || isChecking}
-                          onClick={() => {
-                            setCancelingItem(item);
-                            setCancelReason("");
-                          }}
-                        >
-                          Batalkan
-                        </Button>
-                      )}
-                    </Group>
-                  </Table.Td>
-                </Table.Tr>
-              );
-            })}
-          </Table.Tbody>
-        </Table>
+                  {(isUnpaid || isAwaiting || isRejected) && (
+                    <Button
+                      size="xs"
+                      variant="subtle"
+                      color="red"
+                      disabled={busy || isChecking}
+                      onClick={() => {
+                        setCancelingItem(item);
+                        setCancelReason("");
+                      }}
+                    >
+                      Batalkan
+                    </Button>
+                  )}
+                </div>
+              </div>
+            );
+          }}
+        />
       )}
 
       <div className={classes.summaryFooter}>

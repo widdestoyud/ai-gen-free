@@ -1,0 +1,74 @@
+.container {
+  width: 100%;
+}
+
+.desktopView {
+  display: table;
+  width: 100%;
+}
+
+.mobileView {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .desktopView {
+    display: none !important;
+  }
+
+  .mobileView {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: 100%;
+  }
+}
+
+.defaultCard {
+  background: var(--mantine-color-body, rgba(255, 255, 255, 0.03));
+  border: 1px solid var(--mantine-color-default-border, rgba(255, 255, 255, 0.1));
+  border-radius: var(--mantine-radius-md, 12px);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.defaultCard:hover {
+  border-color: rgba(59, 130, 246, 0.4);
+}
+
+.cardRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.cardRowStart {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.cardLabel {
+  color: var(--mantine-color-dimmed);
+  font-weight: 500;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.cardValue {
+  text-align: right;
+  word-break: break-word;
+}
+
+.cardDivider {
+  height: 1px;
+  background-color: var(--mantine-color-default-border, rgba(255, 255, 255, 0.06));
+  margin: 2px 0;
+}

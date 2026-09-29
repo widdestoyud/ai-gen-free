@@ -19,6 +19,7 @@ import {
 } from "@mantine/core";
 import { useRouter } from "next/navigation";
 import { useState, useMemo, useCallback, useEffect } from "react";
+import { ResponsiveTable } from "@/components/responsive-table";
 import { EmptyState } from "@/components/empty-state";
 import { ErrorAlert } from "@/components/error-alert";
 import { SnapPaymentModal } from "@/components/snap-payment-modal";
@@ -301,319 +302,312 @@ export function OrderClient(props: {
               : "Belum ada riwayat invoice pemesanan poin."}
           </EmptyState>
         ) : (
-          <>
-            {/* Desktop Table View */}
-            <Table verticalSpacing="sm" horizontalSpacing="md" className={classes.desktopTable}>
-              <Table.Thead className={classes.tableHeader}>
-                <Table.Tr>
-                  <Table.Th>Kode Invoice</Table.Th>
-                  <Table.Th>Nominal & Poin</Table.Th>
-                  <Table.Th>Status</Table.Th>
-                  <Table.Th>Tanggal Dibuat</Table.Th>
-                  <Table.Th className={classes.actionCell}>Aksi / Pembayaran</Table.Th>
-                </Table.Tr>
-              </Table.Thead>
-              <Table.Tbody>
-                {filteredInvoices.map((inv) => {
-                  const isCanceled = inv.status === "canceled";
-                  const isPaid = inv.status === "paid";
-                  const isAwaiting = inv.status === "awaiting_review";
-                  const isRejected = inv.status === "rejected";
-                  const hasGatewaySession = inv.gateway?.paymentUrl && inv.gateway?.expiredAt;
-                  const gatewayExpired = hasGatewaySession && new Date(inv.gateway!.expiredAt!) < new Date();
-                  const isExpired = inv.status === "expired" || gatewayExpired;
-                  const isUnpaid = inv.status === "unpaid" && !isExpired;
-                  const canPay = (isUnpaid || isRejected) && !isExpired;
-                  const canCancel = (isUnpaid || isRejected || isAwaiting) && !isExpired;
-                  const isPaying = payingInvoiceId === inv.id;
+          <ResponsiveTable
+            data={filteredInvoices}
+            keyExtractor={(inv) => inv.id}
+            renderHeader={() => (
+              <Table.Tr className={classes.tableHeader}>
+                <Table.Th>Kode Invoice</Table.Th>
+                <Table.Th>Nominal & Poin</Table.Th>
+                <Table.Th>Status</Table.Th>
+                <Table.Th>Tanggal Dibuat</Table.Th>
+                <Table.Th className={classes.actionCell}>Aksi / Pembayaran</Table.Th>
+              </Table.Tr>
+            )}
+            renderRow={(inv) => {
+              const isCanceled = inv.status === "canceled";
+              const isPaid = inv.status === "paid";
+              const isAwaiting = inv.status === "awaiting_review";
+              const isRejected = inv.status === "rejected";
+              const hasGatewaySession = inv.gateway?.paymentUrl && inv.gateway?.expiredAt;
+              const gatewayExpired = hasGatewaySession && new Date(inv.gateway!.expiredAt!) < new Date();
+              const isExpired = inv.status === "expired" || gatewayExpired;
+              const isUnpaid = inv.status === "unpaid" && !isExpired;
+              const canPay = (isUnpaid || isRejected) && !isExpired;
+              const canCancel = (isUnpaid || isRejected || isAwaiting) && !isExpired;
+              const isPaying = payingInvoiceId === inv.id;
 
-                  return (
-                    <Table.Tr key={inv.id} className={classes.tableRow}>
-                      <Table.Td>
-                        <div className={classes.codeCell}>
-                          <span className={classes.uniqueCode}>{inv.uniqueCode}</span>
-                          <span className={classes.invoiceIdText}>ID: {inv.id}</span>
-                        </div>
-                      </Table.Td>
-
-                      <Table.Td>
-                        <div className={classes.amountCell}>
-                          <span className={classes.amountValue}>{formatIdr(inv.amountIdr)}</span>
-                          <span className={classes.pointsValue}>+{inv.points} Poin</span>
-                        </div>
-                      </Table.Td>
-
-                      <Table.Td>
-                        <Group gap="xs">
-                          <Badge
-                            color={
-                              isPaid
-                                ? "teal"
-                                : isAwaiting
-                                  ? "yellow"
-                                  : isRejected
-                                    ? "red"
-                                    : isCanceled || isExpired
-                                      ? "gray"
-                                      : "blue"
-                            }
-                            size="sm"
-                            radius="sm"
-                            variant={isCanceled || isExpired ? "outline" : "light"}
-                          >
-                            {isExpired ? "Kedaluwarsa" : inv.statusLabel}
-                          </Badge>
-                          {isRejected && inv.reviewNote ? (
-                            <Tooltip label={`Alasan tolak: ${inv.reviewNote}`} withArrow>
-                              <Text size="xs" c="red" td="underline" className={classes.pointerText}>
-                                Lihat alasan
-                              </Text>
-                            </Tooltip>
-                          ) : null}
-                        </Group>
-                      </Table.Td>
-
-                      <Table.Td className={classes.dateCell} suppressHydrationWarning>
-                        {inv.createdAt ? formatDateId(inv.createdAt) : "-"}
-                        {inv.paidAt && isPaid ? (
-                          <Text size="xs" c="teal" suppressHydrationWarning>
-                            Lunas: {formatDateId(inv.paidAt)}
-                            {inv.gateway?.paymentChannel ? ` (${inv.gateway.paymentChannel})` : ""}
-                          </Text>
-                        ) : null}
-                      </Table.Td>
-
-                      <Table.Td className={classes.actionCell}>
-                        {canPay ? (
-                          <Group gap="xs" justify="flex-end">
-                            {gatewayEnabled ? (
-                              <Button
-                                size="xs"
-                                variant="gradient"
-                                gradient={{ from: "#3b82f6", to: "#8b5cf6", deg: 135 }}
-                                disabled={busy || isPaying}
-                                leftSection={isPaying ? <Loader size="xs" /> : null}
-                                onClick={() => handlePayGateway(inv.id, inv.uniqueCode)}
-                              >
-                                {isPaying
-                                  ? "Memproses..."
-                                  : hasGatewaySession && !gatewayExpired
-                                    ? "Lanjut Bayar Online"
-                                    : "Bayar Online"}
-                              </Button>
-                            ) : null}
-
-                            <Button
-                              size="xs"
-                              variant="light"
-                              color="blue"
-                              onClick={() => {
-                                setUploadInvoice(inv);
-                                setSelectedFile(null);
-                              }}
-                              disabled={busy}
-                            >
-                              Unggah Bukti
-                            </Button>
-
-                            <Button
-                              size="xs"
-                              variant="subtle"
-                              color="red"
-                              disabled={busy || isPaying}
-                              onClick={() => setCancelingInvoice(inv)}
-                            >
-                              Batalkan
-                            </Button>
-                          </Group>
-                        ) : isAwaiting ? (
-                          <Group gap="xs" justify="flex-end">
-                            <Text size="xs" c="dimmed">
-                              Menunggu kurasi admin
-                            </Text>
-                            <Button
-                              size="xs"
-                              variant="subtle"
-                              color="red"
-                              disabled={busy}
-                              onClick={() => setCancelingInvoice(inv)}
-                            >
-                              Batalkan
-                            </Button>
-                          </Group>
-                        ) : isPaid ? (
-                          <Text size="xs" c="teal">
-                            Poin sudah ditambahkan
-                          </Text>
-                        ) : isCanceled ? (
-                          <Text size="xs" c="dimmed">
-                            Pesanan dibatalkan
-                          </Text>
-                        ) : isExpired ? (
-                          <Text size="xs" c="dimmed">
-                            Pesanan kedaluwarsa
-                          </Text>
-                        ) : null}
-                      </Table.Td>
-                    </Table.Tr>
-                  );
-                })}
-              </Table.Tbody>
-            </Table>
-
-            {/* Mobile & Tablet Card List View */}
-            <div className={classes.mobileList}>
-              {filteredInvoices.map((inv) => {
-                const isCanceled = inv.status === "canceled";
-                const isPaid = inv.status === "paid";
-                const isAwaiting = inv.status === "awaiting_review";
-                const isRejected = inv.status === "rejected";
-                const hasGatewaySession = inv.gateway?.paymentUrl && inv.gateway?.expiredAt;
-                const gatewayExpired = hasGatewaySession && new Date(inv.gateway!.expiredAt!) < new Date();
-                const isExpired = inv.status === "expired" || gatewayExpired;
-                const isUnpaid = inv.status === "unpaid" && !isExpired;
-                const canPay = (isUnpaid || isRejected) && !isExpired;
-                const canCancel = (isUnpaid || isRejected || isAwaiting) && !isExpired;
-                const isPaying = payingInvoiceId === inv.id;
-
-                return (
-                  <div key={inv.id} className={classes.mobileInvoiceCard}>
-                    <div className={classes.mobileInvoiceTop}>
-                      <div>
-                        <Text fw={700} size="sm" c="blue.4">
-                          {inv.uniqueCode}
-                        </Text>
-                        <Text size="xs" c="dimmed" style={{ fontFamily: "monospace" }}>
-                          ID: {inv.id}
-                        </Text>
-                      </div>
-                      <Group gap={6}>
-                        <Badge
-                          color={
-                            isPaid
-                              ? "teal"
-                              : isAwaiting
-                                ? "yellow"
-                                : isRejected
-                                  ? "red"
-                                  : isCanceled || isExpired
-                                    ? "gray"
-                                    : "blue"
-                          }
-                          size="sm"
-                          radius="sm"
-                          variant={isCanceled || isExpired ? "outline" : "light"}
-                        >
-                          {isExpired ? "Kedaluwarsa" : inv.statusLabel}
-                        </Badge>
-                      </Group>
+              return (
+                <Table.Tr key={inv.id} className={classes.tableRow}>
+                  <Table.Td>
+                    <div className={classes.codeCell}>
+                      <span className={classes.uniqueCode}>{inv.uniqueCode}</span>
+                      <span className={classes.invoiceIdText}>ID: {inv.id}</span>
                     </div>
+                  </Table.Td>
 
-                    <div className={classes.mobileInvoiceMiddle}>
-                      <div>
-                        <Text size="xs" c="dimmed">
-                          Nominal
-                        </Text>
-                        <Text fw={700} size="sm">
-                          {formatIdr(inv.amountIdr)}
-                        </Text>
-                      </div>
-                      <div style={{ textAlign: "right" }}>
-                        <Text size="xs" c="teal.4" fw={600}>
-                          +{inv.points} Poin
-                        </Text>
-                        <Text size="xs" c="dimmed" suppressHydrationWarning>
-                          {inv.createdAt ? formatDateId(inv.createdAt) : "-"}
-                        </Text>
-                      </div>
+                  <Table.Td>
+                    <div className={classes.amountCell}>
+                      <span className={classes.amountValue}>{formatIdr(inv.amountIdr)}</span>
+                      <span className={classes.pointsValue}>+{inv.points} Poin</span>
                     </div>
+                  </Table.Td>
 
-                    {isRejected && inv.reviewNote ? (
-                      <Text size="xs" c="red.4" bg="rgba(239, 68, 68, 0.1)" p="xs" style={{ borderRadius: 6 }}>
-                        Alasan ditolak: {inv.reviewNote}
-                      </Text>
-                    ) : null}
+                  <Table.Td>
+                    <Group gap="xs">
+                      <Badge
+                        color={
+                          isPaid
+                            ? "teal"
+                            : isAwaiting
+                              ? "yellow"
+                              : isRejected
+                                ? "red"
+                                : isCanceled || isExpired
+                                  ? "gray"
+                                  : "blue"
+                        }
+                        size="sm"
+                        radius="sm"
+                        variant={isCanceled || isExpired ? "outline" : "light"}
+                      >
+                        {isExpired ? "Kedaluwarsa" : inv.statusLabel}
+                      </Badge>
+                      {isRejected && inv.reviewNote ? (
+                        <Tooltip label={`Alasan tolak: ${inv.reviewNote}`} withArrow>
+                          <Text size="xs" c="red" td="underline" className={classes.pointerText}>
+                            Lihat alasan
+                          </Text>
+                        </Tooltip>
+                      ) : null}
+                    </Group>
+                  </Table.Td>
 
+                  <Table.Td className={classes.dateCell} suppressHydrationWarning>
+                    {inv.createdAt ? formatDateId(inv.createdAt) : "-"}
                     {inv.paidAt && isPaid ? (
-                      <Text size="xs" c="teal.4" suppressHydrationWarning>
+                      <Text size="xs" c="teal" suppressHydrationWarning>
                         Lunas: {formatDateId(inv.paidAt)}
                         {inv.gateway?.paymentChannel ? ` (${inv.gateway.paymentChannel})` : ""}
                       </Text>
                     ) : null}
+                  </Table.Td>
 
-                    <div className={classes.mobileInvoiceBottom}>
-                      {canPay ? (
-                        <Group gap="xs" justify="flex-end" style={{ width: "100%" }}>
-                          {gatewayEnabled ? (
-                            <Button
-                              size="xs"
-                              variant="gradient"
-                              gradient={{ from: "#3b82f6", to: "#8b5cf6", deg: 135 }}
-                              disabled={busy || isPaying}
-                              leftSection={isPaying ? <Loader size="xs" /> : null}
-                              onClick={() => handlePayGateway(inv.id, inv.uniqueCode)}
-                            >
-                              {isPaying ? "Memproses..." : "Bayar Online"}
-                            </Button>
-                          ) : null}
-
+                  <Table.Td className={classes.actionCell}>
+                    {canPay ? (
+                      <Group gap="xs" justify="flex-end">
+                        {gatewayEnabled ? (
                           <Button
                             size="xs"
-                            variant="light"
-                            color="blue"
-                            onClick={() => {
-                              setUploadInvoice(inv);
-                              setSelectedFile(null);
-                            }}
-                            disabled={busy}
-                          >
-                            Unggah Bukti
-                          </Button>
-
-                          <Button
-                            size="xs"
-                            variant="subtle"
-                            color="red"
+                            variant="gradient"
+                            gradient={{ from: "#3b82f6", to: "#8b5cf6", deg: 135 }}
                             disabled={busy || isPaying}
-                            onClick={() => setCancelingInvoice(inv)}
+                            leftSection={isPaying ? <Loader size="xs" /> : null}
+                            onClick={() => handlePayGateway(inv.id, inv.uniqueCode)}
                           >
-                            Batalkan
+                            {isPaying
+                              ? "Memproses..."
+                              : hasGatewaySession && !gatewayExpired
+                                ? "Lanjut Bayar Online"
+                                : "Bayar Online"}
                           </Button>
-                        </Group>
-                      ) : isAwaiting ? (
-                        <Group gap="xs" justify="space-between" style={{ width: "100%" }}>
-                          <Text size="xs" c="dimmed">
-                            Menunggu kurasi admin
-                          </Text>
-                          <Button
-                            size="xs"
-                            variant="subtle"
-                            color="red"
-                            disabled={busy}
-                            onClick={() => setCancelingInvoice(inv)}
-                          >
-                            Batalkan
-                          </Button>
-                        </Group>
-                      ) : isPaid ? (
-                        <Text size="xs" c="teal.4">
-                          Poin sudah ditambahkan
-                        </Text>
-                      ) : isCanceled ? (
+                        ) : null}
+
+                        <Button
+                          size="xs"
+                          variant="light"
+                          color="blue"
+                          onClick={() => {
+                            setUploadInvoice(inv);
+                            setSelectedFile(null);
+                          }}
+                          disabled={busy}
+                        >
+                          Unggah Bukti
+                        </Button>
+
+                        <Button
+                          size="xs"
+                          variant="subtle"
+                          color="red"
+                          disabled={busy || isPaying}
+                          onClick={() => setCancelingInvoice(inv)}
+                        >
+                          Batalkan
+                        </Button>
+                      </Group>
+                    ) : isAwaiting ? (
+                      <Group gap="xs" justify="flex-end">
                         <Text size="xs" c="dimmed">
-                          Pesanan dibatalkan
+                          Menunggu kurasi admin
                         </Text>
-                      ) : isExpired ? (
-                        <Text size="xs" c="dimmed">
-                          Pesanan kedaluwarsa
-                        </Text>
-                      ) : null}
+                        <Button
+                          size="xs"
+                          variant="subtle"
+                          color="red"
+                          disabled={busy}
+                          onClick={() => setCancelingInvoice(inv)}
+                        >
+                          Batalkan
+                        </Button>
+                      </Group>
+                    ) : isPaid ? (
+                      <Text size="xs" c="teal">
+                        Poin sudah ditambahkan
+                      </Text>
+                    ) : isCanceled ? (
+                      <Text size="xs" c="dimmed">
+                        Pesanan dibatalkan
+                      </Text>
+                    ) : isExpired ? (
+                      <Text size="xs" c="dimmed">
+                        Pesanan kedaluwarsa
+                      </Text>
+                    ) : null}
+                  </Table.Td>
+                </Table.Tr>
+              );
+            }}
+            renderMobileCard={(inv) => {
+              const isCanceled = inv.status === "canceled";
+              const isPaid = inv.status === "paid";
+              const isAwaiting = inv.status === "awaiting_review";
+              const isRejected = inv.status === "rejected";
+              const hasGatewaySession = inv.gateway?.paymentUrl && inv.gateway?.expiredAt;
+              const gatewayExpired = hasGatewaySession && new Date(inv.gateway!.expiredAt!) < new Date();
+              const isExpired = inv.status === "expired" || gatewayExpired;
+              const isUnpaid = inv.status === "unpaid" && !isExpired;
+              const canPay = (isUnpaid || isRejected) && !isExpired;
+              const canCancel = (isUnpaid || isRejected || isAwaiting) && !isExpired;
+              const isPaying = payingInvoiceId === inv.id;
+
+              return (
+                <div key={inv.id} className={classes.mobileInvoiceCard}>
+                  <div className={classes.mobileInvoiceTop}>
+                    <div>
+                      <Text fw={700} size="sm" c="blue.4">
+                        {inv.uniqueCode}
+                      </Text>
+                      <Text size="xs" c="dimmed" style={{ fontFamily: "monospace" }}>
+                        ID: {inv.id}
+                      </Text>
+                    </div>
+                    <Group gap={6}>
+                      <Badge
+                        color={
+                          isPaid
+                            ? "teal"
+                            : isAwaiting
+                              ? "yellow"
+                              : isRejected
+                                ? "red"
+                                : isCanceled || isExpired
+                                  ? "gray"
+                                  : "blue"
+                        }
+                        size="sm"
+                        radius="sm"
+                        variant={isCanceled || isExpired ? "outline" : "light"}
+                      >
+                        {isExpired ? "Kedaluwarsa" : inv.statusLabel}
+                      </Badge>
+                    </Group>
+                  </div>
+
+                  <div className={classes.mobileInvoiceMiddle}>
+                    <div>
+                      <Text size="xs" c="dimmed">
+                        Nominal
+                      </Text>
+                      <Text fw={700} size="sm">
+                        {formatIdr(inv.amountIdr)}
+                      </Text>
+                    </div>
+                    <div style={{ textAlign: "right" }}>
+                      <Text size="xs" c="teal.4" fw={600}>
+                        +{inv.points} Poin
+                      </Text>
+                      <Text size="xs" c="dimmed" suppressHydrationWarning>
+                        {inv.createdAt ? formatDateId(inv.createdAt) : "-"}
+                      </Text>
                     </div>
                   </div>
-                );
-              })}
-            </div>
-          </>
+
+                  {isRejected && inv.reviewNote ? (
+                    <Text size="xs" c="red.4" bg="rgba(239, 68, 68, 0.1)" p="xs" style={{ borderRadius: 6 }}>
+                      Alasan ditolak: {inv.reviewNote}
+                    </Text>
+                  ) : null}
+
+                  {inv.paidAt && isPaid ? (
+                    <Text size="xs" c="teal.4" suppressHydrationWarning>
+                      Lunas: {formatDateId(inv.paidAt)}
+                      {inv.gateway?.paymentChannel ? ` (${inv.gateway.paymentChannel})` : ""}
+                    </Text>
+                  ) : null}
+
+                  <div className={classes.mobileInvoiceBottom}>
+                    {canPay ? (
+                      <Group gap="xs" justify="flex-end" style={{ width: "100%" }}>
+                        {gatewayEnabled ? (
+                          <Button
+                            size="xs"
+                            variant="gradient"
+                            gradient={{ from: "#3b82f6", to: "#8b5cf6", deg: 135 }}
+                            disabled={busy || isPaying}
+                            leftSection={isPaying ? <Loader size="xs" /> : null}
+                            onClick={() => handlePayGateway(inv.id, inv.uniqueCode)}
+                          >
+                            {isPaying ? "Memproses..." : "Bayar Online"}
+                          </Button>
+                        ) : null}
+
+                        <Button
+                          size="xs"
+                          variant="light"
+                          color="blue"
+                          onClick={() => {
+                            setUploadInvoice(inv);
+                            setSelectedFile(null);
+                          }}
+                          disabled={busy}
+                        >
+                          Unggah Bukti
+                        </Button>
+
+                        <Button
+                          size="xs"
+                          variant="subtle"
+                          color="red"
+                          disabled={busy || isPaying}
+                          onClick={() => setCancelingInvoice(inv)}
+                        >
+                          Batalkan
+                        </Button>
+                      </Group>
+                    ) : isAwaiting ? (
+                      <Group gap="xs" justify="space-between" style={{ width: "100%" }}>
+                        <Text size="xs" c="dimmed">
+                          Menunggu kurasi admin
+                        </Text>
+                        <Button
+                          size="xs"
+                          variant="subtle"
+                          color="red"
+                          disabled={busy}
+                          onClick={() => setCancelingInvoice(inv)}
+                        >
+                          Batalkan
+                        </Button>
+                      </Group>
+                    ) : isPaid ? (
+                      <Text size="xs" c="teal.4">
+                        Poin sudah ditambahkan
+                      </Text>
+                    ) : isCanceled ? (
+                      <Text size="xs" c="dimmed">
+                        Pesanan dibatalkan
+                      </Text>
+                    ) : isExpired ? (
+                      <Text size="xs" c="dimmed">
+                        Pesanan kedaluwarsa
+                      </Text>
+                    ) : null}
+                  </div>
+                </div>
+              );
+            }}
+          />
         )}
       </Paper>
 
