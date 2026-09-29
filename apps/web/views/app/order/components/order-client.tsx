@@ -74,7 +74,7 @@ export function OrderClient(props: {
   const [search, setSearch] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const [gatewayEnabled, setGatewayEnabled] = useState(true);
+  const [gatewayEnabled, setGatewayEnabled] = useState(false);
   const [payingInvoiceId, setPayingInvoiceId] = useState<string | null>(null);
 
   // Snap Payment Modal state
@@ -131,6 +131,18 @@ export function OrderClient(props: {
         return;
       }
     }
+
+    // Direct Payment (Manual Transfer / Upload Bukti): langsung buka modal unggah bukti
+    const selectedPkg = props.packages.find((p) => p.id === packageId);
+    setUploadInvoice({
+      id: result.data.id,
+      uniqueCode: result.data.uniqueCode,
+      amountIdr: selectedPkg?.amountIdr ?? 0,
+      points: selectedPkg?.points ?? 0,
+      status: "unpaid",
+      statusLabel: "Belum Bayar",
+      hasProof: false,
+    });
 
     setBusy(false);
     router.refresh();
@@ -221,17 +233,9 @@ export function OrderClient(props: {
     <div className={classes.orderContainer}>
       <Text className={classes.sectionTitle}>Pilih Paket Poin</Text>
 
-      {gatewayEnabled ? (
-        <Text className={classes.sectionSubtitle}>
-          Pilih paket poin di bawah ini, lalu selesaikan pembayaran instan via Midtrans (Virtual Account, QRIS,
-          GoPay, ShopeePay). Poin otomatis masuk setelah pembayaran berhasil.
-        </Text>
-      ) : (
-        <Text className={classes.sectionSubtitle}>
-          Pilih paket, bayar transfer/QRIS sesuai invoice yang diterbitkan, lalu unggah bukti transfer
-          pada tabel invoice di bawah. Poin akan masuk setelah dikurasi oleh admin.
-        </Text>
-      )}
+      <Text className={classes.sectionSubtitle}>
+        Pilih paket poin di bawah ini, lakukan pembayaran transfer bank / QRIS sesuai invoice yang diterbitkan, lalu unggah bukti transfer. Poin akan langsung diproses dan ditambahkan ke saldo Anda.
+      </Text>
 
       <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing="lg" className={classes.packagesGrid}>
         {props.packages.map((pkg, idx) => {

@@ -143,7 +143,7 @@ export function WalletClient(props: {
   const router = useRouter();
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const [gatewayEnabled, setGatewayEnabled] = useState(true);
+  const [gatewayEnabled, setGatewayEnabled] = useState(false);
   const [payingInvoiceId, setPayingInvoiceId] = useState<string | null>(null);
 
   // Snap Payment Modal state

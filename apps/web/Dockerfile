@@ -20,6 +20,8 @@ ARG AUTH_SECRET=change-me-to-32-bytes-min
 ENV API_INTERNAL_URL=$API_INTERNAL_URL
 ENV AUTH_SECRET=$AUTH_SECRET
 ENV AUTH_TRUST_HOST=true
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV NODE_OPTIONS="--max-old-space-size=4096"
 RUN pnpm --filter @ai-gen-free/web build
 EXPOSE 3000
 CMD ["pnpm", "--filter", "@ai-gen-free/web", "start"]
