@@ -57,6 +57,75 @@
   margin-bottom: var(--mantine-spacing-md);
 }
 
+/* Desktop Table vs Mobile/Tablet Card List */
+.desktopTable {
+  display: table;
+  width: 100%;
+}
+
+.mobileList {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .tableContainer {
+    padding: var(--mantine-spacing-sm);
+  }
+
+  .desktopTable {
+    display: none;
+  }
+
+  .mobileList {
+    display: flex;
+    flex-direction: column;
+    gap: var(--mantine-spacing-sm);
+    width: 100%;
+  }
+}
+
+.mobileInvoiceCard {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--mantine-color-default-border);
+  border-radius: 12px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.mobileInvoiceCard:hover {
+  border-color: rgba(59, 130, 246, 0.4);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.mobileInvoiceTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.mobileInvoiceMiddle {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.mobileInvoiceBottom {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 2px;
+}
+
 .tableHeader {
   color: var(--mantine-color-dimmed);
   font-size: var(--mantine-font-size-sm);
@@ -132,6 +201,27 @@
   padding: 16px 20px;
 }
 
+/* QRIS Section */
+.qrisSection {
+  background: #ffffff;
+  border-radius: 14px;
+  padding: 18px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.qrisImage {
+  width: 100%;
+  max-width: 250px;
+  height: auto;
+  border-radius: 8px;
+  display: block;
+}
+
 .accountCard {
   background: rgba(59, 130, 246, 0.04);
   border: 1px solid rgba(59, 130, 246, 0.2);
@@ -162,21 +252,21 @@
   background: rgba(255, 255, 255, 0.02);
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 10px;
-  padding: 12px 16px;
+  padding: 14px 16px;
 }
 
 .instructionStep {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
+  gap: 12px;
   font-size: 13px;
   color: var(--mantine-color-gray-3);
   line-height: 1.5;
 }
 
 .stepNumber {
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
   background: rgba(59, 130, 246, 0.2);
   color: #60a5fa;
@@ -187,31 +277,6 @@
   justify-content: center;
   flex-shrink: 0;
   margin-top: 1px;
-}
-
-.uploadDropzone {
-  border: 2px dashed rgba(255, 255, 255, 0.15);
-  border-radius: 12px;
-  padding: 24px 16px;
-  text-align: center;
-  background: rgba(255, 255, 255, 0.02);
-  transition: all 0.2s ease;
-  cursor: pointer;
-}
-
-.uploadDropzone:hover {
-  border-color: rgba(59, 130, 246, 0.5);
-  background: rgba(59, 130, 246, 0.03);
-}
-
-.selectedFileBadge {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  background: rgba(16, 185, 129, 0.08);
-  border: 1px solid rgba(16, 185, 129, 0.3);
-  border-radius: 8px;
-  padding: 10px 14px;
 }
 
 .cancelModalCard {

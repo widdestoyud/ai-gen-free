@@ -301,17 +301,168 @@ export function OrderClient(props: {
               : "Belum ada riwayat invoice pemesanan poin."}
           </EmptyState>
         ) : (
-          <Table verticalSpacing="sm" horizontalSpacing="md">
-            <Table.Thead className={classes.tableHeader}>
-              <Table.Tr>
-                <Table.Th>Kode Invoice</Table.Th>
-                <Table.Th>Nominal & Poin</Table.Th>
-                <Table.Th>Status</Table.Th>
-                <Table.Th>Tanggal Dibuat</Table.Th>
-                <Table.Th className={classes.actionCell}>Aksi / Pembayaran</Table.Th>
-              </Table.Tr>
-            </Table.Thead>
-            <Table.Tbody>
+          <>
+            {/* Desktop Table View */}
+            <Table verticalSpacing="sm" horizontalSpacing="md" className={classes.desktopTable}>
+              <Table.Thead className={classes.tableHeader}>
+                <Table.Tr>
+                  <Table.Th>Kode Invoice</Table.Th>
+                  <Table.Th>Nominal & Poin</Table.Th>
+                  <Table.Th>Status</Table.Th>
+                  <Table.Th>Tanggal Dibuat</Table.Th>
+                  <Table.Th className={classes.actionCell}>Aksi / Pembayaran</Table.Th>
+                </Table.Tr>
+              </Table.Thead>
+              <Table.Tbody>
+                {filteredInvoices.map((inv) => {
+                  const isCanceled = inv.status === "canceled";
+                  const isPaid = inv.status === "paid";
+                  const isAwaiting = inv.status === "awaiting_review";
+                  const isRejected = inv.status === "rejected";
+                  const hasGatewaySession = inv.gateway?.paymentUrl && inv.gateway?.expiredAt;
+                  const gatewayExpired = hasGatewaySession && new Date(inv.gateway!.expiredAt!) < new Date();
+                  const isExpired = inv.status === "expired" || gatewayExpired;
+                  const isUnpaid = inv.status === "unpaid" && !isExpired;
+                  const canPay = (isUnpaid || isRejected) && !isExpired;
+                  const canCancel = (isUnpaid || isRejected || isAwaiting) && !isExpired;
+                  const isPaying = payingInvoiceId === inv.id;
+
+                  return (
+                    <Table.Tr key={inv.id} className={classes.tableRow}>
+                      <Table.Td>
+                        <div className={classes.codeCell}>
+                          <span className={classes.uniqueCode}>{inv.uniqueCode}</span>
+                          <span className={classes.invoiceIdText}>ID: {inv.id}</span>
+                        </div>
+                      </Table.Td>
+
+                      <Table.Td>
+                        <div className={classes.amountCell}>
+                          <span className={classes.amountValue}>{formatIdr(inv.amountIdr)}</span>
+                          <span className={classes.pointsValue}>+{inv.points} Poin</span>
+                        </div>
+                      </Table.Td>
+
+                      <Table.Td>
+                        <Group gap="xs">
+                          <Badge
+                            color={
+                              isPaid
+                                ? "teal"
+                                : isAwaiting
+                                  ? "yellow"
+                                  : isRejected
+                                    ? "red"
+                                    : isCanceled || isExpired
+                                      ? "gray"
+                                      : "blue"
+                            }
+                            size="sm"
+                            radius="sm"
+                            variant={isCanceled || isExpired ? "outline" : "light"}
+                          >
+                            {isExpired ? "Kedaluwarsa" : inv.statusLabel}
+                          </Badge>
+                          {isRejected && inv.reviewNote ? (
+                            <Tooltip label={`Alasan tolak: ${inv.reviewNote}`} withArrow>
+                              <Text size="xs" c="red" td="underline" className={classes.pointerText}>
+                                Lihat alasan
+                              </Text>
+                            </Tooltip>
+                          ) : null}
+                        </Group>
+                      </Table.Td>
+
+                      <Table.Td className={classes.dateCell} suppressHydrationWarning>
+                        {inv.createdAt ? formatDateId(inv.createdAt) : "-"}
+                        {inv.paidAt && isPaid ? (
+                          <Text size="xs" c="teal" suppressHydrationWarning>
+                            Lunas: {formatDateId(inv.paidAt)}
+                            {inv.gateway?.paymentChannel ? ` (${inv.gateway.paymentChannel})` : ""}
+                          </Text>
+                        ) : null}
+                      </Table.Td>
+
+                      <Table.Td className={classes.actionCell}>
+                        {canPay ? (
+                          <Group gap="xs" justify="flex-end">
+                            {gatewayEnabled ? (
+                              <Button
+                                size="xs"
+                                variant="gradient"
+                                gradient={{ from: "#3b82f6", to: "#8b5cf6", deg: 135 }}
+                                disabled={busy || isPaying}
+                                leftSection={isPaying ? <Loader size="xs" /> : null}
+                                onClick={() => handlePayGateway(inv.id, inv.uniqueCode)}
+                              >
+                                {isPaying
+                                  ? "Memproses..."
+                                  : hasGatewaySession && !gatewayExpired
+                                    ? "Lanjut Bayar Online"
+                                    : "Bayar Online"}
+                              </Button>
+                            ) : null}
+
+                            <Button
+                              size="xs"
+                              variant="light"
+                              color="blue"
+                              onClick={() => {
+                                setUploadInvoice(inv);
+                                setSelectedFile(null);
+                              }}
+                              disabled={busy}
+                            >
+                              Unggah Bukti
+                            </Button>
+
+                            <Button
+                              size="xs"
+                              variant="subtle"
+                              color="red"
+                              disabled={busy || isPaying}
+                              onClick={() => setCancelingInvoice(inv)}
+                            >
+                              Batalkan
+                            </Button>
+                          </Group>
+                        ) : isAwaiting ? (
+                          <Group gap="xs" justify="flex-end">
+                            <Text size="xs" c="dimmed">
+                              Menunggu kurasi admin
+                            </Text>
+                            <Button
+                              size="xs"
+                              variant="subtle"
+                              color="red"
+                              disabled={busy}
+                              onClick={() => setCancelingInvoice(inv)}
+                            >
+                              Batalkan
+                            </Button>
+                          </Group>
+                        ) : isPaid ? (
+                          <Text size="xs" c="teal">
+                            Poin sudah ditambahkan
+                          </Text>
+                        ) : isCanceled ? (
+                          <Text size="xs" c="dimmed">
+                            Pesanan dibatalkan
+                          </Text>
+                        ) : isExpired ? (
+                          <Text size="xs" c="dimmed">
+                            Pesanan kedaluwarsa
+                          </Text>
+                        ) : null}
+                      </Table.Td>
+                    </Table.Tr>
+                  );
+                })}
+              </Table.Tbody>
+            </Table>
+
+            {/* Mobile & Tablet Card List View */}
+            <div className={classes.mobileList}>
               {filteredInvoices.map((inv) => {
                 const isCanceled = inv.status === "canceled";
                 const isPaid = inv.status === "paid";
@@ -323,27 +474,20 @@ export function OrderClient(props: {
                 const isUnpaid = inv.status === "unpaid" && !isExpired;
                 const canPay = (isUnpaid || isRejected) && !isExpired;
                 const canCancel = (isUnpaid || isRejected || isAwaiting) && !isExpired;
-
                 const isPaying = payingInvoiceId === inv.id;
 
                 return (
-                  <Table.Tr key={inv.id} className={classes.tableRow}>
-                    <Table.Td>
-                      <div className={classes.codeCell}>
-                        <span className={classes.uniqueCode}>{inv.uniqueCode}</span>
-                        <span className={classes.invoiceIdText}>ID: {inv.id}</span>
+                  <div key={inv.id} className={classes.mobileInvoiceCard}>
+                    <div className={classes.mobileInvoiceTop}>
+                      <div>
+                        <Text fw={700} size="sm" c="blue.4">
+                          {inv.uniqueCode}
+                        </Text>
+                        <Text size="xs" c="dimmed" style={{ fontFamily: "monospace" }}>
+                          ID: {inv.id}
+                        </Text>
                       </div>
-                    </Table.Td>
-
-                    <Table.Td>
-                      <div className={classes.amountCell}>
-                        <span className={classes.amountValue}>{formatIdr(inv.amountIdr)}</span>
-                        <span className={classes.pointsValue}>+{inv.points} Poin</span>
-                      </div>
-                    </Table.Td>
-
-                    <Table.Td>
-                      <Group gap="xs">
+                      <Group gap={6}>
                         <Badge
                           color={
                             isPaid
@@ -362,29 +506,44 @@ export function OrderClient(props: {
                         >
                           {isExpired ? "Kedaluwarsa" : inv.statusLabel}
                         </Badge>
-                        {isRejected && inv.reviewNote ? (
-                          <Tooltip label={`Alasan tolak: ${inv.reviewNote}`} withArrow>
-                            <Text size="xs" c="red" td="underline" className={classes.pointerText}>
-                              Lihat alasan
-                            </Text>
-                          </Tooltip>
-                        ) : null}
                       </Group>
-                    </Table.Td>
+                    </div>
 
-                    <Table.Td className={classes.dateCell} suppressHydrationWarning>
-                      {inv.createdAt ? formatDateId(inv.createdAt) : "-"}
-                      {inv.paidAt && isPaid ? (
-                        <Text size="xs" c="teal" suppressHydrationWarning>
-                          Lunas: {formatDateId(inv.paidAt)}
-                          {inv.gateway?.paymentChannel ? ` (${inv.gateway.paymentChannel})` : ""}
+                    <div className={classes.mobileInvoiceMiddle}>
+                      <div>
+                        <Text size="xs" c="dimmed">
+                          Nominal
                         </Text>
-                      ) : null}
-                    </Table.Td>
+                        <Text fw={700} size="sm">
+                          {formatIdr(inv.amountIdr)}
+                        </Text>
+                      </div>
+                      <div style={{ textAlign: "right" }}>
+                        <Text size="xs" c="teal.4" fw={600}>
+                          +{inv.points} Poin
+                        </Text>
+                        <Text size="xs" c="dimmed" suppressHydrationWarning>
+                          {inv.createdAt ? formatDateId(inv.createdAt) : "-"}
+                        </Text>
+                      </div>
+                    </div>
 
-                    <Table.Td className={classes.actionCell}>
+                    {isRejected && inv.reviewNote ? (
+                      <Text size="xs" c="red.4" bg="rgba(239, 68, 68, 0.1)" p="xs" style={{ borderRadius: 6 }}>
+                        Alasan ditolak: {inv.reviewNote}
+                      </Text>
+                    ) : null}
+
+                    {inv.paidAt && isPaid ? (
+                      <Text size="xs" c="teal.4" suppressHydrationWarning>
+                        Lunas: {formatDateId(inv.paidAt)}
+                        {inv.gateway?.paymentChannel ? ` (${inv.gateway.paymentChannel})` : ""}
+                      </Text>
+                    ) : null}
+
+                    <div className={classes.mobileInvoiceBottom}>
                       {canPay ? (
-                        <Group gap="xs" justify="flex-end">
+                        <Group gap="xs" justify="flex-end" style={{ width: "100%" }}>
                           {gatewayEnabled ? (
                             <Button
                               size="xs"
@@ -394,18 +553,14 @@ export function OrderClient(props: {
                               leftSection={isPaying ? <Loader size="xs" /> : null}
                               onClick={() => handlePayGateway(inv.id, inv.uniqueCode)}
                             >
-                              {isPaying
-                                ? "Memproses..."
-                                : hasGatewaySession && !gatewayExpired
-                                  ? "Lanjut Bayar Online"
-                                  : "Bayar Online"}
+                              {isPaying ? "Memproses..." : "Bayar Online"}
                             </Button>
                           ) : null}
 
                           <Button
                             size="xs"
                             variant="light"
-                            color="gray"
+                            color="blue"
                             onClick={() => {
                               setUploadInvoice(inv);
                               setSelectedFile(null);
@@ -426,7 +581,7 @@ export function OrderClient(props: {
                           </Button>
                         </Group>
                       ) : isAwaiting ? (
-                        <Group gap="xs" justify="flex-end">
+                        <Group gap="xs" justify="space-between" style={{ width: "100%" }}>
                           <Text size="xs" c="dimmed">
                             Menunggu kurasi admin
                           </Text>
@@ -441,7 +596,7 @@ export function OrderClient(props: {
                           </Button>
                         </Group>
                       ) : isPaid ? (
-                        <Text size="xs" c="teal">
+                        <Text size="xs" c="teal.4">
                           Poin sudah ditambahkan
                         </Text>
                       ) : isCanceled ? (
@@ -453,12 +608,12 @@ export function OrderClient(props: {
                           Pesanan kedaluwarsa
                         </Text>
                       ) : null}
-                    </Table.Td>
-                  </Table.Tr>
+                    </div>
+                  </div>
                 );
               })}
-            </Table.Tbody>
-          </Table>
+            </div>
+          </>
         )}
       </Paper>
 
@@ -474,7 +629,7 @@ export function OrderClient(props: {
         title={
           <Group gap="xs">
             <Text fw={700} size="md">
-              Rincian Pembayaran & Bukti Transfer
+              Pembayaran QRIS & Bukti Transfer
             </Text>
             {uploadInvoice?.uniqueCode && (
               <Badge variant="light" color="blue" size="sm">
@@ -511,34 +666,71 @@ export function OrderClient(props: {
             </Group>
           </div>
 
-          {/* Dynamic Instructions if available */}
-          {uploadInvoice?.instructions ? (
-            <Paper p="xs" withBorder radius="md" style={{ background: "rgba(255, 255, 255, 0.02)" }}>
-              <Text size="xs" c="dimmed">
-                {uploadInvoice.instructions}
-              </Text>
-            </Paper>
-          ) : null}
+          {/* QRIS Card Section */}
+          <div className={classes.qrisSection}>
+            <Text size="xs" fw={700} c="dark.7" mb={6} style={{ textTransform: "uppercase", letterSpacing: 0.5 }}>
+              Scan QRIS untuk Pembayaran
+            </Text>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/images/qris-payment.png"
+              alt="QRIS Pembayaran Satulabs - WAY2ND, GAMING"
+              className={classes.qrisImage}
+            />
+            <Group gap="xs" mt={10} justify="center">
+              <Badge color="blue" variant="filled" size="sm">
+                Merchant: WAY2ND, GAMING
+              </Badge>
+              <Badge color="gray" variant="outline" size="sm">
+                NMID: ID1026482092164
+              </Badge>
+            </Group>
+            <Button
+              component="a"
+              href="/images/qris-payment.png"
+              target="_blank"
+              rel="noopener noreferrer"
+              size="xs"
+              variant="subtle"
+              color="dark"
+              mt={6}
+            >
+              Lihat / Perbesar Gambar QRIS ↗
+            </Button>
+          </div>
 
           {/* Step-by-Step Instructions */}
           <div className={classes.instructionBox}>
+            <Text size="xs" fw={700} c="blue.3" mb="xs">
+              Instruksi Pembayaran Manual:
+            </Text>
             <Stack gap="xs">
               <div className={classes.instructionStep}>
                 <div className={classes.stepNumber}>1</div>
                 <Text size="xs" c="gray.3">
-                  Lakukan pembayaran sebesar <strong>{uploadInvoice ? formatIdr(uploadInvoice.amountIdr) : ""}</strong> sesuai invoice tagihan.
+                  <strong>Pindai (Scan) QRIS</strong> di atas menggunakan e-wallet (GoPay, OVO, DANA, ShopeePay, LinkAja) atau aplikasi Mobile Banking (BCA, Mandiri, BRI, BNI, Jago, dll).
                 </Text>
               </div>
               <div className={classes.instructionStep}>
                 <div className={classes.stepNumber}>2</div>
                 <Text size="xs" c="gray.3">
-                  Simpan struk atau tangkapan layar (screenshot) bukti pembayaran Anda.
+                  <strong>Masukkan nominal manual</strong> tepat sebesar{" "}
+                  <strong style={{ color: "#60a5fa" }}>
+                    {uploadInvoice ? formatIdr(uploadInvoice.amountIdr) : ""}
+                  </strong>{" "}
+                  (sesuai harga paket).
                 </Text>
               </div>
               <div className={classes.instructionStep}>
                 <div className={classes.stepNumber}>3</div>
                 <Text size="xs" c="gray.3">
-                  Unggah berkas bukti pembayaran di bawah ini, lalu klik <strong>Kirim Bukti Pembayaran</strong>.
+                  Selesaikan transaksi dan <strong>simpan struk atau tangkapan layar (screenshot) bukti pembayaran</strong> Anda.
+                </Text>
+              </div>
+              <div className={classes.instructionStep}>
+                <div className={classes.stepNumber}>4</div>
+                <Text size="xs" c="gray.3">
+                  <strong>Unggah bukti pembayaran</strong> pada formulir di bawah ini, lalu klik tombol <strong>Kirim Bukti Pembayaran</strong>.
                 </Text>
               </div>
             </Stack>
@@ -548,7 +740,7 @@ export function OrderClient(props: {
           <FileInput
             label="Unggah File Bukti Pembayaran"
             description="Format yang didukung: JPG, PNG, WebP, atau PDF (maks. 5MB)"
-            placeholder="Pilih foto / berkas bukti transfer..."
+            placeholder="Pilih foto / tangkapan layar bukti transfer..."
             accept="image/jpeg,image/png,image/webp,application/pdf"
             value={selectedFile}
             onChange={setSelectedFile}
