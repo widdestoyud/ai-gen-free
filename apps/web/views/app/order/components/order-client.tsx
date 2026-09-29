@@ -511,40 +511,14 @@ export function OrderClient(props: {
             </Group>
           </div>
 
-          {/* Bank Destination & Account Details */}
-          <div className={classes.accountCard}>
-            <Group justify="space-between" align="center" mb={4}>
-              <Text size="xs" fw={700} c="blue.4" tt="uppercase">
-                Rekening Tujuan Pembayaran
+          {/* Dynamic Instructions if available */}
+          {uploadInvoice?.instructions ? (
+            <Paper p="xs" withBorder radius="md" style={{ background: "rgba(255, 255, 255, 0.02)" }}>
+              <Text size="xs" c="dimmed">
+                {uploadInvoice.instructions}
               </Text>
-              <Badge size="xs" color="blue" variant="light">
-                Bank Transfer
-              </Badge>
-            </Group>
-
-            <div className={classes.accountNumberBox}>
-              <div>
-                <Text size="xs" c="dimmed">
-                  Bank BCA — a.n PT Satulabs Kreasi Indonesia
-                </Text>
-                <Text className={classes.accountNumber}>
-                  8831 2345 6789
-                </Text>
-              </div>
-              <CopyButton value="883123456789" timeout={2000}>
-                {({ copied, copy }) => (
-                  <Button
-                    size="xs"
-                    variant={copied ? "filled" : "light"}
-                    color={copied ? "teal" : "blue"}
-                    onClick={copy}
-                  >
-                    {copied ? "Tersalin ✓" : "Salin No. Rek 📋"}
-                  </Button>
-                )}
-              </CopyButton>
-            </div>
-          </div>
+            </Paper>
+          ) : null}
 
           {/* Step-by-Step Instructions */}
           <div className={classes.instructionBox}>
@@ -552,19 +526,19 @@ export function OrderClient(props: {
               <div className={classes.instructionStep}>
                 <div className={classes.stepNumber}>1</div>
                 <Text size="xs" c="gray.3">
-                  Transfer sebesar <strong>{uploadInvoice ? formatIdr(uploadInvoice.amountIdr) : ""}</strong> ke rekening BCA di atas.
+                  Lakukan pembayaran sebesar <strong>{uploadInvoice ? formatIdr(uploadInvoice.amountIdr) : ""}</strong> sesuai invoice tagihan.
                 </Text>
               </div>
               <div className={classes.instructionStep}>
                 <div className={classes.stepNumber}>2</div>
                 <Text size="xs" c="gray.3">
-                  Simpan struk atau tangkapan layar (screenshot) bukti transfer m-Banking / ATM Anda.
+                  Simpan struk atau tangkapan layar (screenshot) bukti pembayaran Anda.
                 </Text>
               </div>
               <div className={classes.instructionStep}>
                 <div className={classes.stepNumber}>3</div>
                 <Text size="xs" c="gray.3">
-                  Unggah berkas bukti transfer di bawah ini, lalu klik <strong>Kirim Bukti Pembayaran</strong>.
+                  Unggah berkas bukti pembayaran di bawah ini, lalu klik <strong>Kirim Bukti Pembayaran</strong>.
                 </Text>
               </div>
             </Stack>
