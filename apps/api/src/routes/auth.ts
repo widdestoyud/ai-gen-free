@@ -29,9 +29,17 @@ const cookieOpts = {
 };
 
 function clientIp(req: { ip: string; headers: Record<string, unknown> }): string {
+  const cfConnecting = req.headers["cf-connecting-ip"];
+  if (typeof cfConnecting === "string" && cfConnecting.trim().length > 0) {
+    return cfConnecting.trim();
+  }
   const forwarded = req.headers["x-forwarded-for"];
   if (typeof forwarded === "string" && forwarded.length > 0) {
     return forwarded.split(",")[0]!.trim();
+  }
+  const realIp = req.headers["x-real-ip"];
+  if (typeof realIp === "string" && realIp.trim().length > 0) {
+    return realIp.trim();
   }
   return req.ip;
 }
@@ -263,7 +271,10 @@ export async function registerAuthRoutes(
         spicyModeEnabled?: unknown;
       };
 
-      const result = await updateUserProfile(session.user.id, body);
+      const result = await updateUserProfile(session.user.id, {
+        ...body,
+        req: { ip: clientIp(req), headers: req.headers },
+      } as any);
       return { ok: true, user: result.user, message: result.message };
     } catch (err) {
       return sendAuthError(reply, err, req);
@@ -329,6 +340,7 @@ export async function registerAuthRoutes(
         userId: session.user.id,
         currentPasswordRaw: body.currentPassword,
         newPasswordRaw: body.newPassword,
+        req: { ip: clientIp(req), headers: req.headers },
       });
 
       return reply.status(200).send({
@@ -386,6 +398,7 @@ export async function registerAuthRoutes(
       const result = await confirmPasswordReset({
         tokenRaw: body.token,
         passwordRaw: body.password,
+        req: { ip: clientIp(req), headers: req.headers },
       });
       return reply.status(200).send({
         ok: true,

@@ -160,7 +160,7 @@ export function GenerateStudio(props: {
                       >
                         <img
                           src={item.url}
-                          alt=""
+                          alt={tagLabel || "Thumbnail referensi"}
                           className={`${classes.thumb} ${item.uploading ? classes.thumbBlur : ""}`}
                         />
                         {item.uploading ? (
@@ -208,7 +208,7 @@ export function GenerateStudio(props: {
                         ctrl.selectMention(idx);
                       }}
                     >
-                      <img src={item.url} alt="" className={classes.mentionThumb} />
+                      <img src={item.url} alt={tagLabel || "Thumbnail mention"} className={classes.mentionThumb} />
                       <span className={classes.mentionLabel}>{tagLabel}</span>
                     </button>
                   );
@@ -309,7 +309,7 @@ export function GenerateStudio(props: {
                   />
 
                   <Text size="sm" c="dimmed" fw={500}>
-                    {props.available} poin
+                    {props.available} sparks
                   </Text>
 
                   <button
@@ -376,7 +376,7 @@ export function GenerateStudio(props: {
               </button>
 
               <Text size="xs" c="dimmed" ta="center" mt={4} fw={500}>
-                {props.available} poin
+                {props.available} sparks
               </Text>
             </div>
           </Paper>

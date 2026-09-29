@@ -1,7 +1,14 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { loadCustomerProfile, loadPublicPackages } from "@/lib/server-api";
 import { LandingPageView } from "@/views/landing";
+
+export const metadata: Metadata = {
+  title: "Platform Studio AI Video & Photo",
+  description:
+    "Platform studio AI video dan photo untuk kamu yang ingin kebebasan kreasi sesungguhnya. Cukup beli sparks saat kamu butuh.",
+};
 
 export const dynamic = "force-dynamic";
 

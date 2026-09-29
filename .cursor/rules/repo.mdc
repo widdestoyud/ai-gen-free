@@ -9,4 +9,5 @@ Read `AGENTS.md` before writing code. Then `docs/adr/` and `docs/architecture.md
 - Browser session: NextAuth. OTP/single-session stay in the API. Not Firebase. Not `localStorage` JWT.
 - UI: Mantine. No inline `style={{ }}`. Reusable items in `apps/web/components/`.
 - Client never cuts points. `POST /jobs` returns 202.
+- Client endpoints never leak upstream model names or provider IDs (abstract IDs only).
 - Do not silently change ADRs. AIDLC: PO → SA → human gate → BE → FE → QA.

@@ -1,5 +1,12 @@
+import type { Metadata } from "next";
 import { AdminModelsView, type AdminModelItem, type DefaultGenerationModelsConfig } from "@/views/admin/models";
 import { fetchAdminApi, loadAdminMe } from "@/lib/server-api";
+
+export const metadata: Metadata = {
+  title: "Katalog Model AI",
+  description: "Konfigurasi model generasi AI gambar dan video.",
+  robots: { index: false, follow: false },
+};
 
 const FALLBACK_CONFIG: DefaultGenerationModelsConfig = {
   normalT2iModelId: "openai/gpt-image-2-t2i",

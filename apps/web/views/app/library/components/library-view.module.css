@@ -53,6 +53,12 @@
   gap: 10px;
 }
 
+.searchFilterGroup {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .searchInput {
   min-width: 200px;
   max-width: 260px;
@@ -77,6 +83,7 @@
   justify-content: center;
   cursor: pointer;
   transition: all 0.15s ease;
+  flex-shrink: 0;
 }
 
 .iconBtn:hover {
@@ -102,6 +109,52 @@
 .uploadBtn:hover {
   background: #e2e2e2;
   transform: translateY(-1px);
+}
+
+@media (max-width: 48em) {
+  .topBar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .tabsRow {
+    width: 100%;
+    scrollbar-width: none;
+  }
+
+  .tabsRow::-webkit-scrollbar {
+    display: none;
+  }
+
+  .actionsRow {
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+    gap: 10px;
+  }
+
+  .searchFilterGroup {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .searchInput {
+    flex: 1;
+    min-width: 0;
+    max-width: none;
+  }
+
+  .uploadBtn {
+    width: 100%;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+  }
 }
 
 .sectionBlock {

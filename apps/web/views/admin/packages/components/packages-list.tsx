@@ -247,7 +247,8 @@ export function AdminPackagesList({ packages }: { packages: AdminPackage[] }) {
           />
           <Button
             size="xs"
-            color="blue"
+            variant="gradient"
+            gradient={{ from: "#3b82f6", to: "#8b5cf6", deg: 135 }}
             leftSection={<PlusIcon />}
             onClick={openCreateModal}
           >
@@ -500,7 +501,8 @@ export function AdminPackagesList({ packages }: { packages: AdminPackage[] }) {
               Batal
             </Button>
             <Button
-              color="blue"
+              variant="gradient"
+              gradient={{ from: "#3b82f6", to: "#8b5cf6", deg: 135 }}
               onClick={() => void handleSubmitForm()}
               loading={busy}
             >

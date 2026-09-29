@@ -1,4 +1,11 @@
+import type { Metadata } from "next";
 import { ResetPasswordView } from "@/views/auth";
+
+export const metadata: Metadata = {
+  title: "Reset Kata Sandi",
+  description: "Atur ulang kata sandi akun satulabs.id Anda.",
+  robots: { index: false, follow: false },
+};
 
 export const dynamic = "force-dynamic";
 

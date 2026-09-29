@@ -1,7 +1,14 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import type { JobView } from "@/lib/job-status";
 import { fetchUserApi } from "@/lib/server-api";
 import { JobPageView } from "@/views/jobs";
+
+export const metadata: Metadata = {
+  title: "Detail Render Job",
+  description: "Status dan detail pemrosesan generasi media AI.",
+  robots: { index: false, follow: false },
+};
 
 async function load(id: string): Promise<JobView | null | "unauth"> {
   const res = await fetchUserApi(`/api/generate/${id}`);

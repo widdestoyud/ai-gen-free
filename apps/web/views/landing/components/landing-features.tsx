@@ -1,18 +1,18 @@
 "use client";
 
-import { Container, Grid, Title, Text, Stack } from "@mantine/core";
+import { Container, Title, Text } from "@mantine/core";
 import classes from "./landing.module.css";
 
 const FEATURES = [
   {
-    title: "Foto Produk & Visual Komersial",
-    category: "KATALOG & IKLAN",
+    title: "Foto Produk & Katalog Komersial",
+    category: "KATALOG & E-COMMERCE",
     description:
-      "Hasilkan materi promosi produk, visual kemasan, dan mockup katalog beresolusi tinggi seketika tanpa sewa fotografer atau studio fisik.",
+      "Hasilkan materi promosi produk, visual kemasan, dan mockup katalog beresolusi ultra-HD 4K seketika tanpa sewa fotografer atau studio fisik yang mahal.",
     icon: (
       <svg
-        width="22"
-        height="22"
+        width="24"
+        height="24"
         viewBox="0 0 24 24"
         fill="none"
         stroke="currentColor"
@@ -27,14 +27,14 @@ const FEATURES = [
     ),
   },
   {
-    title: "Video Sinematik Dinamis",
-    category: "KONTEN REELS & TIKTOK",
+    title: "Video Sinematik 60fps Multi-Rasio",
+    category: "REELS, SHORTS & TIKTOK",
     description:
-      "Ciptakan klip video dinamis 60fps untuk kebutuhan promosi media sosial dan iklan digital dengan pencahayaan sinematik dan gerakan kamera halus.",
+      "Ciptakan klip video dinamis 60fps dengan pencahayaan sinematik dan gerakan kamera halus dalam rasio 16:9, 9:16, atau 1:1 sesuai kebutuhan kontenmu.",
     icon: (
       <svg
-        width="22"
-        height="22"
+        width="24"
+        height="24"
         viewBox="0 0 24 24"
         fill="none"
         stroke="currentColor"
@@ -48,14 +48,14 @@ const FEATURES = [
     ),
   },
   {
-    title: "Cukup Deskripsi Bahasa Alami",
+    title: "Cukup Deskripsi Bahasa Sehari-hari",
     category: "TANPA RUMUS TEKNIS",
     description:
-      "Tidak perlu kursus *prompt engineering* yang rumit. Cukup jelaskan apa yang ingin kamu buat secara wajar, dan sistem akan merendernya secara akurat.",
+      "Tidak perlu kursus prompt engineering yang rumit. Cukup jelaskan apa yang ingin kamu buat secara wajar dalam Bahasa Indonesia atau Inggris.",
     icon: (
       <svg
-        width="22"
-        height="22"
+        width="24"
+        height="24"
         viewBox="0 0 24 24"
         fill="none"
         stroke="currentColor"
@@ -68,14 +68,14 @@ const FEATURES = [
     ),
   },
   {
-    title: "Bayar Sesuai Kebutuhan (Pay-as-you-Go)",
+    title: "Bayar Saat Butuh (Pay-as-you-Go)",
     category: "FLEKSIBEL TANPA IKATAN",
     description:
-      "Tidak ada tagihan bulanan otomatis yang mengikat. Cukup beli saldo poin saat kamu butuh, dan saldo poinmu tidak memiliki batas kedaluwarsa.",
+      "Tidak ada tagihan bulanan otomatis yang mengikat. Cukup beli saldo sparks saat kamu butuh mulai dari Rp 49.000, dan saldo sparks-mu tidak pernah kedaluwarsa.",
     icon: (
       <svg
-        width="22"
-        height="22"
+        width="24"
+        height="24"
         viewBox="0 0 24 24"
         fill="none"
         stroke="currentColor"
@@ -89,14 +89,14 @@ const FEATURES = [
     ),
   },
   {
-    title: "Akses Pembayaran Instan",
-    category: "TANPA KARTU KREDIT",
+    title: "Akses Pembayaran Instan Tanpa Kartu Kredit",
+    category: "METODE PEMBAYARAN LOKAL",
     description:
-      "Beli paket starter mulai dari Rp 49.000 dengan mudah melalui metode pembayaran instan tanpa memerlukan kartu kredit internasional.",
+      "Beli paket dengan cepat menggunakan QRIS, e-wallet, dan Virtual Account bank lokal tanpa perlu kartu kredit internasional.",
     icon: (
       <svg
-        width="22"
-        height="22"
+        width="24"
+        height="24"
         viewBox="0 0 24 24"
         fill="none"
         stroke="currentColor"
@@ -110,14 +110,14 @@ const FEATURES = [
     ),
   },
   {
-    title: "Privasi Penuh & Penyimpanan 14 Hari",
-    category: "DATA & HASIL AMAN",
+    title: "Proteksi Saldo & Garansi 100% Aman",
+    category: "HOLD-CAPTURE-RELEASE",
     description:
-      "Seluruh hasil tersimpan privat di Library akunmu selama 14 hari dan tidak pernah dipamerkan ke galeri publik.",
+      "Sparks hanya dipotong jika proses render selesai dengan sukses. Jika terjadi kendala antrian atau sistem, sparks otomatis dikembalikan seutuhnya ke saldo akunmu.",
     icon: (
       <svg
-        width="22"
-        height="22"
+        width="24"
+        height="24"
         viewBox="0 0 24 24"
         fill="none"
         stroke="currentColor"
@@ -133,41 +133,33 @@ const FEATURES = [
 
 export function LandingFeatures() {
   return (
-    <section className={classes.featuresSection} id="fitur">
-      <Container size="lg">
-        <Stack align="center" ta="center" mb={56}>
-          <Text size="xs" fw={800} c="blue.4" tt="uppercase" lts={1}>
-            DIBUAT KHUSUS UNTUK KREATIVITASMU
-          </Text>
-          <Title order={2} fz={{ base: "1.8rem", sm: "2.6rem" }} fw={900}>
-            Solusi visual lengkap.
+    <section className={classes.spotlightSectionDarker} id="fitur">
+      <Container size="xl">
+        <div className={classes.sectionHeader}>
+          <span className={classes.sectionTag}>FITUR &amp; ALUR KERJA CERDAS</span>
+          <Title className={classes.sectionTitle} order={2}>
+            Solusi Visual Lengkap.
             <br />
-            <span className={classes.heroTitleHighlight}>Cepat, hemat, dan praktis.</span>
+            <span className={classes.heroTitleHighlight}>
+              Cepat, Hemat, dan Siap Pakai.
+            </span>
           </Title>
-          <Text c="dimmed" maw={640} fz="md">
-            Mulai dari foto produk komersial, materi promosi, hingga konten media sosial.
-            Semua bisa diwujudkan langsung dari peramban HP atau laptop kamu.
+          <Text className={classes.sectionSubtitle}>
+            Semua kebutuhan produksi visual kreatif dipadatkan ke dalam browser HP dan laptop kamu.
+            Hemat biaya hingga 90% dibanding produksi konvensional.
           </Text>
-        </Stack>
+        </div>
 
-        <Grid gutter="xl">
+        <div className={classes.bentoGrid}>
           {FEATURES.map((feature) => (
-            <Grid.Col span={{ base: 12, sm: 6, md: 4 }} key={feature.title}>
-              <div className={classes.featureCard}>
-                <div className={classes.featureIcon}>{feature.icon}</div>
-                <Text size="xs" fw={700} c="blue.4" mb={4}>
-                  {feature.category}
-                </Text>
-                <Title order={4} mb="xs" c="white">
-                  {feature.title}
-                </Title>
-                <Text size="sm" c="dimmed" lh={1.6}>
-                  {feature.description}
-                </Text>
-              </div>
-            </Grid.Col>
+            <div className={classes.bentoCard} key={feature.title}>
+              <div className={classes.bentoIconWrapper}>{feature.icon}</div>
+              <span className={classes.bentoTag}>{feature.category}</span>
+              <h3 className={classes.bentoTitle}>{feature.title}</h3>
+              <p className={classes.bentoDesc}>{feature.description}</p>
+            </div>
           ))}
-        </Grid>
+        </div>
       </Container>
     </section>
   );

@@ -29,6 +29,8 @@ export type {
   CreatePaymentResult,
   NotificationVerifyResult,
   PaymentStatusResult,
+  GatewayFrontendConfig,
+  PaymentGatewayRegistry,
 } from "./ports/payment-gateway.js";
 export { normalizeEmail, isEmailFormat, isDisposableEmail, isAllowedEmailDomain } from "./auth/email.js";
 export {

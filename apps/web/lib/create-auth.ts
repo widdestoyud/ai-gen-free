@@ -1,3 +1,4 @@
+import { headers as getNextHeaders } from "next/headers";
 import NextAuth, { CredentialsSignin } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 
@@ -12,6 +13,31 @@ function adminBasicHeaders(): Record<string, string> {
   const pass = process.env.ADMIN_BASIC_PASSWORD ?? "";
   if (!user || !pass) return {};
   return { authorization: `Basic ${Buffer.from(`${user}:${pass}`).toString("base64")}` };
+}
+
+async function getForwardHeaders(): Promise<Record<string, string>> {
+  try {
+    const reqHeaders = await getNextHeaders();
+    const result: Record<string, string> = {};
+    const forwardList = [
+      "user-agent",
+      "cf-connecting-ip",
+      "cf-ipcity",
+      "cf-ipcountry",
+      "cf-region",
+      "cf-asorganization",
+      "x-forwarded-for",
+      "x-real-ip",
+      "x-device-id",
+    ];
+    for (const key of forwardList) {
+      const val = reqHeaders.get(key);
+      if (val) result[key] = val;
+    }
+    return result;
+  } catch {
+    return {};
+  }
 }
 
 function parseSid(kind: AppKind, res: Response, body: { sessionToken?: string }): string | null {
@@ -66,10 +92,12 @@ export function createAuth(kind: AppKind) {
           const username = typeof credentials?.username === "string" ? credentials.username.trim() : "";
           const path = isAdmin ? "/api/admin/login" : "/api/user/login";
           const payload = isAdmin ? { username: username || email, password } : { email, password };
+          const forwardHeaders = await getForwardHeaders();
           const res = await fetch(`${apiBase()}${path}`, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
+              ...forwardHeaders,
               ...(isAdmin ? adminBasicHeaders() : {}),
             },
             body: JSON.stringify(payload),
@@ -120,10 +148,12 @@ export function createAuth(kind: AppKind) {
           const email = typeof credentials?.email === "string" ? credentials.email : "";
           const code = typeof credentials?.code === "string" ? credentials.code : "";
           const path = isAdmin ? "/api/admin/auth/otp/verify" : "/api/auth/otp/verify";
+          const forwardHeaders = await getForwardHeaders();
           const res = await fetch(`${apiBase()}${path}`, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
+              ...forwardHeaders,
               ...(isAdmin ? adminBasicHeaders() : {}),
             },
             body: JSON.stringify({ email, code }),

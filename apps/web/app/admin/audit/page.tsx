@@ -1,6 +1,13 @@
+import type { Metadata } from "next";
 import { AdminAuditPageView } from "@/views/admin/audit";
 import { ADMIN_PAGE_SIZE, parseOffset, type AdminAuditItem } from "@/lib/admin";
 import { fetchAdminApi, loadAdminMe } from "@/lib/server-api";
+
+export const metadata: Metadata = {
+  title: "Audit Log Aktivitas",
+  description: "Log jejak aktivitas dan audit admin.",
+  robots: { index: false, follow: false },
+};
 
 async function loadAudit(opts: { action: string; offset: number }) {
   const params = new URLSearchParams();

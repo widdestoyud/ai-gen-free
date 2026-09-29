@@ -7,5 +7,6 @@ Baca root `AGENTS.md`. Jangan edit `apps/web`.
 - Fastify **tanpa** prefix `/api`, kecuali `GET /api/health`. Browser `/api/...` hanya di Next.js (BFF).
 - `POST /auth/otp-validation` merespons `{ user, sessionToken }`. Cookie `sid` boleh tetap untuk klien API langsung.
 - NextAuth hidup di `apps/web`; jangan pasang Auth.js di Fastify.
-- Jangan percaya `cost` / `role` / `balance` dari body. Hold/capture di server.
+- Jangan percaya `cost` / `role` / `balance` / `modelId` dari body untuk menentukan priviledge. Hold/capture di server.
+- Endpoint pelanggan publik (`/customer/models`, `/customer/generated-lists`, dsb.) DILARANG mengekspos upstream model names / provider ID. Gunakan `toOpaqueModelId` / `listCustomerCatalog`.
 - `POST /generate/...` → 202. Jangan blokir request pada latency Siray.

@@ -6,13 +6,13 @@ import classes from "./landing.module.css";
 
 const PRIVACY_POINTS = [
   {
-    title: "Tidak Otomatis Jadi Tontonan Orang",
+    title: "100% Privat & Bukan Tontonan Orang Lain",
     description:
-      "Seluruh gambar dan video yang kamu buat tersimpan privat di Library akunmu. Ada cadangan cloud selama 14 hari agar kamu bisa mengunduhnya kapan saja ke perangkat. Bukan feed publik yang bisa dilihat oleh pengguna lain.",
+      "Seluruh gambar dan video yang kamu buat tersimpan privat di Library akunmu. Ada cadangan cloud selama 14 hari agar kamu bisa mengunduhnya kapan saja ke perangkat. Bukan galeri publik yang bisa diintip pengguna lain.",
     icon: (
       <svg
-        width="20"
-        height="20"
+        width="22"
+        height="22"
         viewBox="0 0 24 24"
         fill="none"
         stroke="currentColor"
@@ -26,13 +26,13 @@ const PRIVACY_POINTS = [
     ),
   },
   {
-    title: "Bukan Bahan Latihan AI Pihak Ketiga",
+    title: "Bukan Bahan Latihan Model AI Publik",
     description:
       "Kami tidak menjual data pribadimu dan tidak menggunakan prompt atau hasil karyamu untuk melatih model AI publik tanpa izin eksplisit darimu.",
     icon: (
       <svg
-        width="20"
-        height="20"
+        width="22"
+        height="22"
         viewBox="0 0 24 24"
         fill="none"
         stroke="currentColor"
@@ -45,13 +45,13 @@ const PRIVACY_POINTS = [
     ),
   },
   {
-    title: "Sesi Tunggal & Enkripsi Data Aman",
+    title: "Satu Sesi Login Aman Anti-Bajak",
     description:
-      "Diterapkan sistem satu sesi login aktif per akun untuk mencegah pembajakan sesi di perangkat lain, didukung transmisi data terenkripsi dan penyimpanan hash token yang aman.",
+      "Diterapkan sistem proteksi satu sesi aktif per akun untuk mencegah penyalahgunaan akun di perangkat lain.",
     icon: (
       <svg
-        width="20"
-        height="20"
+        width="22"
+        height="22"
         viewBox="0 0 24 24"
         fill="none"
         stroke="currentColor"
@@ -68,26 +68,26 @@ const PRIVACY_POINTS = [
 export function LandingPrivacy() {
   return (
     <section className={classes.privacySection} id="privasi">
-      <Container size="lg">
+      <Container size="xl">
         <Grid gutter={48} align="center">
           <Grid.Col span={{ base: 12, md: 5 }}>
-            <Stack gap="md">
+            <Stack gap="lg">
               <div>
-                <Text size="xs" fw={800} c="blue.4" tt="uppercase" lts={1}>
-                  BEBAS BERKREASI · PRIVASI TETAP UTAMA
-                </Text>
+                <span className={classes.sectionTag}>
+                  BEBAS BERKREASI · PRIVASI TETAP NOMOR SATU
+                </span>
               </div>
 
-              <Title order={2} fz={{ base: "1.8rem", sm: "2.6rem" }} fw={900}>
-                Karyamu bukan
+              <Title className={classes.sectionTitle} order={2}>
+                Karyamu Bukan
                 <br />
-                <span className={classes.heroTitleHighlight}>konsumsi publik.</span>
+                <span className={classes.heroTitleHighlight}>Konsumsi Publik.</span>
               </Title>
 
-              <Text size="md" c="gray.3" lh={1.6}>
-                Lagi mencoba ide visual atau materi promosi yang belum siap dilihat orang? Hasil
-                karyamu tidak otomatis masuk ke galeri publik. Kamu bisa bereksperimen dengan
-                bebas, lalu unduh dan simpan sendiri hasilnya ke perangkatmu.
+              <Text size="md" c="#94a3b8" lh={1.6}>
+                Lagi bereksperimen dengan ide visual rahasia atau materi promosi brand yang belum resmi rilis?
+                Hasil karyamu di satulabs.id tidak otomatis masuk ke galeri publik. Kamu bisa bereksperimen dengan
+                tenang, lalu unduh dan simpan sendiri hasilnya ke perangkat pribadimu.
               </Text>
 
               <div>
@@ -95,8 +95,9 @@ export function LandingPrivacy() {
                   component={Link}
                   href="/privacy"
                   variant="light"
-                  color="blue"
-                  size="sm"
+                  color="violet"
+                  size="md"
+                  radius="md"
                   rightSection={
                     <svg
                       width="16"
@@ -127,7 +128,7 @@ export function LandingPrivacy() {
                     <Title order={4} size="h5" c="white">
                       {item.title}
                     </Title>
-                    <Text size="sm" c="dimmed" lh={1.6}>
+                    <Text size="sm" c="#94a3b8" lh={1.6}>
                       {item.description}
                     </Text>
                   </Stack>
@@ -135,10 +136,9 @@ export function LandingPrivacy() {
               ))}
 
               <Text size="xs" c="dimmed" mt="xs" lh={1.5}>
-                ℹ️ <strong>Transparansi Data:</strong> Sistem mencatat metadata antrian dan log
-                transaksi poin semata-mata untuk memproses antrian teknis dan keamanan saldo. Detail
-                lengkap tersedia di{" "}
-                <Anchor component={Link} href="/privacy" c="blue.4" size="xs">
+                ℹ️ <strong>Transparansi Data:</strong> Metadata antrian dan log transaksi sparks dicatat semata-mata
+                untuk memproses antrian teknis GPU dan keamanan saldo. Detail lengkap tercantum pada{" "}
+                <Anchor component={Link} href="/privacy" c="violet.4" size="xs">
                   Kebijakan Privasi
                 </Anchor>
                 .

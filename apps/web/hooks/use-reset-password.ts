@@ -46,6 +46,7 @@ export function useResetPassword(token: string) {
 
   async function requestReset(e: FormEvent) {
     e.preventDefault();
+    if (pending) return;
     setError("");
     setSuccess("");
     setPending(true);
@@ -65,6 +66,7 @@ export function useResetPassword(token: string) {
 
   async function confirmReset(e: FormEvent) {
     e.preventDefault();
+    if (pending) return;
     setError("");
     setSuccess("");
 

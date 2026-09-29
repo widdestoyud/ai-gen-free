@@ -33,6 +33,7 @@ export function useRegister() {
 
   async function submitRegister(e: FormEvent) {
     e.preventDefault();
+    if (pending) return;
     setError("");
     setErrorCode("");
     setTransactionId("");

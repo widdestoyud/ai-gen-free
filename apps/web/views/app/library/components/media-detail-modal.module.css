@@ -1,29 +1,78 @@
+.modalRoot {
+  width: 100vw !important;
+  max-width: 100vw !important;
+  overflow-x: hidden !important;
+}
+
+.modalInner {
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+  width: 100vw !important;
+  min-width: 100% !important;
+  max-width: 100vw !important;
+  height: 100% !important;
+  padding: 24px !important;
+  box-sizing: border-box !important;
+}
+
+@media (max-width: 61.99em) {
+  .modalInner {
+    padding: 12px !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+}
+
+@media (max-width: 30em) {
+  .modalInner {
+    padding: 8px !important;
+  }
+}
+
 .modalContentFull {
+  flex: 0 1 1040px !important;
+  width: 100% !important;
+  max-width: min(1040px, 100%) !important;
+  box-sizing: border-box !important;
   overflow: hidden;
   background: #17181c !important;
   border-radius: 16px !important;
   border: 1px solid rgba(255, 255, 255, 0.08);
-  max-width: 980px;
+  max-height: calc(100dvh - 48px);
+  display: flex;
+  flex-direction: column;
+  margin-inline: auto !important;
 }
 
-@media (max-width: 48em) {
+@media (max-width: 61.99em) {
   .modalContentFull {
-    max-height: 92vh;
-    display: flex;
-    flex-direction: column;
+    flex: 1 1 100% !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: calc(100dvh - 24px);
+    border-radius: 14px !important;
+    margin-inline: auto !important;
   }
 }
 
 .modalBodyNoPadding {
   padding: 0 !important;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
 }
 
-@media (max-width: 48em) {
+@media (max-width: 61.99em) {
   .modalBodyNoPadding {
     overflow-y: auto !important;
+    overflow-x: hidden !important;
     -webkit-overflow-scrolling: touch;
-    flex: 1;
-    min-height: 0;
+    overscroll-behavior: contain;
   }
 }
 
@@ -32,19 +81,26 @@
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   padding: 12px 16px;
   flex-shrink: 0;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .detailModalLayout {
   display: flex;
   flex-direction: column;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  box-sizing: border-box !important;
 }
 
-@media (min-width: 48em) {
+@media (min-width: 62em) {
   .detailModalLayout {
     flex-direction: row;
     min-height: 520px;
-    max-height: calc(88vh - 55px);
+    max-height: calc(90vh - 55px);
     overflow: hidden;
+    height: 100%;
   }
 }
 
@@ -54,14 +110,28 @@
   flex-direction: column;
   background: #0c0d0f;
   min-width: 0;
+  width: 100% !important;
+  max-width: 100% !important;
   position: relative;
   justify-content: center;
   align-items: center;
+  box-sizing: border-box;
+}
+
+@media (max-width: 61.99em) {
+  .mediaShowcaseSection {
+    flex-shrink: 0;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-height: 240px;
+    max-height: 48vh;
+  }
 }
 
 .mediaViewerWrapper {
   flex: 1;
-  width: 100%;
+  width: 100% !important;
+  max-width: 100% !important;
   height: 100%;
   display: flex;
   align-items: center;
@@ -72,6 +142,7 @@
   overflow: hidden;
   user-select: none;
   touch-action: none;
+  box-sizing: border-box;
 }
 
 .mediaViewerWrapper[data-zoomed="true"] {
@@ -82,16 +153,19 @@
   cursor: grabbing;
 }
 
-@media (max-width: 48em) {
+@media (max-width: 61.99em) {
   .mediaViewerWrapper {
-    min-height: 240px;
-    padding: 16px;
+    min-height: 220px;
+    max-height: 48vh;
+    padding: 12px;
   }
 }
 
 .detailMedia {
   max-height: min(65vh, 520px);
   max-width: 100%;
+  width: auto;
+  height: auto;
   object-fit: contain;
   border-radius: 8px;
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.7);
@@ -101,6 +175,15 @@
   user-select: none;
   -webkit-user-drag: none;
   pointer-events: none;
+}
+
+@media (max-width: 61.99em) {
+  .detailMedia {
+    max-height: 44vh;
+    max-width: 100%;
+    width: auto;
+    height: auto;
+  }
 }
 
 .zoomControlsBar {
@@ -155,7 +238,7 @@
   user-select: none;
 }
 
-@media (max-width: 48em) {
+@media (max-width: 61.99em) {
   .detailMedia {
     max-height: 42vh;
   }
@@ -204,7 +287,7 @@
 
 .detailInfoSidebar {
   width: 100%;
-  max-width: 360px;
+  max-width: 380px;
   background: #17181c;
   border-left: 1px solid rgba(255, 255, 255, 0.08);
   display: flex;
@@ -213,11 +296,12 @@
   flex-shrink: 0;
 }
 
-@media (max-width: 48em) {
+@media (max-width: 61.99em) {
   .detailInfoSidebar {
     max-width: 100%;
     border-left: none;
     border-top: 1px solid rgba(255, 255, 255, 0.08);
+    flex-shrink: 0;
   }
 }
 
@@ -226,11 +310,32 @@
   min-height: 0;
 }
 
+@media (max-width: 61.99em) {
+  .sidebarScroll {
+    overflow: visible !important;
+    height: auto !important;
+    flex: none;
+  }
+
+  .sidebarScroll :global(.mantine-ScrollArea-viewport) {
+    overflow: visible !important;
+    max-height: none !important;
+    display: block !important;
+  }
+}
+
 .sidebarContent {
   display: flex;
   flex-direction: column;
   gap: 16px;
   padding: 20px;
+}
+
+@media (max-width: 61.99em) {
+  .sidebarContent {
+    padding: 16px;
+    gap: 14px;
+  }
 }
 
 .badgesRow {
@@ -394,6 +499,8 @@
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 8px;
   padding: 12px 14px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .promptHeader {
@@ -416,6 +523,7 @@
   font-size: 13px;
   line-height: 1.55;
   word-break: break-word;
+  overflow-wrap: anywhere;
   max-height: 180px;
   overflow-y: auto;
   white-space: pre-wrap;
@@ -438,6 +546,8 @@
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 8px;
   padding: 12px 14px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .metaRow {
@@ -468,10 +578,15 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .footerIdText {
   font-family: var(--mantine-font-family-monospace);
   font-size: 11.5px;
   color: var(--mantine-color-dimmed);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }

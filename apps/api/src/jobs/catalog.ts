@@ -2,6 +2,8 @@ import { prisma } from "@ai-gen-free/db";
 import { AppError, ErrorCodes } from "@ai-gen-free/core";
 import type { JobMode } from "@prisma/client";
 
+import { DEFAULT_FALLBACK_MODELS, DEFAULT_GENERATION_MODELS_KEY, type DefaultGenerationModelsConfig } from "../admin/parse.js";
+
 const DISPLAY_FALLBACK: Record<string, string> = {
   "black-forest-labs/flux-1.1-pro-t2i": "Flux 1.1 Pro",
   "openai/gpt-image-2-t2i": "GPT Image 2",
@@ -90,10 +92,77 @@ export type CatalogRow = {
   isSpicy: boolean;
 };
 
+export type CustomerCatalogItem = {
+  mode: JobMode;
+  modelId: string;
+  costPoints: number;
+  videoConfigPoints?: VideoConfigPoints | null;
+  isSpicy: boolean;
+};
+
+export function toOpaqueModelId(mode: string, rawModelId?: string, isSpicy?: boolean): string {
+  const spicy =
+    typeof isSpicy === "boolean"
+      ? isSpicy
+      : Boolean(rawModelId && (rawModelId.includes("spicy") || rawModelId.includes("uncensored")));
+  if (mode === "t2i") {
+    return spicy ? "t2i-spicy" : "t2i-standard";
+  }
+  if (mode === "i2i") {
+    return spicy ? "i2i-spicy" : "i2i-standard";
+  }
+  if (mode === "t2v" || mode === "i2v") {
+    return spicy ? "video-spicy" : "video-standard";
+  }
+  return spicy ? `${mode}-spicy` : `${mode}-standard`;
+}
+
+export function getCustomerCatalogDefaults() {
+  return {
+    normalT2iModelId: "t2i-standard",
+    normalI2iModelId: "i2i-standard",
+    spicyT2iModelId: "t2i-spicy",
+    spicyI2iModelId: "i2i-spicy",
+    normalVideoModelId: "video-standard",
+    spicyVideoModelId: "video-spicy",
+  };
+}
+
 export function humanDisplayName(modelId: string, displayName?: string | null): string {
   const named = displayName?.trim();
   if (named) return named;
   return DISPLAY_FALLBACK[modelId] ?? modelId;
+}
+
+export async function getActiveDefaultModels(): Promise<DefaultGenerationModelsConfig> {
+  const row = await prisma.appSetting.findUnique({ where: { key: DEFAULT_GENERATION_MODELS_KEY } });
+  const raw = row?.value as Partial<DefaultGenerationModelsConfig> | null | undefined;
+  return {
+    normalT2iModelId:
+      typeof raw?.normalT2iModelId === "string" && raw.normalT2iModelId.trim()
+        ? raw.normalT2iModelId.trim()
+        : DEFAULT_FALLBACK_MODELS.normalT2iModelId,
+    normalI2iModelId:
+      typeof raw?.normalI2iModelId === "string" && raw.normalI2iModelId.trim()
+        ? raw.normalI2iModelId.trim()
+        : DEFAULT_FALLBACK_MODELS.normalI2iModelId,
+    spicyT2iModelId:
+      typeof raw?.spicyT2iModelId === "string" && raw.spicyT2iModelId.trim()
+        ? raw.spicyT2iModelId.trim()
+        : DEFAULT_FALLBACK_MODELS.spicyT2iModelId,
+    spicyI2iModelId:
+      typeof raw?.spicyI2iModelId === "string" && raw.spicyI2iModelId.trim()
+        ? raw.spicyI2iModelId.trim()
+        : DEFAULT_FALLBACK_MODELS.spicyI2iModelId,
+    normalVideoModelId:
+      typeof raw?.normalVideoModelId === "string" && raw.normalVideoModelId.trim()
+        ? raw.normalVideoModelId.trim()
+        : DEFAULT_FALLBACK_MODELS.normalVideoModelId,
+    spicyVideoModelId:
+      typeof raw?.spicyVideoModelId === "string" && raw.spicyVideoModelId.trim()
+        ? raw.spicyVideoModelId.trim()
+        : DEFAULT_FALLBACK_MODELS.spicyVideoModelId,
+  };
 }
 
 export function pickEnabledModel(rows: CatalogRow[], modeRaw: unknown, modelIdRaw: unknown): CatalogRow {
@@ -117,7 +186,7 @@ export function pickEnabledModel(rows: CatalogRow[], modeRaw: unknown, modelIdRa
   throw new AppError(ErrorCodes.VALIDATION_ERROR, "Pilih model yang tersedia");
 }
 
-export async function listEnabledModels() {
+export async function listEnabledModels(): Promise<CatalogRow[]> {
   const rows = await prisma.modelCatalog.findMany({
     where: { enabled: true },
     orderBy: { createdAt: "asc" },
@@ -133,7 +202,45 @@ export async function listEnabledModels() {
   }));
 }
 
-export async function resolveModel(modeRaw: unknown, modelIdRaw: unknown) {
+export async function listCustomerCatalog(): Promise<CustomerCatalogItem[]> {
+  const [rows, defaults] = await Promise.all([
+    prisma.modelCatalog.findMany({
+      where: { enabled: true },
+      orderBy: { createdAt: "asc" },
+    }),
+    getActiveDefaultModels(),
+  ]);
+
+  const map = new Map<string, CustomerCatalogItem>();
+
+  for (const row of rows) {
+    const isSpicy = Boolean(row.isSpicy);
+    const opaqueId = toOpaqueModelId(row.mode, row.modelId, isSpicy);
+    const key = `${row.mode}_${isSpicy ? "spicy" : "normal"}`;
+
+    const isPreferred =
+      (row.mode === "t2i" && !isSpicy && row.modelId === defaults.normalT2iModelId) ||
+      (row.mode === "t2i" && isSpicy && row.modelId === defaults.spicyT2iModelId) ||
+      (row.mode === "i2i" && !isSpicy && row.modelId === defaults.normalI2iModelId) ||
+      (row.mode === "i2i" && isSpicy && row.modelId === defaults.spicyI2iModelId) ||
+      ((row.mode === "t2v" || row.mode === "i2v") && !isSpicy && row.modelId === defaults.normalVideoModelId) ||
+      ((row.mode === "t2v" || row.mode === "i2v") && isSpicy && row.modelId === defaults.spicyVideoModelId);
+
+    if (!map.has(key) || isPreferred) {
+      map.set(key, {
+        mode: row.mode,
+        modelId: opaqueId,
+        costPoints: asInt(row.costPoints),
+        videoConfigPoints: (row.videoConfigPoints as VideoConfigPoints) ?? null,
+        isSpicy,
+      });
+    }
+  }
+
+  return Array.from(map.values());
+}
+
+export async function resolveModel(modeRaw: unknown, modelIdRaw: unknown, isSpicyRaw?: unknown) {
   if (typeof modeRaw !== "string" || !VALID_MODES.has(modeRaw)) {
     throw new AppError(ErrorCodes.VALIDATION_ERROR, "Mode ini belum tersedia");
   }
@@ -149,17 +256,61 @@ export async function resolveModel(modeRaw: unknown, modelIdRaw: unknown) {
       orderBy: { createdAt: "asc" },
     });
   }
-  return pickEnabledModel(
-    rows.map((row) => ({
-      mode: row.mode,
-      modelId: row.modelId,
-      displayName: humanDisplayName(row.modelId, row.displayName),
-      providerId: row.providerId,
-      costPoints: asInt(row.costPoints),
-      videoConfigPoints: (row.videoConfigPoints as VideoConfigPoints) ?? null,
-      isSpicy: Boolean(row.isSpicy),
-    })),
-    modeRaw,
-    modelIdRaw,
-  );
+
+  const catalogRows: CatalogRow[] = rows.map((row) => ({
+    mode: row.mode,
+    modelId: row.modelId,
+    displayName: humanDisplayName(row.modelId, row.displayName),
+    providerId: row.providerId,
+    costPoints: asInt(row.costPoints),
+    videoConfigPoints: (row.videoConfigPoints as VideoConfigPoints) ?? null,
+    isSpicy: Boolean(row.isSpicy),
+  }));
+
+  const rawModelId = typeof modelIdRaw === "string" ? modelIdRaw.trim() : "";
+  const isExplicitSpicy =
+    typeof isSpicyRaw === "boolean"
+      ? isSpicyRaw
+      : Boolean(rawModelId && (rawModelId.includes("spicy") || rawModelId.includes("uncensored")));
+
+  const isAbstract =
+    !rawModelId ||
+    rawModelId === "t2i-standard" ||
+    rawModelId === "t2i-spicy" ||
+    rawModelId === "i2i-standard" ||
+    rawModelId === "i2i-spicy" ||
+    rawModelId === "video-standard" ||
+    rawModelId === "video-spicy" ||
+    rawModelId === "t2v-standard" ||
+    rawModelId === "t2v-spicy" ||
+    rawModelId === "i2v-standard" ||
+    rawModelId === "i2v-spicy" ||
+    rawModelId === "image-standard" ||
+    rawModelId === "image-spicy" ||
+    rawModelId === "image-edit-standard" ||
+    rawModelId === "image-edit-spicy";
+
+  if (isAbstract) {
+    const defaults = await getActiveDefaultModels();
+    let targetModelId = "";
+    if (mode === "t2i") {
+      targetModelId = isExplicitSpicy ? defaults.spicyT2iModelId : defaults.normalT2iModelId;
+    } else if (mode === "i2i") {
+      targetModelId = isExplicitSpicy ? defaults.spicyI2iModelId : defaults.normalI2iModelId;
+    } else {
+      targetModelId = isExplicitSpicy ? defaults.spicyVideoModelId : defaults.normalVideoModelId;
+    }
+
+    const preferred = catalogRows.find((r) => r.modelId === targetModelId);
+    if (preferred) {
+      return { ...preferred, mode };
+    }
+
+    const matchingSpicy = catalogRows.filter((r) => r.isSpicy === isExplicitSpicy);
+    if (matchingSpicy.length > 0) {
+      return { ...matchingSpicy[0]!, mode };
+    }
+  }
+
+  return pickEnabledModel(catalogRows, modeRaw, modelIdRaw);
 }

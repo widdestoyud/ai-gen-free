@@ -4,10 +4,11 @@
  */
 
 import { LedgerStatus, LedgerType, Prisma } from "@prisma/client";
-import { ErrorCodes, type PaymentGatewayPort } from "@ai-gen-free/core";
+import { ErrorCodes, type PaymentGatewayPort, type GatewayFrontendConfig } from "@ai-gen-free/core";
 import { prisma } from "@ai-gen-free/db";
 import { refreshWalletCache } from "@ai-gen-free/wallet";
 import { AuthError } from "../auth/service.js";
+import { recordUserActivity } from "../activity/service.js";
 
 function asInt(value: Prisma.Decimal | number): number {
   return typeof value === "number" ? value : Number(value);
@@ -17,6 +18,8 @@ export interface PaymentServiceDeps {
   paymentGateway: PaymentGatewayPort;
   callbackBaseUrl: string;
   paymentDueMinutes?: number;
+  /** Provider-agnostic frontend configuration */
+  frontendConfig?: GatewayFrontendConfig;
 }
 
 /**
@@ -57,12 +60,6 @@ export async function initiatePayment(
   }
 
   // Cek jika sudah ada payment session yang belum expired
-  const isProduction = process.env.MIDTRANS_IS_PRODUCTION === "true";
-  const clientKey = process.env.MIDTRANS_CLIENT_KEY;
-  const snapUrl = isProduction
-    ? "https://app.midtrans.com/snap/snap.js"
-    : "https://app.sandbox.midtrans.com/snap/snap.js";
-
   if (invoice.gatewayPaymentUrl && invoice.gatewayExpiredAt) {
     const now = new Date();
     if (invoice.gatewayExpiredAt > now) {
@@ -72,16 +69,14 @@ export async function initiatePayment(
         paymentUrl: invoice.gatewayPaymentUrl,
         tokenId: invoice.gatewayToken,
         expiredAt: invoice.gatewayExpiredAt.toISOString(),
-        clientKey: clientKey ?? undefined,
-        snapUrl,
-        isProduction,
+        frontendConfig: deps.frontendConfig ?? undefined,
         isExisting: true,
       };
     }
   }
 
   // Create payment session via Payment Gateway
-  const callbackUrl = `${deps.callbackBaseUrl}/app/billing?invoice=${invoice.id}`;
+  const callbackUrl = process.env.PAYMENT_SUCCESS_URL || `${deps.callbackBaseUrl}/payment/success?invoice=${invoice.id}`;
 
   const result = await deps.paymentGateway.createPayment({
     invoiceNumber: invoice.uniqueCode,
@@ -112,7 +107,9 @@ export async function initiatePayment(
     ? "xendit"
     : deps.paymentGateway.provider.includes("midtrans")
       ? "midtrans"
-      : deps.paymentGateway.provider;
+      : deps.paymentGateway.provider.includes("dana")
+        ? "dana"
+        : deps.paymentGateway.provider;
 
   await prisma.invoice.update({
     where: { id: invoice.id },
@@ -145,9 +142,7 @@ export async function initiatePayment(
     paymentUrl: result.paymentUrl,
     tokenId: result.tokenId,
     expiredAt: result.expiredDate?.toISOString(),
-    clientKey: clientKey ?? undefined,
-    snapUrl,
-    isProduction,
+    frontendConfig: deps.frontendConfig ?? undefined,
     isExisting: false,
   };
 }
@@ -271,10 +266,11 @@ async function processSuccessfulPayment(
       await tx.$queryRaw`SELECT "userId" FROM "Wallet" WHERE "userId" = ${userId} FOR UPDATE`;
 
       // Check if already paid (idempotency)
-      const providerTag = meta.provider?.includes("xendit") ? "xendit" : "midtrans";
+      const providerTag = meta.provider?.includes("xendit") ? "xendit" : meta.provider?.includes("dana") ? "dana" : "midtrans";
       const existingEntry = await tx.ledgerEntry.findFirst({
         where: {
           OR: [
+            { idempotencyKey: `gateway:${invoiceId}` },
             { idempotencyKey: `${providerTag}:${invoiceId}` },
             { idempotencyKey: `midtrans:${invoiceId}` },
           ],
@@ -312,7 +308,6 @@ async function processSuccessfulPayment(
       });
 
       // Create ledger entry for topup
-      const gatewayName = meta.provider?.includes("xendit") ? "Xendit" : "Midtrans";
       await tx.ledgerEntry.create({
         data: {
           userId,
@@ -320,8 +315,8 @@ async function processSuccessfulPayment(
           type: LedgerType.topup,
           status: LedgerStatus.posted,
           amount: points,
-          idempotencyKey: `${providerTag}:${invoiceId}`,
-          reason: `Pembayaran ${gatewayName} via ${meta.paymentChannel ?? gatewayName}`,
+          idempotencyKey: `gateway:${invoiceId}`,
+          reason: `Pembayaran via ${meta.paymentChannel ?? meta.provider ?? "Payment Gateway"}`,
         },
       });
 
@@ -349,6 +344,19 @@ async function processSuccessfulPayment(
     // Refresh wallet cache
     if (!paid.alreadyProcessed) {
       await refreshWalletCache(userId);
+      void recordUserActivity({
+        userId,
+        action: "billing.invoice_paid",
+        metadata: {
+          invoiceId,
+          uniqueCode: paid.invoice.uniqueCode,
+          points,
+          amountIdr: meta.amount,
+          provider: meta.provider,
+          paymentChannel: meta.paymentChannel,
+          paymentMethod: meta.paymentMethod,
+        },
+      });
     }
 
     return {

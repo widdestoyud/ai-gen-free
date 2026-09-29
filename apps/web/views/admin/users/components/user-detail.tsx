@@ -9,6 +9,7 @@ import { ItemCard } from "@/components/item-card";
 import type { AdminUserRow } from "@/lib/admin";
 import { requestJson } from "@/lib/api";
 import { formatDateId } from "@/lib/format";
+import { UserActivityTable } from "./user-activity-table";
 
 export function AdminUserDetail({ user }: { user: AdminUserRow }) {
   const router = useRouter();
@@ -99,6 +100,8 @@ export function AdminUserDetail({ user }: { user: AdminUserRow }) {
         </Text>
         <AppLink href={`/admin/jobs?userId=${encodeURIComponent(user.id)}`}>Lihat job user ini</AppLink>
       </ItemCard>
+
+      <UserActivityTable userId={user.id} />
 
       <ItemCard>
         <Text fw={600}>Reset jeda generate</Text>

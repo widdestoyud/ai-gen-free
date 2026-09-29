@@ -1,8 +1,10 @@
+import type { IncomingHttpHeaders } from "node:http";
 import { JobMode, JobStatus, LedgerStatus, LedgerType, Prisma } from "@prisma/client";
 import { AppError, AuthResponses, ErrorCodes, jobClientErrorMessage, type ObjectStorage } from "@ai-gen-free/core";
 import { prisma } from "@ai-gen-free/db";
 import { assertEnoughPoints, computeBalance, refreshWalletCache } from "@ai-gen-free/wallet";
-import { resolveModel, resolveVideoPointCost } from "./catalog.js";
+import { recordUserActivity } from "../activity/service.js";
+import { resolveModel, resolveVideoPointCost, toOpaqueModelId } from "./catalog.js";
 import { parseGenerateParams } from "./params.js";
 import { isOutputAssetLive, isOutputPurged, promptPreview, resolveJobOutput } from "./output.js";
 
@@ -11,13 +13,17 @@ const PROMPT_MAX = 4000;
 export async function submitJob(opts: {
   userId: string;
   idempotencyKey: unknown;
-  body: { mode?: unknown; modelId?: unknown; prompt?: unknown; params?: unknown; providerId?: unknown };
+  body: { mode?: unknown; modelId?: unknown; prompt?: unknown; params?: unknown; providerId?: unknown; isSpicy?: unknown };
   enqueue: (jobId: string) => Promise<void>;
   assertReady?: () => Promise<void>;
+  req?: {
+    ip?: string;
+    headers?: IncomingHttpHeaders;
+  };
 }) {
   const idempotencyKey = parseIdempotencyKey(opts.idempotencyKey);
   const prompt = parsePrompt(opts.body.prompt);
-  const model = await resolveModel(opts.body.mode, opts.body.modelId);
+  const model = await resolveModel(opts.body.mode, opts.body.modelId, opts.body.isSpicy);
   const params = parseGenerateParams(opts.body.params, model.providerId);
   if (opts.assertReady) {
     try {
@@ -115,6 +121,18 @@ export async function submitJob(opts: {
   const queuePosition = queuedAhead + 1;
   await prisma.job.update({ where: { id: job.id }, data: { queuePosition } });
   await opts.enqueue(job.id);
+  void recordUserActivity({
+    userId: opts.userId,
+    action: `generate.${model.mode}`,
+    req: opts.req,
+    metadata: {
+      jobId: job.id,
+      mode: model.mode,
+      cost: effectiveCost,
+      promptPreview: promptPreview(prompt, 100),
+      params,
+    },
+  });
   console.log(
     JSON.stringify({
       event: "job.accepted",
@@ -563,7 +581,7 @@ async function serializeJob(
     id: job.id,
     status: job.status,
     mode: job.mode,
-    modelId: job.modelId,
+    modelId: toOpaqueModelId(job.mode, job.modelId),
     prompt: job.prompt,
     params: (job.params as Record<string, unknown>) ?? {},
     cost: Number(job.cost),

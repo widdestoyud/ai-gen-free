@@ -4,3 +4,4 @@ Follow root `AGENTS.md` and `docs/adr/`. Do not invent architecture.
 - `apps/api` / `apps/worker` / `packages/*`: domain, ledger hold/capture, jobs. Do not edit `apps/web`.
 - OTP and single-session live in the API. NextAuth JWT only stores the API session token (`sid`).
 - New locked decisions require a new ADR. UI copy is Indonesian.
+- Public customer endpoints must never expose upstream model or provider names (use abstract IDs like `t2i-standard`, `video-standard`).

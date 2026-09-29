@@ -90,6 +90,7 @@ export function OrderClient(props: {
   const {
     error: paymentError,
     clearError: clearPaymentError,
+    initiatePayment,
   } = usePayment();
 
   const filteredInvoices = useMemo(() => {
@@ -111,17 +112,27 @@ export function OrderClient(props: {
       method: "POST",
       body: JSON.stringify({ packageId }),
     });
-    setBusy(false);
     if (!result.ok) {
-      setError(result.message);
+      setBusy(false);
+      setError(result.message || "Gagal membuat pesanan");
+      return;
+    }
+    if (!result.data?.id) {
+      setBusy(false);
+      setError("Gagal membuat pesanan");
       return;
     }
 
-    // Jika online gateway aktif, langsung buka modal pembayaran Snap
-    if (gatewayEnabled && result.data?.id && result.data?.uniqueCode) {
-      setSnapInvoice({ id: result.data.id, code: result.data.uniqueCode });
+    // Jika online gateway aktif, inisiasi sesi pembayaran dan redirect langsung
+    if (gatewayEnabled) {
+      const payRes = await initiatePayment(result.data.id);
+      if (payRes?.paymentUrl) {
+        window.location.href = payRes.paymentUrl;
+        return;
+      }
     }
 
+    setBusy(false);
     router.refresh();
   }
 
@@ -146,12 +157,21 @@ export function OrderClient(props: {
   }
 
   const handlePayGateway = useCallback(
-    (invoiceId: string, invoiceCode: string) => {
+    async (invoiceId: string, _invoiceCode: string) => {
       setError("");
       clearPaymentError();
-      setSnapInvoice({ id: invoiceId, code: invoiceCode });
+      setPayingInvoiceId(invoiceId);
+      const payRes = await initiatePayment(invoiceId);
+      if (payRes?.paymentUrl) {
+        window.location.href = payRes.paymentUrl;
+        return;
+      }
+      setPayingInvoiceId(null);
+      if (!payRes) {
+        setError("Gagal memulai pembayaran online. Silakan coba lagi.");
+      }
     },
-    [clearPaymentError],
+    [clearPaymentError, initiatePayment],
   );
 
   async function handleConfirmCancel() {
@@ -362,8 +382,8 @@ export function OrderClient(props: {
                           {gatewayEnabled ? (
                             <Button
                               size="xs"
-                              variant="filled"
-                              color="blue"
+                              variant="gradient"
+                              gradient={{ from: "#3b82f6", to: "#8b5cf6", deg: 135 }}
                               disabled={busy || isPaying}
                               leftSection={isPaying ? <Loader size="xs" /> : null}
                               onClick={() => handlePayGateway(inv.id, inv.uniqueCode)}
@@ -480,7 +500,8 @@ export function OrderClient(props: {
               Batal
             </Button>
             <Button
-              color="blue"
+              variant="gradient"
+              gradient={{ from: "#3b82f6", to: "#8b5cf6", deg: 135 }}
               onClick={() => void handleUploadProof()}
               disabled={!selectedFile || busy}
               loading={busy}

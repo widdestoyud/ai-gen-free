@@ -65,114 +65,116 @@ export function LibraryView(props: {
         </div>
 
         <div className={classes.actionsRow}>
-          <TextInput
-            placeholder="Search"
-            value={ctrl.search}
-            onChange={(e) => ctrl.setSearch(e.currentTarget.value)}
-            leftSection={<SearchIcon size={15} />}
-            rightSection={
-              ctrl.search ? (
-                <ActionIcon
-                  size="xs"
-                  variant="subtle"
-                  onClick={() => ctrl.setSearch("")}
-                  aria-label="Bersihkan pencarian"
+          <div className={classes.searchFilterGroup}>
+            <TextInput
+              placeholder="Search"
+              value={ctrl.search}
+              onChange={(e) => ctrl.setSearch(e.currentTarget.value)}
+              leftSection={<SearchIcon size={15} />}
+              rightSection={
+                ctrl.search ? (
+                  <ActionIcon
+                    size="xs"
+                    variant="subtle"
+                    onClick={() => ctrl.setSearch("")}
+                    aria-label="Bersihkan pencarian"
+                  >
+                    <CloseIcon size={12} />
+                  </ActionIcon>
+                ) : null
+              }
+              className={classes.searchInput}
+            />
+
+            {/* Filter & Sort Dropdown Menu */}
+            <Menu shadow="md" width={220} position="bottom-end">
+              <Menu.Target>
+                <button
+                  type="button"
+                  className={classes.iconBtn}
+                  aria-label="Opsi Tampilan dan Urutan"
                 >
-                  <CloseIcon size={12} />
-                </ActionIcon>
-              ) : null
-            }
-            className={classes.searchInput}
-          />
+                  <FilterSlidersIcon size={16} />
+                </button>
+              </Menu.Target>
 
-          {/* Filter & Sort Dropdown Menu */}
-          <Menu shadow="md" width={220} position="bottom-end">
-            <Menu.Target>
-              <button
-                type="button"
-                className={classes.iconBtn}
-                aria-label="Opsi Tampilan dan Urutan"
-              >
-                <FilterSlidersIcon size={16} />
-              </button>
-            </Menu.Target>
+              <Menu.Dropdown>
+                <Menu.Label>View</Menu.Label>
+                <Menu.Item
+                  onClick={() => ctrl.setViewMode("grid")}
+                  rightSection={ctrl.viewMode === "grid" ? <CheckIcon size={13} /> : null}
+                >
+                  Grid
+                </Menu.Item>
+                <Menu.Item
+                  onClick={() => ctrl.setViewMode("list")}
+                  rightSection={ctrl.viewMode === "list" ? <CheckIcon size={13} /> : null}
+                >
+                  List
+                </Menu.Item>
 
-            <Menu.Dropdown>
-              <Menu.Label>View</Menu.Label>
-              <Menu.Item
-                onClick={() => ctrl.setViewMode("grid")}
-                rightSection={ctrl.viewMode === "grid" ? <CheckIcon size={13} /> : null}
-              >
-                Grid
-              </Menu.Item>
-              <Menu.Item
-                onClick={() => ctrl.setViewMode("list")}
-                rightSection={ctrl.viewMode === "list" ? <CheckIcon size={13} /> : null}
-              >
-                List
-              </Menu.Item>
+                <Menu.Divider />
 
-              <Menu.Divider />
+                <Menu.Label>Sort by</Menu.Label>
+                <Menu.Item
+                  onClick={() => ctrl.setSortBy("date")}
+                  rightSection={ctrl.sortBy === "date" ? <CheckIcon size={13} /> : null}
+                >
+                  Date created
+                </Menu.Item>
+                <Menu.Item
+                  onClick={() => ctrl.setSortBy("name")}
+                  rightSection={ctrl.sortBy === "name" ? <CheckIcon size={13} /> : null}
+                >
+                  Name
+                </Menu.Item>
+                <Menu.Item
+                  onClick={() => ctrl.setSortBy("size")}
+                  rightSection={ctrl.sortBy === "size" ? <CheckIcon size={13} /> : null}
+                >
+                  File size
+                </Menu.Item>
 
-              <Menu.Label>Sort by</Menu.Label>
-              <Menu.Item
-                onClick={() => ctrl.setSortBy("date")}
-                rightSection={ctrl.sortBy === "date" ? <CheckIcon size={13} /> : null}
-              >
-                Date created
-              </Menu.Item>
-              <Menu.Item
-                onClick={() => ctrl.setSortBy("name")}
-                rightSection={ctrl.sortBy === "name" ? <CheckIcon size={13} /> : null}
-              >
-                Name
-              </Menu.Item>
-              <Menu.Item
-                onClick={() => ctrl.setSortBy("size")}
-                rightSection={ctrl.sortBy === "size" ? <CheckIcon size={13} /> : null}
-              >
-                File size
-              </Menu.Item>
+                <Menu.Divider />
 
-              <Menu.Divider />
+                <Menu.Label>Order</Menu.Label>
+                <Menu.Item
+                  onClick={() => ctrl.setSortOrder("newest")}
+                  rightSection={ctrl.sortOrder === "newest" ? <CheckIcon size={13} /> : null}
+                >
+                  Newest
+                </Menu.Item>
+                <Menu.Item
+                  onClick={() => ctrl.setSortOrder("oldest")}
+                  rightSection={ctrl.sortOrder === "oldest" ? <CheckIcon size={13} /> : null}
+                >
+                  Oldest
+                </Menu.Item>
 
-              <Menu.Label>Order</Menu.Label>
-              <Menu.Item
-                onClick={() => ctrl.setSortOrder("newest")}
-                rightSection={ctrl.sortOrder === "newest" ? <CheckIcon size={13} /> : null}
-              >
-                Newest
-              </Menu.Item>
-              <Menu.Item
-                onClick={() => ctrl.setSortOrder("oldest")}
-                rightSection={ctrl.sortOrder === "oldest" ? <CheckIcon size={13} /> : null}
-              >
-                Oldest
-              </Menu.Item>
+                <Menu.Divider />
 
-              <Menu.Divider />
-
-              <Menu.Label>Show Only</Menu.Label>
-              <Menu.Item
-                onClick={() => ctrl.setShowOnly("all")}
-                rightSection={ctrl.showOnly === "all" ? <CheckIcon size={13} /> : null}
-              >
-                All
-              </Menu.Item>
-              <Menu.Item
-                onClick={() => ctrl.setShowOnly("images")}
-                rightSection={ctrl.showOnly === "images" ? <CheckIcon size={13} /> : null}
-              >
-                Images
-              </Menu.Item>
-              <Menu.Item
-                onClick={() => ctrl.setShowOnly("videos")}
-                rightSection={ctrl.showOnly === "videos" ? <CheckIcon size={13} /> : null}
-              >
-                Videos
-              </Menu.Item>
-            </Menu.Dropdown>
-          </Menu>
+                <Menu.Label>Show Only</Menu.Label>
+                <Menu.Item
+                  onClick={() => ctrl.setShowOnly("all")}
+                  rightSection={ctrl.showOnly === "all" ? <CheckIcon size={13} /> : null}
+                >
+                  All
+                </Menu.Item>
+                <Menu.Item
+                  onClick={() => ctrl.setShowOnly("images")}
+                  rightSection={ctrl.showOnly === "images" ? <CheckIcon size={13} /> : null}
+                >
+                  Images
+                </Menu.Item>
+                <Menu.Item
+                  onClick={() => ctrl.setShowOnly("videos")}
+                  rightSection={ctrl.showOnly === "videos" ? <CheckIcon size={13} /> : null}
+                >
+                  Videos
+                </Menu.Item>
+              </Menu.Dropdown>
+            </Menu>
+          </div>
 
           <button
             type="button"

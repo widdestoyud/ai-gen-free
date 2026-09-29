@@ -4,8 +4,8 @@ import { ErrorCodes, type ObjectStorage } from "@ai-gen-free/core";
 import { prisma } from "@ai-gen-free/db";
 import { assertStorageReady } from "@ai-gen-free/storage";
 import { userFromCookie } from "../auth/service.js";
-import { sendError } from "../http.js";
-import { listEnabledModels } from "../jobs/catalog.js";
+import { requestIp, sendError } from "../http.js";
+import { getCustomerCatalogDefaults, listCustomerCatalog } from "../jobs/catalog.js";
 import { resolveSirayGenerateSlug, sirayGenerateParamsFromBody } from "../jobs/siray-generate.js";
 import {
   getJobForUser,
@@ -16,7 +16,6 @@ import {
   updateJobAliasForUser,
 } from "../jobs/service.js";
 import { parseOptionalInt } from "../admin/parse.js";
-import { getDefaultGenerationModelsSetting } from "../admin/service.js";
 
 import type IORedis from "ioredis";
 
@@ -74,6 +73,7 @@ export async function registerJobRoutes(
         },
         enqueue: enqueueGenerate,
         assertReady: () => assertGenerateReady(deps.storage),
+        req: { ip: requestIp(req as any), headers: req.headers },
       });
       return reply.code(202).send(accepted);
     } catch (err) {
@@ -84,11 +84,11 @@ export async function registerJobRoutes(
   app.get("/customer/models", async (req, reply) => {
     const session = await requireUser(req, reply);
     if (!session) return;
-    const [models, defaultsSetting] = await Promise.all([
-      listEnabledModels(),
-      getDefaultGenerationModelsSetting(),
+    const [models, defaults] = await Promise.all([
+      listCustomerCatalog(),
+      Promise.resolve(getCustomerCatalogDefaults()),
     ]);
-    return { models, defaults: defaultsSetting.value };
+    return { models, defaults };
   });
 
   app.post("/jobs", async (req, reply) => {
@@ -107,6 +107,7 @@ export async function registerJobRoutes(
         },
         enqueue: enqueueGenerate,
         assertReady: () => assertGenerateReady(deps.storage),
+        req: { ip: requestIp(req as any), headers: req.headers },
       });
       return reply.code(202).send(accepted);
     } catch (err) {

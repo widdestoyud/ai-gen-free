@@ -97,10 +97,8 @@ UI dan Route Handler Next.js **dilarang** memanggil SDK Siray, Prisma wallet mut
 - Mengirim email, token, OTP, password, atau payload aksi lain lewat query param.
 - Public-read bucket untuk hasil generate.
 - Face swap orang nyata sebagai fitur default tanpa keputusan produk baru + ADR.
-- Memakai Firebase Auth sebagai identity utama tanpa ADR yang mencabut `0006`.
-- Membuat atau menyimpan file koleksi/environment Postman ganda (harus tepat 1 file `.postman_collection.json` dan 1 file `.postman_environment.json`).
-- Menaruh komponen spesifik halaman / domain di dalam `apps/web/components/` (wajib di `apps/web/views/<halaman>/components/`).
 - Memanggil atau mendaftarkan endpoint API di frontend tanpa mencatatnya di `apps/web/lib/api-mapping.ts`.
+- Mengekspos nama model upstream (OpenAI, Bytedance, Alibaba, Flux, GPT, Seedance, Wan, Qwen, dsb.) dan nama provider (Siray, dsb.) pada endpoint publik/pelanggan yang diakses browser (seperti `GET /api/catalog/generate`, `GET /customer/models`, `GET /customer/generated-lists`, dsb.). Endpoint browser hanya boleh mengekspos identifier abstrak (`t2i-standard`, `t2i-spicy`, `video-standard`, `video-spicy`), mode, isSpicy, dan matriks poin (`costPoints`/`videoConfigPoints`). Detail provider dan nama model mentah hanya untuk internal backend worker dan panel admin `/admin/*`.
 
 ## Cara menambah fitur
 

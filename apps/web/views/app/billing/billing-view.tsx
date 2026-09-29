@@ -15,8 +15,14 @@ export function BillingPageView({
     <div>
       <Group justify="space-between" align="center" mb="md">
         <Title order={2}>Billing</Title>
-        <Button component={Link} href="/app/order" prefetch={false} variant="filled" color="blue">
-          + Isi Saldo Poin
+        <Button
+          component={Link}
+          href="/app/order"
+          prefetch={false}
+          variant="gradient"
+          gradient={{ from: "#3b82f6", to: "#8b5cf6", deg: 135 }}
+        >
+          + Isi Saldo Sparks
         </Button>
       </Group>
 
@@ -24,19 +30,26 @@ export function BillingPageView({
         <Group justify="space-between" align="center">
           <div>
             <Text size="xs" c="dimmed">
-              Saldo Poin Saat Ini
+              Saldo Sparks Saat Ini
             </Text>
             <Text size="xl" fw={700}>
-              {data.wallet.available} Poin
+              {data.wallet.available} Sparks
             </Text>
             {data.wallet.held > 0 ? (
               <Text size="xs" c="yellow.6">
-                ({data.wallet.held} poin sedang terkunci pada proses generate)
+                ({data.wallet.held} Sparks sedang terkunci pada proses generate)
               </Text>
             ) : null}
           </div>
-          <Button component={Link} href="/app/order" prefetch={false} variant="light" color="blue" size="sm">
-            Topup Poin
+          <Button
+            component={Link}
+            href="/app/order"
+            prefetch={false}
+            variant="gradient"
+            gradient={{ from: "#3b82f6", to: "#8b5cf6", deg: 135 }}
+            size="sm"
+          >
+            Topup Sparks
           </Button>
         </Group>
       </Paper>

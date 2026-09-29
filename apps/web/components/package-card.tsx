@@ -74,7 +74,7 @@ export function PackageCard({
         </div>
 
         <Badge color="blue" variant="light" size="lg" mt="xs" mb="lg">
-          <strong>+{typeof points === "number" ? points.toLocaleString("id-ID") : points}</strong>&nbsp;poin
+          <strong>+{typeof points === "number" ? points.toLocaleString("id-ID") : points}</strong>&nbsp;sparks
         </Badge>
 
         {estimationText ? (
@@ -112,8 +112,8 @@ export function PackageCard({
       <Button
         fullWidth
         size="md"
-        variant={defaultButtonVariant}
-        color="blue"
+        variant="gradient"
+        gradient={{ from: "#3b82f6", to: "#8b5cf6", deg: 135 }}
         loading={loading}
         disabled={disabled}
         onClick={() => onSelect(id)}

@@ -1,6 +1,13 @@
+import type { Metadata } from "next";
 import { AdminUsersPageView } from "@/views/admin/users";
 import { ADMIN_PAGE_SIZE, parseOffset, type AdminUserRow } from "@/lib/admin";
 import { fetchAdminApi, loadAdminMe } from "@/lib/server-api";
+
+export const metadata: Metadata = {
+  title: "Daftar Pengguna",
+  description: "Manajemen data akun pengguna dan saldo sparks.",
+  robots: { index: false, follow: false },
+};
 
 async function loadUsers(q: string, offset: number) {
   const params = new URLSearchParams();

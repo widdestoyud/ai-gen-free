@@ -10,6 +10,7 @@ Kunci:
 - Jangan percaya `cost`/`role`/`balance` dari klien. Jangan potong poin dari UI.
 - Payload aksi hanya JSON body, bukan query param (ADR 0016).
 - Postman = tepat 1 koleksi (`ai-gen-free.postman_collection.json`) & 1 environment (`local.postman_environment.json`).
+- Endpoint browser publik DILARANG mengekspos nama model upstream / provider (hanya ID abstrak seperti `t2i-standard`, `video-standard`, dsb.).
 - ADR di `docs/adr/` terkunci; perubahan = ADR baru.
 - SDLC: `aidlc/README.md`. Orchestrator tidak menulis kode produk.
 

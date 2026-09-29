@@ -217,7 +217,15 @@ export function GenerateSettingsModal({
           </>
         ) : null}
 
-        <Button fullWidth color="blue" size="md" radius="md" onClick={onClose} mt="xs">
+        <Button
+          fullWidth
+          variant="gradient"
+          gradient={{ from: "#3b82f6", to: "#8b5cf6", deg: 135 }}
+          size="md"
+          radius="md"
+          onClick={onClose}
+          mt="xs"
+        >
           Selesai
         </Button>
       </Stack>

@@ -3,7 +3,7 @@ import "@fastify/multipart";
 import { AuthResponses, ErrorCodes, type ObjectStorage } from "@ai-gen-free/core";
 import { prisma } from "@ai-gen-free/db";
 import { AuthError, userFromCookie } from "../auth/service.js";
-import { sendError } from "../http.js";
+import { requestIp, sendError } from "../http.js";
 import { parseLimitOffset } from "../admin/parse.js";
 import {
   checkUploadRateLimit,
@@ -152,6 +152,7 @@ export async function registerUploadRoutes(app: FastifyInstance, deps: UploadRou
         buffer,
         contentType: file.mimetype,
         alias: typeof rawAlias === "string" ? rawAlias : undefined,
+        req: { ip: requestIp(req as any), headers: req.headers },
       });
 
       return reply.status(200).send(result);

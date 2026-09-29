@@ -1,6 +1,6 @@
 "use client";
 
-import { Container, Group, Button, Text } from "@mantine/core";
+import { useState, useEffect } from "react";
 import classes from "./landing.module.css";
 
 interface LandingHeaderProps {
@@ -14,61 +14,65 @@ export function LandingHeader({
   onStartCreation,
   onScrollTo,
 }: LandingHeaderProps) {
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setScrolled(window.scrollY > 40);
+    };
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
   return (
-    <header className={classes.header}>
-      <Container size="lg" className={classes.headerInner}>
-        <div
-          className={classes.brandLogo}
-          onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-        >
+    <header
+      className={`${classes.dreaminaHeader} ${
+        scrolled ? classes.dreaminaHeaderScrolled : ""
+      }`}
+    >
+      {/* Brand Logo */}
+      <div
+        className={classes.brandLogo}
+        onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+      >
+        <div className={classes.brandIconWrapper}>
           <svg
-            width="28"
-            height="28"
+            width="18"
+            height="18"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
-            strokeWidth="2"
+            strokeWidth="2.5"
             strokeLinecap="round"
             strokeLinejoin="round"
             aria-hidden="true"
           >
             <path d="m12 3 3 6 6 3-6 3-3 6-3-6-6-3 6-3 3-6Z" />
           </svg>
-          <Text span fw={800}>
-            satulabs<span className={classes.brandDot}>.id</span>
-          </Text>
         </div>
+        <span style={{ fontWeight: 800, fontSize: "1.25rem", color: "#ffffff" }}>
+          satulabs<span className={classes.brandDot}>.id</span>
+        </span>
+      </div>
 
-        <Group gap="xl" visibleFrom="sm">
-          <span className={classes.navLink} onClick={() => onScrollTo("fitur")}>
-            Fitur
-          </span>
-          <span className={classes.navLink} onClick={() => onScrollTo("privasi")}>
-            Privasi
-          </span>
-          <span className={classes.navLink} onClick={() => onScrollTo("keunggulan")}>
-            Keunggulan
-          </span>
-          <span className={classes.navLink} onClick={() => onScrollTo("langkah")}>
-            Cara Kerja
-          </span>
-          <span className={classes.navLink} onClick={() => onScrollTo("harga")}>
-            Pilih Paket
-          </span>
-          <span className={classes.navLink} onClick={() => onScrollTo("faq")}>
-            FAQ
-          </span>
-        </Group>
+      {/* Right Group: Sign In, Create Now */}
+      <div className={classes.headerRightGroup}>
+        <button
+          type="button"
+          className={classes.signInBtn}
+          onClick={onOpenLogin}
+        >
+          Masuk
+        </button>
 
-        <Group gap="xs">
-          <Button variant="subtle" color="gray" onClick={onOpenLogin}>
-            Masuk
-          </Button>
-          <Button variant="filled" color="blue" onClick={onStartCreation}>
-            Mulai Berkarya
-          </Button>
-        </Group>
-      </Container>
+        <button
+          type="button"
+          className={classes.createNowBtn}
+          onClick={onStartCreation}
+        >
+          Daftar
+        </button>
+      </div>
     </header>
   );
 }

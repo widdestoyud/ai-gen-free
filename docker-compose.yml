@@ -6,6 +6,7 @@ services:
   postgres:
     profiles: ["postgres"]
     image: postgres:16-alpine
+    restart: unless-stopped
     environment:
       POSTGRES_USER: app
       POSTGRES_PASSWORD: app
@@ -22,6 +23,7 @@ services:
 
   redis:
     image: redis:7-alpine
+    restart: unless-stopped
     command: ["redis-server", "--appendonly", "yes"]
     volumes:
       - redis_data:/data
@@ -48,6 +50,7 @@ services:
     build:
       context: .
       dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
     env_file: .env
     environment:
       REDIS_URL: redis://redis:6379
@@ -76,6 +79,7 @@ services:
     build:
       context: .
       dockerfile: apps/worker/Dockerfile
+    restart: unless-stopped
     env_file: .env
     environment:
       REDIS_URL: redis://redis:6379
@@ -112,6 +116,7 @@ services:
       dockerfile: apps/web/Dockerfile
       args:
         API_INTERNAL_URL: http://api:4000
+    restart: unless-stopped
     environment:
       API_INTERNAL_URL: http://api:4000
       AUTH_SECRET: ${AUTH_SECRET:-change-me-to-32-bytes-min}
@@ -129,6 +134,7 @@ services:
     build:
       context: .
       dockerfile: apps/telemetry/Dockerfile
+    restart: unless-stopped
     env_file: .env
     environment:
       TELEMETRY_PORT: "5050"

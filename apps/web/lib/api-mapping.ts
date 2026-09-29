@@ -320,6 +320,12 @@ export const API_MAPPINGS: readonly ApiRouteMapping[] = [
     description: "Detail profil user spesifik untuk admin",
   },
   {
+    FE: "/api/admin/users/:id/activities",
+    BE: "/admin/users/:id/activities",
+    method: "GET",
+    description: "Daftar riwayat aktivitas pelanggan (IP, ISP, OS, Lokasi, Generate, Upload, Topup) untuk admin",
+  },
+  {
     FE: "/api/admin/users/:id/wallet/adjust",
     BE: "/admin/topup/poin/:id",
     method: "POST",
@@ -572,6 +578,12 @@ export const API_MAPPINGS: readonly ApiRouteMapping[] = [
     BE: "/webhooks/xendit",
     method: "POST",
     description: "Webhook untuk menerima notifikasi dari Xendit",
+  },
+  {
+    FE: "/api/webhooks/dana",
+    BE: "/webhooks/dana",
+    method: "POST",
+    description: "Webhook untuk menerima notifikasi dari DANA",
   },
 
   // -------------------------------------------------------------

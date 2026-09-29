@@ -1,5 +1,12 @@
+import type { Metadata } from "next";
 import { AdminHomeView } from "@/views/admin";
 import { fetchAdminApi, loadAdminMe } from "@/lib/server-api";
+
+export const metadata: Metadata = {
+  title: "Admin Dashboard",
+  description: "Dashboard manajemen transaksi, verifikasi invoice, dan analitik sistem.",
+  robots: { index: false, follow: false },
+};
 
 export type AdminInvoiceItem = {
   invoiceId: string;

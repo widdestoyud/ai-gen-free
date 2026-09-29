@@ -1,6 +1,6 @@
 "use client";
 
-import { Container, Stack, Title, Text, Paper, Button, Group, Divider, Badge } from "@mantine/core";
+import { Container, Stack, Title, Text, Paper, Button, Group, Divider, Badge, List } from "@mantine/core";
 import Link from "next/link";
 
 export function PrivacyPageView() {
@@ -29,127 +29,142 @@ export function PrivacyPageView() {
               </svg>
             }
           >
-            Kembali ke Beranda
+            Back to Home
           </Button>
           <Badge variant="outline" color="teal">
-            Diperbarui: September 2026
+            Last updated: September 2026
           </Badge>
         </Group>
 
         <div>
           <Title order={1} fz={{ base: "1.8rem", sm: "2.4rem" }} fw={900} mb="xs">
-            Kebijakan Privasi
+            Privacy Policy
           </Title>
           <Text c="dimmed" size="sm">
-            Privasi dan kerahasiaan data Anda adalah prioritas utama kami di{" "}
-            <strong>satulabs.id</strong>.
+            Your privacy and data confidentiality are top priorities at{" "}
+            <strong style={{ color: "#60a5fa" }}>satulabs.id</strong>. This policy explains how we collect, use, and safeguard your personal information.
           </Text>
         </div>
 
         <Divider />
 
         <Paper p="xl" withBorder radius="md" bg="var(--mantine-color-dark-8, #14171f)">
-          <Stack gap="lg">
+          <Stack gap="xl">
             <section>
               <Title order={3} size="h4" mb="xs" c="white">
-                1. Prinsip Dasar Privasi: Karyamu Bersifat Privat
+                1. Information We Collect
               </Title>
-              <Text size="sm" c="gray.3" lh={1.6}>
-                Berbeda dengan banyak layanan generasi AI yang secara otomatis menyebarkan hasil
-                karya ke galeri publik atau media sosial, seluruh media (gambar dan video) yang Anda
-                hasilkan di <strong>satulabs.id</strong> tersimpan secara privat di akun pribadi Anda.
-                Karya Anda <strong>bukan konsumsi publik</strong> dan tidak dapat diakses oleh pengguna
-                lain kecuali Anda sendiri yang mengunduh dan membagikannya.
-              </Text>
-            </section>
+              <Stack gap="md" mt="xs">
+                <div>
+                  <Text fw={600} size="sm" c="gray.2" mb="xs">
+                    1.1. Personal Information
+                  </Text>
+                  <Text size="sm" c="gray.3" lh={1.6} mb="xs">
+                    When you interact with us, we may collect personal information, including but not limited to:
+                  </Text>
+                  <List spacing="xs" size="sm" c="gray.3" pl="md">
+                    <List.Item>Name</List.Item>
+                    <List.Item>Email address</List.Item>
+                    <List.Item>Phone number</List.Item>
+                    <List.Item>Company name</List.Item>
+                    <List.Item>Payment details (for services)</List.Item>
+                    <List.Item>Any other information you provide when contacting us or signing up for services</List.Item>
+                  </List>
+                </div>
 
-            <section>
-              <Title order={3} size="h4" mb="xs" c="white">
-                2. Data yang Kami Kumpulkan
-              </Title>
-              <Text size="sm" c="gray.3" lh={1.6}>
-                Kami hanya mengumpulkan data yang benar-benar esensial untuk pengoperasian platform:
-              </Text>
-              <Stack gap="xs" mt="xs" pl="md">
-                <Text size="sm" c="dimmed">
-                  • <strong>Data Identitas &amp; Autentikasi:</strong> Alamat email resmi, hash kata
-                  sandi yang terenkripsi (bukan teks polos), data verifikasi OTP, dan riwayat sesi.
-                </Text>
-                <Text size="sm" c="dimmed">
-                  • <strong>Data Transaksi &amp; Poin:</strong> Riwayat ledger mutasi poin, holding,
-                  dan invoice pembayaran. Kami tidak pernah menyimpan nomor kartu kredit atau detail
-                  finansial sensitif di server kami.
-                </Text>
-                <Text size="sm" c="dimmed">
-                  • <strong>Metadata Operasional:</strong> Prompt teks, parameter rasio aspek/durasi,
-                  dan log kegagalan teknis semata-mata untuk memproses antrian pekerjaan (*job*).
-                </Text>
+                <div>
+                  <Text fw={600} size="sm" c="gray.2" mb="xs">
+                    1.2. Automatically Collected Information
+                  </Text>
+                  <Text size="sm" c="gray.3" lh={1.6} mb="xs">
+                    When you visit our website, we may automatically collect:
+                  </Text>
+                  <List spacing="xs" size="sm" c="gray.3" pl="md">
+                    <List.Item>IP address</List.Item>
+                    <List.Item>Browser type and version</List.Item>
+                    <List.Item>Pages you visit and the time spent on them</List.Item>
+                    <List.Item>Device type and operating system</List.Item>
+                    <List.Item>Cookies and tracking data</List.Item>
+                  </List>
+                </div>
+
+                <div>
+                  <Text fw={600} size="sm" c="gray.2" mb="xs">
+                    1.3. Information from Third Parties
+                  </Text>
+                  <Text size="sm" c="gray.3" lh={1.6} mb="xs">
+                    We may receive information from:
+                  </Text>
+                  <List spacing="xs" size="sm" c="gray.3" pl="md">
+                    <List.Item>Social media platforms (if you interact with our pages)</List.Item>
+                    <List.Item>Analytics providers (Google Analytics, etc.)</List.Item>
+                    <List.Item>Payment processors</List.Item>
+                  </List>
+                </div>
               </Stack>
             </section>
 
             <section>
               <Title order={3} size="h4" mb="xs" c="white">
-                3. Penggunaan Data &amp; Larangan Pelatihan AI Pihak Ketiga
+                2. How We Use Your Information
               </Title>
-              <Text size="sm" c="gray.3" lh={1.6}>
-                Kami <strong>tidak menjual data pribadi Anda</strong> kepada pihak ketiga dan{" "}
-                <strong>tidak menggunakan karya atau prompt kreatif Anda</strong> untuk melatih
-                model kecerdasan buatan (*AI training*) publik tanpa persetujuan eksplisit Anda.
-                Data Anda digunakan semata-mata untuk merender permintaan generasi dan menjaga
-                kelancaran sesi.
+              <Text size="sm" c="gray.3" lh={1.6} mb="xs">
+                We use the collected information to:
+              </Text>
+              <List spacing="xs" size="sm" c="gray.3" pl="md">
+                <List.Item>Provide, operate, and improve our services</List.Item>
+                <List.Item>Process transactions and send invoices</List.Item>
+                <List.Item>Respond to inquiries and customer support requests</List.Item>
+                <List.Item>Send marketing and promotional materials (you can opt-out anytime)</List.Item>
+                <List.Item>Detect and prevent fraudulent activities</List.Item>
+                <List.Item>
+                  Detect, investigate, prevent, and enforce violations of our Terms, Content Policy, fraud, abuse, trust and safety risks, and legal/compliance issues
+                </List.Item>
+                <List.Item>Comply with legal obligations</List.Item>
+              </List>
+              <Text size="sm" c="gray.2" fw={600} mt="sm">
+                We do not sell your personal data to third parties.
               </Text>
             </section>
 
             <section>
               <Title order={3} size="h4" mb="xs" c="white">
-                4. Retensi &amp; Siklus Hidup Media (TTL 14 Hari)
+                3. Media Retention &amp; Storage Lifecycle (14-Day Storage)
               </Title>
               <Text size="sm" c="gray.3" lh={1.6}>
-                File gambar dan video hasil generasi disimpan pada penyimpanan awan terenkripsi
-                dengan siklus hidup waktu simpan (*Time-to-Live*) selama{" "}
-                <strong>14 (empat belas) hari</strong>. Setelah melewati kurun waktu tersebut, file
-                akan dihapus secara permanen dari server penyimpanan demi efisiensi dan keamanan
-                privasi data Anda.
+                Generated media files (images and videos) and uploaded inputs are stored in encrypted cloud storage with a retention lifecycle (<em>Time-to-Live</em>) of up to <strong>14 (fourteen) days</strong>. After 14 days, files are automatically and permanently deleted from our servers for storage efficiency and data privacy. Users are encouraged to download and back up their media to their own devices before this period expires.
               </Text>
             </section>
 
             <section>
               <Title order={3} size="h4" mb="xs" c="white">
-                5. Kepatuhan Undang-Undang Pelindungan Data Pribadi (UU PDP)
+                4. Service Providers
               </Title>
               <Text size="sm" c="gray.3" lh={1.6}>
-                Sesuai dengan amanat Undang-Undang Republik Indonesia No. 27 Tahun 2022 tentang
-                Pelindungan Data Pribadi (UU PDP), Anda memiliki hak untuk:
+                We may share data with third-party vendors who help us run our business (e.g., payment processors, cloud hosting, analytics providers).
               </Text>
-              <Stack gap="xs" mt="xs" pl="md">
-                <Text size="sm" c="dimmed">
-                  • Mendapatkan kejelasan atas identitas, dasar hukum, dan tujuan pemrosesan data.
-                </Text>
-                <Text size="sm" c="dimmed">
-                  • Memperbarui atau memperbaiki data profil pribadi Anda.
-                </Text>
-                <Text size="sm" c="dimmed">
-                  • Mengajukan permohonan penghapusan atau pemusnahan data akun Anda dari sistem kami.
-                </Text>
-              </Stack>
             </section>
 
             <section>
               <Title order={3} size="h4" mb="xs" c="white">
-                6. Keamanan &amp; Enkripsi
+                5. Security &amp; Encryption
               </Title>
               <Text size="sm" c="gray.3" lh={1.6}>
-                Kami menerapkan standar pengamanan teknis yang ketat: komunikasi HTTPS/TLS terenkripsi,
-                hash token kriptografi satu arah, serta pembatasan satu sesi login aktif per akun
-                guna mencegah pembajakan sesi di peramban yang tidak sah.
+                We apply strict technical and operational security measures: encrypted HTTPS/TLS communication protocols, one-way cryptographic password and token hashing, and single active session controls per account to protect against unauthorized access and session hijacking.
               </Text>
             </section>
           </Stack>
         </Paper>
 
         <Group justify="center" mt="md">
-          <Button component={Link} href="/" color="blue" size="md">
-            Saya Mengerti &amp; Kembali
+          <Button
+            component={Link}
+            href="/"
+            variant="gradient"
+            gradient={{ from: "#3b82f6", to: "#8b5cf6", deg: 135 }}
+            size="md"
+          >
+            I Understand &amp; Back to Home
           </Button>
         </Group>
       </Stack>

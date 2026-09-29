@@ -2,7 +2,7 @@
 
 import { Anchor, Button, Checkbox, Modal, PasswordInput, Stack, Text, TextInput } from "@mantine/core";
 import Link from "next/link";
-import { FormEvent } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { ErrorAlert } from "@/components/error-alert";
 
 export function RegisterModal({
@@ -36,15 +36,50 @@ export function RegisterModal({
   pending: boolean;
   onSubmit: (e: FormEvent) => void;
 }) {
+  const [shake, setShake] = useState(false);
+
+  useEffect(() => {
+    if (error || errorCode) {
+      setShake(true);
+      const timer = setTimeout(() => setShake(false), 500);
+      return () => clearTimeout(timer);
+    }
+  }, [error, errorCode]);
+
+  const handleSubmit = (e: FormEvent) => {
+    if (pending) {
+      e.preventDefault();
+      return;
+    }
+    if (!email.trim() || !password || !termsAccepted) {
+      setShake(true);
+      setTimeout(() => setShake(false), 500);
+    }
+    onSubmit(e);
+  };
+
   return (
-    <Modal opened={opened} onClose={onClose} title="Daftar Akun" centered size="sm">
-      <form onSubmit={onSubmit}>
+    <Modal
+      opened={opened}
+      onClose={() => {
+        if (!pending) onClose();
+      }}
+      closeOnClickOutside={!pending}
+      closeOnEscape={!pending}
+      withCloseButton={!pending}
+      title="Daftar Akun"
+      centered
+      size="sm"
+      classNames={{ content: shake ? "modal-shake" : "" }}
+    >
+      <form onSubmit={handleSubmit}>
         <Stack gap="sm">
           <TextInput
             label="Email"
             type="email"
             placeholder="nama@gmail.com"
             required
+            disabled={pending}
             value={email}
             onChange={(ev) => onEmailChange(ev.currentTarget.value)}
           />
@@ -52,12 +87,14 @@ export function RegisterModal({
             label="Kata sandi"
             description="Minimal 8 karakter, 1 huruf kapital, 1 angka"
             required
+            disabled={pending}
             value={password}
             onChange={(ev) => onPasswordChange(ev.currentTarget.value)}
           />
 
           <Checkbox
             checked={termsAccepted}
+            disabled={pending}
             onChange={(ev) => onTermsAcceptedChange(ev.currentTarget.checked)}
             label={
               <Text size="xs" c="gray.3">
@@ -92,7 +129,14 @@ export function RegisterModal({
           {success ? <Text c="green" size="xs">{success}</Text> : null}
           <ErrorAlert message={error} code={errorCode} transactionId={transactionId} />
 
-          <Button type="submit" disabled={pending || !termsAccepted} fullWidth>
+          <Button
+            type="submit"
+            loading={pending}
+            disabled={pending || !termsAccepted}
+            variant="gradient"
+            gradient={{ from: "#3b82f6", to: "#8b5cf6", deg: 135 }}
+            fullWidth
+          >
             {pending ? "Mendaftar…" : "Daftar"}
           </Button>
         </Stack>

@@ -73,12 +73,12 @@ export function getRefTag(ref: StudioRef, index?: number): string {
   return typeof index === "number" ? `@image${index + 1}` : "@image1";
 }
 
-const DEFAULT_T2I_MODEL_ID = "openai/gpt-image-2-t2i";
-const DEFAULT_I2I_MODEL_ID = "openai/gpt-image-2-edit";
-const DEFAULT_SPICY_T2I_MODEL_ID = "bytedance/seedream-5.0-pro-t2i-spicy";
-const DEFAULT_SPICY_I2I_MODEL_ID = "alibaba/qwen-image-3-edit-spicy";
-const DEFAULT_I2V_MODEL_ID = "bytedance/seedance-2.5-i2v";
-const DEFAULT_SPICY_I2V_MODEL_ID = "bytedance/seedance-2.0-i2v-spicy";
+const DEFAULT_T2I_MODEL_ID = "t2i-standard";
+const DEFAULT_I2I_MODEL_ID = "i2i-standard";
+const DEFAULT_SPICY_T2I_MODEL_ID = "t2i-spicy";
+const DEFAULT_SPICY_I2I_MODEL_ID = "i2i-spicy";
+const DEFAULT_I2V_MODEL_ID = "video-standard";
+const DEFAULT_SPICY_I2V_MODEL_ID = "video-spicy";
 
 function pickInitialModel(
   catalog: Model[],
@@ -602,6 +602,7 @@ export function useGenerateStudio(props: {
       body: JSON.stringify({
         mode,
         modelId: targetModelId,
+        isSpicy: spicyFilter === "spicy",
         prompt: prompt.trim(),
         params,
       }),

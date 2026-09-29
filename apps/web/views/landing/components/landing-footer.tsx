@@ -1,39 +1,36 @@
 "use client";
 
-import { Container, Group, Text, Stack, Anchor } from "@mantine/core";
+import { Container, Group, Text, Anchor } from "@mantine/core";
 import Link from "next/link";
 import classes from "./landing.module.css";
 
 export function LandingFooter() {
   return (
     <footer className={classes.footer}>
-      <Container size="lg">
+      <Container size="xl">
         <Group justify="space-between" align="center">
-          <Stack gap={4}>
-            <div className={classes.brandLogo}>
+          <div className={classes.brandLogo}>
+            <div className={classes.brandIconWrapper}>
               <svg
-                width="22"
-                height="22"
+                width="18"
+                height="18"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
-                strokeWidth="2"
+                strokeWidth="2.5"
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 aria-hidden="true"
               >
                 <path d="m12 3 3 6 6 3-6 3-3 6-3-6-6-3 6-3 3-6Z" />
               </svg>
-              <Text span fw={800} size="md">
-                satulabs<span className={classes.brandDot}>.id</span>
-              </Text>
             </div>
-            <Text size="xs" c="dimmed">
-              Platform Studio Generatif. Pilihanmu, kendalimu.
+            <Text span fw={800} size="md">
+              satulabs<span className={classes.brandDot}>.id</span>
             </Text>
-          </Stack>
+          </div>
 
-          <Group gap="lg">
+          <Group gap="xl">
             <Anchor component={Link} href="/terms" size="xs" c="dimmed" underline="hover">
               Ketentuan Layanan
             </Anchor>
@@ -41,7 +38,7 @@ export function LandingFooter() {
               Kebijakan Privasi
             </Anchor>
             <Text size="xs" c="dimmed">
-              satulabs.id {new Date().getFullYear()}
+              &copy; {new Date().getFullYear()} satulabs.id
             </Text>
           </Group>
         </Group>

@@ -38,6 +38,8 @@ export type PaymentMethod = {
   clientKey?: string;
   isProduction?: boolean;
   snapUrl?: string;
+  /** "redirect" for DANA, undefined/absent for Midtrans Snap */
+  flowType?: "redirect" | string;
   channels?: Array<{
     id: string;
     name: string;
@@ -51,8 +53,17 @@ export type PaymentResult = {
   paymentUrl?: string;
   tokenId?: string;
   expiredAt?: string;
+  /** Provider-agnostic frontend config from backend */
+  frontendConfig?: {
+    driver: string;
+    provider: string;
+    meta: Record<string, unknown>;
+  };
+  /** @deprecated Use frontendConfig.meta.clientKey instead */
   clientKey?: string;
+  /** @deprecated Use frontendConfig.meta.snapUrl instead */
   snapUrl?: string;
+  /** @deprecated Use frontendConfig.meta.isProduction instead */
   isProduction?: boolean;
   isExisting?: boolean;
 };
@@ -207,8 +218,27 @@ export function usePayment() {
       const result = await initiatePayment(invoiceId, opts);
       if (!result) return null;
 
+      // Extract frontend config (new format) or fall back to legacy fields
+      const meta = result.frontendConfig?.meta as Record<string, unknown> | undefined;
+      const clientKey = (meta?.clientKey as string) ?? result.clientKey;
+      const snapUrl = (meta?.snapUrl as string) ?? result.snapUrl;
+      const flowType = meta?.flowType as string | undefined;
+
+      // Redirect-based gateways (Xendit, DANA, etc.): redirect directly
+      const isRedirect =
+        flowType === "redirect" ||
+        result.frontendConfig?.driver === "xendit" ||
+        result.frontendConfig?.driver === "dana" ||
+        !clientKey;
+
+      if (isRedirect && result.paymentUrl) {
+        redirectToPayment(result.paymentUrl);
+        return result;
+      }
+
+      // Midtrans Snap flow (popup)
       if (result.tokenId) {
-        await ensureSnapScriptLoaded(result.clientKey, result.snapUrl);
+        await ensureSnapScriptLoaded(clientKey, snapUrl);
 
         if (window.snap?.pay) {
           window.snap.pay(result.tokenId, {
@@ -265,8 +295,25 @@ export function usePayment() {
       const result = await initiatePayment(invoiceId, opts);
       if (!result) return null;
 
+      // Extract frontend config (new format) or fall back to legacy fields
+      const meta = result.frontendConfig?.meta as Record<string, unknown> | undefined;
+      const clientKey = (meta?.clientKey as string) ?? result.clientKey;
+      const snapUrl = (meta?.snapUrl as string) ?? result.snapUrl;
+      const flowType = meta?.flowType as string | undefined;
+
+      // Redirect-based gateways (Xendit, DANA, etc.): return result so modal can render iframe
+      const isRedirect =
+        flowType === "redirect" ||
+        result.frontendConfig?.driver === "xendit" ||
+        result.frontendConfig?.driver === "dana" ||
+        !clientKey;
+
+      if (isRedirect && result.paymentUrl) {
+        return result;
+      }
+
       if (result.tokenId) {
-        await ensureSnapScriptLoaded(result.clientKey, result.snapUrl);
+        await ensureSnapScriptLoaded(clientKey, snapUrl);
 
         if (window.snap?.embed) {
           window.snap.embed(result.tokenId, {

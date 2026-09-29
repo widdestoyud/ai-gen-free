@@ -22,7 +22,9 @@ import {
 } from "@ai-gen-free/core";
 import { prisma } from "@ai-gen-free/db";
 import type IORedis from "ioredis";
+import type { IncomingHttpHeaders } from "node:http";
 import { enforceRateLimit, hitLimit } from "./rate-limit.js";
+import { recordUserActivity } from "../activity/service.js";
 
 export class AuthError extends Error {
   constructor(
@@ -283,6 +285,7 @@ export async function loginUser(opts: {
   sessionTokenRaw?: string;
   ip: string;
   userAgent?: string;
+  headers?: IncomingHttpHeaders;
   redis: IORedis;
   mailer: import("@ai-gen-free/core").EmailPort;
 }): Promise<
@@ -434,6 +437,14 @@ export async function loginUser(opts: {
     }),
   ]);
 
+  void recordUserActivity({
+    userId: user.id,
+    action: "auth.login",
+    req: { ip: opts.ip, headers: opts.headers },
+    clientInfo: { ip: opts.ip, os: opts.userAgent },
+    metadata: { email: user.email, deviceId: user.lastDeviceId },
+  });
+
   return {
     requiresOtp: false,
     token,
@@ -531,6 +542,7 @@ export async function validateOtp(opts: {
   sessionTokenRaw?: string;
   ip: string;
   userAgent?: string;
+  headers?: IncomingHttpHeaders;
   kind?: SessionKind;
 }): Promise<{ token: string; user: { id: string; email: string; role: "user" | "admin" }; message: string }> {
   const email = parseEmailOrThrow(opts.emailRaw);
@@ -635,6 +647,14 @@ export async function validateOtp(opts: {
       },
     }),
   ]);
+
+  void recordUserActivity({
+    userId: user.id,
+    action: "auth.otp_verify",
+    req: { ip: opts.ip, headers: opts.headers },
+    clientInfo: { ip: opts.ip, os: opts.userAgent },
+    metadata: { email: user.email, deviceId },
+  });
 
   return {
     token,
@@ -886,6 +906,15 @@ export async function updateUserProfile(
       spicyModeEnabled: true,
       createdAt: true,
       updatedAt: true,
+    },
+  });
+
+  void recordUserActivity({
+    userId,
+    action: "profile.updated",
+    req: (data as any)?.req,
+    metadata: {
+      updatedFields: Object.keys(updateData),
     },
   });
 
@@ -1457,6 +1486,10 @@ export async function validatePasswordResetToken(tokenRaw: unknown): Promise<{ m
 export async function confirmPasswordReset(opts: {
   tokenRaw: unknown;
   passwordRaw: unknown;
+  req?: {
+    ip?: string;
+    headers?: IncomingHttpHeaders;
+  };
 }): Promise<{ message: string }> {
   const passCheck = validatePassword(opts.passwordRaw);
   if (!passCheck.valid) {
@@ -1488,6 +1521,12 @@ export async function confirmPasswordReset(opts: {
     prisma.session.deleteMany({ where: { userId: record.userId } }),
   ]);
 
+  void recordUserActivity({
+    userId: record.userId,
+    action: "auth.password_reset_confirmed",
+    req: opts.req,
+  });
+
   return { message: AuthResponses.success.PASSWORD_RESET_SUCCESS.message };
 }
 
@@ -1501,6 +1540,10 @@ export async function changeUserPassword(opts: {
   userId: string;
   currentPasswordRaw: unknown;
   newPasswordRaw: unknown;
+  req?: {
+    ip?: string;
+    headers?: IncomingHttpHeaders;
+  };
 }): Promise<{ message: string }> {
   if (typeof opts.currentPasswordRaw !== "string" || !opts.currentPasswordRaw) {
     throw new AuthError(
@@ -1555,6 +1598,12 @@ export async function changeUserPassword(opts: {
       passwordHash: newPasswordHash,
       passwordChangedAt: now,
     },
+  });
+
+  void recordUserActivity({
+    userId: user.id,
+    action: "auth.password_changed",
+    req: opts.req,
   });
 
   return { message: AuthResponses.success.PASSWORD_CHANGED.message };

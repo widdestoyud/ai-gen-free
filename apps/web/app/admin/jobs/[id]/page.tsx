@@ -1,9 +1,16 @@
+import type { Metadata } from "next";
 import { Text } from "@mantine/core";
 import { AdminPageShell, AdminUnauth } from "@/views/admin/components/admin-page-shell";
 import { AppLink } from "@/components/app-link";
 import type { AdminJobDetailView } from "@/lib/admin";
 import { fetchAdminApi, loadAdminMe } from "@/lib/server-api";
 import { AdminJobDetail } from "@/views/admin/jobs/components/job-detail";
+
+export const metadata: Metadata = {
+  title: "Detail Job Generasi AI",
+  description: "Rincian status render, biaya sparks, dan payload job.",
+  robots: { index: false, follow: false },
+};
 
 async function loadJob(id: string): Promise<AdminJobDetailView | null | "error"> {
   const res = await fetchAdminApi(`/api/admin/jobs/${id}`);

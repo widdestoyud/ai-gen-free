@@ -1,9 +1,11 @@
+import type { IncomingHttpHeaders } from "node:http";
 import { randomBytes } from "node:crypto";
 import { LedgerStatus, LedgerType, Prisma } from "@prisma/client";
 import { ErrorCodes, type ObjectStorage } from "@ai-gen-free/core";
 import { prisma } from "@ai-gen-free/db";
 import { computeBalance, refreshWalletCache } from "@ai-gen-free/wallet";
 import { AuthError } from "../auth/service.js";
+import { recordUserActivity } from "../activity/service.js";
 import {
   findPackage,
   listPackages,
@@ -44,7 +46,14 @@ function asInt(value: Prisma.Decimal | number): number {
   return typeof value === "number" ? value : Number(value);
 }
 
-export async function createInvoice(userId: string, packageId: unknown) {
+export async function createInvoice(
+  userId: string,
+  packageId: unknown,
+  req?: {
+    ip?: string;
+    headers?: IncomingHttpHeaders;
+  },
+) {
   const pack = await findPackage(packageId);
   if (!pack) {
     throw new AuthError(ErrorCodes.VALIDATION_ERROR, "Paket tidak dikenal");
@@ -59,6 +68,19 @@ export async function createInvoice(userId: string, packageId: unknown) {
       status: "unpaid",
     },
   });
+
+  void recordUserActivity({
+    userId,
+    action: "billing.invoice_created",
+    req,
+    metadata: {
+      invoiceId: invoice.id,
+      uniqueCode: invoice.uniqueCode,
+      amountIdr: asInt(invoice.amountIdr),
+      points: asInt(invoice.points),
+    },
+  });
+
   return serializeInvoice(invoice, true);
 }
 
@@ -140,6 +162,10 @@ export async function submitProof(opts: {
   invoiceId: string;
   buffer: Buffer;
   contentType: string;
+  req?: {
+    ip?: string;
+    headers?: IncomingHttpHeaders;
+  };
 }) {
   if (!ALLOWED_PROOF.has(opts.contentType)) {
     throw new AuthError(ErrorCodes.PROOF_INVALID, "Berkas harus jpeg, png, webp, atau pdf");
@@ -177,6 +203,19 @@ export async function submitProof(opts: {
       meta: { bytes: opts.buffer.length, contentType: opts.contentType },
     },
   });
+
+  void recordUserActivity({
+    userId: opts.userId,
+    action: "billing.proof_submitted",
+    req: opts.req,
+    metadata: {
+      invoiceId: invoice.id,
+      uniqueCode: invoice.uniqueCode,
+      bytes: opts.buffer.length,
+      contentType: opts.contentType,
+    },
+  });
+
   return serializeInvoice(updated, true);
 }
 
@@ -265,6 +304,17 @@ export async function approveInvoice(invoiceId: string, adminUserId: string) {
     });
     if (paid.status === "paid") {
       await refreshWalletCache(existing.userId);
+      void recordUserActivity({
+        userId: existing.userId,
+        action: "billing.invoice_paid",
+        metadata: {
+          invoiceId: existing.id,
+          uniqueCode: existing.uniqueCode,
+          points: asInt(existing.points),
+          amountIdr: asInt(existing.amountIdr),
+          approvedByAdminId: adminUserId,
+        },
+      });
     }
     return serializeInvoice(paid, false);
   } catch (err) {

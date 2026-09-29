@@ -17,7 +17,9 @@ import { registerPaymentRoutes } from "./routes/payment.js";
 import { syncUploadsFromStorage } from "./uploads/service.js";
 import { rewriteRequestUrl } from "./http-rewrite.js";
 import { createMidtransPaymentGateway } from "./wallet/midtrans-factory.js";
+import { createDanaPaymentGateway } from "./wallet/dana-factory.js";
 import { createXenditPaymentGateway } from "./wallet/xendit-factory.js";
+import { DefaultPaymentGatewayRegistry } from "./wallet/gateway-registry.js";
 
 import { randomBytes } from "node:crypto";
 
@@ -173,14 +175,89 @@ await registerJobRoutes(app, { storage, queue, redis });
 await registerAdminRoutes(app, { storage, redis });
 await registerUploadRoutes(app, { storage, redis });
 
-// Payment routes (Midtrans & Xendit integrations)
-const paymentGateway = createMidtransPaymentGateway(app.log);
+// Payment routes (Midtrans, DANA & Xendit integrations)
+const configuredGateway = (
+  process.env.PAYMENT_GATEWAY ||
+  process.env.PAYMENT_DRIVER ||
+  "xendit"
+)
+  .toLowerCase()
+  .trim();
+
+const registry = new DefaultPaymentGatewayRegistry();
+
+// Register Midtrans (if configured)
+const midtransGateway = createMidtransPaymentGateway(app.log);
+if (midtransGateway) {
+  registry.register(
+    "midtrans",
+    midtransGateway,
+    {
+      driver: "midtrans",
+      provider: "midtrans-snap",
+      meta: {
+        clientKey: process.env.MIDTRANS_CLIENT_KEY ?? undefined,
+        snapUrl:
+          process.env.MIDTRANS_IS_PRODUCTION === "true"
+            ? "https://app.midtrans.com/snap/snap.js"
+            : "https://app.sandbox.midtrans.com/snap/snap.js",
+        isProduction: process.env.MIDTRANS_IS_PRODUCTION === "true",
+        flowType: "snap",
+      },
+    },
+    configuredGateway === "midtrans",
+  );
+}
+
+// Register DANA (if configured)
+const danaGateway = createDanaPaymentGateway(app.log);
+if (danaGateway) {
+  registry.register(
+    "dana",
+    danaGateway,
+    {
+      driver: "dana",
+      provider: "dana-pg",
+      meta: {
+        flowType: "redirect",
+      },
+    },
+    configuredGateway === "dana",
+  );
+}
+
+// Register Xendit (if configured)
 const xenditGateway = createXenditPaymentGateway(app.log);
+if (xenditGateway) {
+  registry.register(
+    "xendit",
+    xenditGateway,
+    {
+      driver: "xendit",
+      provider: "xendit",
+      meta: {
+        flowType: "redirect",
+      },
+    },
+    configuredGateway === "xendit",
+  );
+}
+
+if (configuredGateway) {
+  registry.setDefault(configuredGateway as PaymentGatewayDriver);
+}
+
+app.log.info({
+  event: "api.payment_gateway",
+  configuredGateway,
+  activeDefaultDriver: registry.getDefaultDriver(),
+  registeredGateways: registry.list().map((g) => g.driver),
+});
+
 await registerPaymentRoutes(app, {
-  paymentGateway,
-  xenditGateway,
+  registry,
   callbackBaseUrl: origin,
-  paymentDueMinutes: 60,
+  paymentDueMinutes: Number(process.env.PAYMENT_DUE_MINUTES ?? 10),
 });
 
 const shutdown = async () => {

@@ -101,4 +101,18 @@ export interface PaymentGatewayPort {
 }
 
 /** Payment gateway driver type */
-export type PaymentGatewayDriver = "doku" | "midtrans" | "xendit" | "manual" | (string & {});
+export type PaymentGatewayDriver = "doku" | "midtrans" | "xendit" | "dana" | "manual" | (string & {});
+
+export interface GatewayFrontendConfig {
+  driver: PaymentGatewayDriver;
+  provider: string;
+  /** Provider-specific UI metadata (e.g., snapUrl, clientKey for Midtrans) */
+  meta: Record<string, unknown>;
+}
+
+export interface PaymentGatewayRegistry {
+  getDefault(): PaymentGatewayPort | null;
+  get(driver: PaymentGatewayDriver): PaymentGatewayPort | null;
+  list(): Array<{ driver: PaymentGatewayDriver; provider: string; enabled: boolean }>;
+  getFrontendConfig(driver: PaymentGatewayDriver): GatewayFrontendConfig | null;
+}

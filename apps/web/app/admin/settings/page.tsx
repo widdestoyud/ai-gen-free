@@ -1,6 +1,13 @@
+import type { Metadata } from "next";
 import { AdminSettingsPageView } from "@/views/admin/settings";
 import { GENERATE_COOLDOWN_DEFAULT } from "@/lib/admin";
 import { fetchAdminApi, loadAdminMe } from "@/lib/server-api";
+
+export const metadata: Metadata = {
+  title: "Pengaturan Sistem",
+  description: "Pengaturan cooldown dan parameter global sistem.",
+  robots: { index: false, follow: false },
+};
 
 async function loadSetting() {
   const res = await fetchAdminApi("/api/admin/settings/generate_cooldown_seconds");

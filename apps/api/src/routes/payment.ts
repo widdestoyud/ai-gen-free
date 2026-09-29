@@ -4,7 +4,7 @@
  */
 
 import type { FastifyInstance } from "fastify";
-import { ErrorCodes, type PaymentGatewayPort } from "@ai-gen-free/core";
+import { ErrorCodes, type PaymentGatewayPort, type PaymentGatewayRegistry, type GatewayFrontendConfig, type PaymentGatewayDriver } from "@ai-gen-free/core";
 import { AuthError, userFromCookie } from "../auth/service.js";
 import {
   initiatePayment,
@@ -78,43 +78,33 @@ async function requireAdmin(
 }
 
 export interface PaymentRouteDeps {
-  paymentGateway: PaymentGatewayPort | null;
-  xenditGateway?: PaymentGatewayPort | null;
+  registry: PaymentGatewayRegistry;
   callbackBaseUrl: string;
   paymentDueMinutes?: number;
 }
 
 export async function registerPaymentRoutes(app: FastifyInstance, deps: PaymentRouteDeps) {
-  // Helper to get preferred or specific payment gateway
-  function getGateway(preferredProvider?: string): PaymentGatewayPort {
-    if (preferredProvider === "xendit" && deps.xenditGateway) {
-      return deps.xenditGateway;
-    }
-    if (preferredProvider === "midtrans" && deps.paymentGateway) {
-      return deps.paymentGateway;
-    }
-    // Default: use whichever is configured
-    const gw = deps.paymentGateway ?? deps.xenditGateway;
-    if (!gw) {
+  // Helper to check if payment gateway is configured
+  function requirePaymentGateway(driver?: PaymentGatewayDriver): PaymentServiceDeps {
+    const gateway = driver ? deps.registry.get(driver) : deps.registry.getDefault();
+    if (!gateway) {
       throw new AuthError(
         ErrorCodes.PAYMENT_GATEWAY_ERROR,
         "Payment gateway tidak dikonfigurasi. Gunakan metode pembayaran manual.",
       );
     }
-    return gw;
-  }
-
-  function makeServiceDeps(gw: PaymentGatewayPort): PaymentServiceDeps {
+    const driverKey = driver ?? gateway.provider;
     return {
-      paymentGateway: gw,
+      paymentGateway: gateway,
       callbackBaseUrl: deps.callbackBaseUrl,
       paymentDueMinutes: deps.paymentDueMinutes,
+      frontendConfig: deps.registry.getFrontendConfig(driverKey as PaymentGatewayDriver) ?? undefined,
     };
   }
 
   /**
    * POST /invoices/:id/pay
-   * Initiate payment via Payment Gateway (Midtrans / Xendit) untuk invoice tertentu
+   * Initiate payment via Payment Gateway (Midtrans / DANA / Xendit) untuk invoice tertentu
    * Returns: { paymentUrl, tokenId, expiredAt }
    */
   app.post("/invoices/:id/pay", async (req, reply) => {
@@ -124,14 +114,15 @@ export async function registerPaymentRoutes(app: FastifyInstance, deps: PaymentR
     try {
       const { id } = req.params as { id: string };
       const body = (req.body ?? {}) as {
-        provider?: "midtrans" | "xendit";
+        driver?: PaymentGatewayDriver;
+        provider?: PaymentGatewayDriver;
         customerEmail?: string;
         customerName?: string;
         customerPhone?: string;
       };
 
-      const gw = getGateway(body.provider);
-      const serviceDeps = makeServiceDeps(gw);
+      const selectedDriver = (body.driver || body.provider) as PaymentGatewayDriver | undefined;
+      const serviceDeps = requirePaymentGateway(selectedDriver);
 
       const result = await initiatePayment(serviceDeps, {
         userId: session.userId,
@@ -220,14 +211,7 @@ export async function registerPaymentRoutes(app: FastifyInstance, deps: PaymentR
    */
   app.post("/webhooks/midtrans", async (req, reply) => {
     try {
-      const gw = deps.paymentGateway;
-      if (!gw) {
-        return reply.status(503).send({
-          status: "ERROR",
-          error: { code: "GATEWAY_UNAVAILABLE", message: "Midtrans gateway not configured" },
-        });
-      }
-      const serviceDeps = makeServiceDeps(gw);
+      const serviceDeps = requirePaymentGateway("midtrans");
 
       const headers: Record<string, string> = {};
       for (const [key, value] of Object.entries(req.headers)) {
@@ -276,20 +260,96 @@ export async function registerPaymentRoutes(app: FastifyInstance, deps: PaymentR
   });
 
   /**
+   * POST /webhooks/dana
+   * Webhook endpoint untuk menerima Finish Notify dari DANA
+   * Divalidasi via RSA-SHA256 signature (X-SIGNATURE header)
+   */
+  app.post("/webhooks/dana", async (req, reply) => {
+    try {
+      const danaGateway = deps.registry.get("dana");
+      if (!danaGateway) {
+        app.log.warn({ event: "dana.webhook_no_gateway" });
+        return reply.status(200).send({
+          responseCode: "5005601",
+          responseMessage: "Internal Server Error",
+        });
+      }
+
+      const headers: Record<string, string> = {};
+      for (const [key, value] of Object.entries(req.headers)) {
+        if (typeof value === "string") {
+          headers[key] = value;
+        } else if (Array.isArray(value)) {
+          headers[key] = value[0];
+        }
+      }
+
+      app.log.info({
+        event: "dana.webhook_received",
+        hasBody: Boolean(req.body),
+      });
+
+      const serviceDeps: PaymentServiceDeps = {
+        paymentGateway: danaGateway,
+        callbackBaseUrl: deps.callbackBaseUrl,
+        paymentDueMinutes: deps.paymentDueMinutes,
+      };
+
+      const result = await processPaymentNotification(serviceDeps, req.body, headers);
+
+      app.log.info({
+        event: "dana.webhook_processed",
+        invoiceId: result.invoiceId,
+        status: result.status,
+      });
+
+      // DANA expects specific response format
+      return {
+        responseCode: "2005600",
+        responseMessage: "Successful",
+      };
+    } catch (err) {
+      app.log.error({
+        event: "dana.webhook_error",
+        error: err instanceof Error ? err.message : String(err),
+      });
+
+      // Return 200 with error response code to prevent DANA retries for permanent errors
+      if (err instanceof AuthError) {
+        return reply.status(200).send({
+          responseCode: "2005600",
+          responseMessage: "Successful",
+        });
+      }
+
+      // For unexpected errors, return 5005601 so DANA will retry
+      return reply.status(200).send({
+        responseCode: "5005601",
+        responseMessage: "Internal Server Error",
+      });
+    }
+  });
+
+  /**
    * POST /webhooks/xendit & POST /webhook/xendit
    * Webhook endpoint untuk menerima notifikasi dari Xendit
    * TIDAK memerlukan authentication - divalidasi via x-callback-token
    */
   const handleXenditWebhook = async (req: any, reply: any) => {
     try {
-      const gw = deps.xenditGateway ?? (deps.paymentGateway?.provider.includes("xendit") ? deps.paymentGateway : null);
-      if (!gw) {
+      const xenditGateway = deps.registry.get("xendit");
+      if (!xenditGateway) {
         return reply.status(503).send({
           status: "ERROR",
           error: { code: "GATEWAY_UNAVAILABLE", message: "Xendit gateway not configured" },
         });
       }
-      const serviceDeps = makeServiceDeps(gw);
+
+      const serviceDeps: PaymentServiceDeps = {
+        paymentGateway: xenditGateway,
+        callbackBaseUrl: deps.callbackBaseUrl,
+        paymentDueMinutes: deps.paymentDueMinutes,
+      };
 
       const headers: Record<string, string> = {};
       for (const [key, value] of Object.entries(req.headers)) {
@@ -313,7 +373,6 @@ export async function registerPaymentRoutes(app: FastifyInstance, deps: PaymentR
         status: result.status,
       });
 
-      // Xendit expects 200 OK
       return { status: "OK", ...result };
     } catch (err) {
       app.log.error({
@@ -346,11 +405,6 @@ export async function registerPaymentRoutes(app: FastifyInstance, deps: PaymentR
     const session = await requireUser(req, reply);
     if (!session) return;
 
-    const hasMidtrans = deps.paymentGateway !== null;
-    const hasXendit = deps.xenditGateway !== null && deps.xenditGateway !== undefined;
-    const isProduction = process.env.MIDTRANS_IS_PRODUCTION === "true" || process.env.XENDIT_IS_PRODUCTION === "true";
-    const clientKey = process.env.MIDTRANS_CLIENT_KEY;
-
     const methods: Array<Record<string, unknown>> = [
       {
         id: "manual",
@@ -360,17 +414,23 @@ export async function registerPaymentRoutes(app: FastifyInstance, deps: PaymentR
       },
     ];
 
-    if (hasMidtrans) {
+    const defaultGateway = deps.registry.getDefault();
+    const defaultProvider = defaultGateway?.provider ?? "";
+
+    // Add Midtrans if registered
+    const midtransConfig = deps.registry.getFrontendConfig("midtrans");
+    if (midtransConfig) {
+      const meta = (midtransConfig.meta ?? {}) as Record<string, unknown>;
       methods.push({
         id: "midtrans",
         name: "Pembayaran Online (Midtrans)",
         description: "Virtual Account (BCA, Mandiri, BNI, BRI, Permata), QRIS, GoPay, ShopeePay",
         enabled: true,
-        clientKey: clientKey ?? undefined,
-        isProduction,
-        snapUrl: isProduction
-          ? "https://app.midtrans.com/snap/snap.js"
-          : "https://app.sandbox.midtrans.com/snap/snap.js",
+        isDefault: defaultProvider.includes("midtrans"),
+        clientKey: meta.clientKey,
+        isProduction: meta.isProduction,
+        snapUrl: meta.snapUrl,
+        flowType: meta.flowType ?? "snap",
         channels: [
           { id: "va", name: "Virtual Account", banks: ["BCA", "Mandiri", "BNI", "BRI", "Permata"] },
           { id: "qris", name: "QRIS", providers: ["GoPay", "ShopeePay", "BCA QRIS", "Dana", "OVO"] },
@@ -381,19 +441,33 @@ export async function registerPaymentRoutes(app: FastifyInstance, deps: PaymentR
       });
     }
 
-    if (hasXendit) {
+    // Add DANA if registered
+    const danaConfig = deps.registry.getFrontendConfig("dana");
+    if (danaConfig) {
+      methods.push({
+        id: "dana",
+        name: "Pembayaran Online (DANA)",
+        description: "Bayar dengan saldo DANA, kartu kredit/debit, atau e-wallet lainnya",
+        enabled: true,
+        isDefault: defaultProvider.includes("dana"),
+        flowType: "redirect",
+      });
+    }
+
+    // Add Xendit if registered
+    const xenditConfig = deps.registry.getFrontendConfig("xendit");
+    if (xenditConfig) {
       methods.push({
         id: "xendit",
         name: "Pembayaran Online (Xendit)",
-        description: "QRIS, E-Wallet (OVO, DANA, ShopeePay), Virtual Account (BCA, Mandiri, BNI, BRI), Kartu Kredit",
+        description: "QRIS, E-Wallet (OVO, DANA, ShopeePay, LinkAja), Virtual Account / Transfer Bank",
         enabled: true,
-        isProduction: process.env.XENDIT_IS_PRODUCTION === "true",
+        isDefault: defaultProvider.includes("xendit"),
+        flowType: "redirect",
         channels: [
           { id: "qris", name: "QRIS", providers: ["Semua Pembayaran QRIS"] },
-          { id: "ewallet", name: "E-Wallet", providers: ["OVO", "DANA", "ShopeePay", "LinkAja", "GoPay"] },
-          { id: "va", name: "Virtual Account", banks: ["BCA", "Mandiri", "BNI", "BRI", "Permata", "BSI"] },
-          { id: "card", name: "Kartu Kredit/Debit" },
-          { id: "otc", name: "Retail Outlet", outlets: ["Alfamart", "Indomaret"] },
+          { id: "ewallet", name: "E-Wallet", providers: ["OVO", "DANA", "ShopeePay", "LinkAja", "AstraPay", "JeniusPay"] },
+          { id: "va", name: "Virtual Account", banks: ["BCA", "Mandiri", "BNI", "BRI", "Permata", "BSI", "CIMB Niaga"] },
         ],
       });
     }

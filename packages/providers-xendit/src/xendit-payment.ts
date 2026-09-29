@@ -63,7 +63,7 @@ export class XenditPaymentProvider implements PaymentGatewayPort {
   async createPayment(input: CreatePaymentInput): Promise<CreatePaymentResult> {
     try {
       const amount = Math.round(input.amount);
-      const paymentDueMinutes = input.paymentDueMinutes ?? 60;
+      const paymentDueMinutes = input.paymentDueMinutes ?? 10;
       const durationSeconds = paymentDueMinutes * 60;
 
       const requestBody: Record<string, unknown> = {
@@ -87,7 +87,9 @@ export class XenditPaymentProvider implements PaymentGatewayPort {
       }
       if (input.callbackUrl) {
         requestBody.success_redirect_url = input.callbackUrl;
-        requestBody.failure_redirect_url = input.callbackUrl;
+        requestBody.failure_redirect_url = input.callbackUrl.includes("/payment/success")
+          ? input.callbackUrl.replace("/payment/success", "/payment/failed")
+          : input.callbackUrl;
       }
       if (input.lineItems && input.lineItems.length > 0) {
         requestBody.items = input.lineItems.map((item) => ({
@@ -95,6 +97,30 @@ export class XenditPaymentProvider implements PaymentGatewayPort {
           price: Math.round(item.price),
           quantity: item.quantity,
         }));
+      }
+
+      // Restrict payment methods to QRIS, E-Wallet, and Bank Transfer (Virtual Account) only
+      if (input.paymentMethods && input.paymentMethods.length > 0) {
+        requestBody.payment_methods = input.paymentMethods;
+      } else {
+        requestBody.payment_methods = [
+          "QRIS",
+          "OVO",
+          "DANA",
+          "SHOPEEPAY",
+          "LINKAJA",
+          "ASTRAPAY",
+          "JENIUSPAY",
+          "BCA",
+          "BNI",
+          "BRI",
+          "MANDIRI",
+          "PERMATA",
+          "BSI",
+          "CIMB",
+          "SAHABAT_SAMPOERNA",
+          "BNC",
+        ];
       }
 
       const url = `${this.baseUrl}/v2/invoices`;

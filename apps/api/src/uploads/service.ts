@@ -1,8 +1,10 @@
+import type { IncomingHttpHeaders } from "node:http";
 import { randomBytes } from "node:crypto";
 import sharp from "sharp";
 import { ErrorCodes, UploadConfig, type ObjectStorage } from "@ai-gen-free/core";
 import { prisma } from "@ai-gen-free/db";
 import { AuthError } from "../auth/service.js";
+import { recordUserActivity } from "../activity/service.js";
 import type IORedis from "ioredis";
 
 export type UploadActor = "customer" | "admin";
@@ -21,6 +23,11 @@ export interface ProcessUploadOptions {
   actorId: string;
   buffer: Uint8Array;
   contentType: string;
+  alias?: string | null;
+  req?: {
+    ip?: string;
+    headers?: IncomingHttpHeaders;
+  };
 }
 
 export interface ProcessUploadResult {
@@ -229,6 +236,20 @@ export async function processUpload(
           height: compressed.height,
           alias,
           expiresAt: expiresAtDate,
+        },
+      });
+
+      void recordUserActivity({
+        userId: opts.actorId,
+        action: "upload.image",
+        req: opts.req,
+        metadata: {
+          uploadId,
+          contentType: compressed.contentType,
+          bytes: compressed.sizeBytes,
+          width: compressed.width,
+          height: compressed.height,
+          alias,
         },
       });
     }

@@ -207,9 +207,12 @@ export function GenerateResultModal({
         opened={opened}
         onClose={handleModalClose}
         title="Hasil Generate"
-        size="90%"
+        size="1040px"
         centered
+        padding={0}
         classNames={{
+          root: classes.modalRoot,
+          inner: classes.modalInner,
           content: classes.modalContentFull,
           body: classes.modalBodyNoPadding,
           header: classes.modalHeaderClean,
@@ -388,7 +391,7 @@ export function GenerateResultModal({
                     Biaya
                   </Text>
                   <Text size="xs" fw={600}>
-                    {job.cost} Poin
+                    {job.cost} Sparks
                   </Text>
                 </div>
 

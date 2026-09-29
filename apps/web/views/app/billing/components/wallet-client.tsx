@@ -84,8 +84,8 @@ function InvoiceCard({
           {gatewayEnabled && (
             <>
               <Button
-                variant="filled"
-                color="blue"
+                variant="gradient"
+                gradient={{ from: "#3b82f6", to: "#8b5cf6", deg: 135 }}
                 disabled={busy || isPaying}
                 leftSection={isPaying ? <Loader size="xs" /> : null}
                 onClick={() => onPayGateway(inv.id, inv.uniqueCode)}
@@ -94,7 +94,7 @@ function InvoiceCard({
                   ? "Memproses..."
                   : hasGatewaySession && !gatewayExpired
                     ? "Lanjutkan Pembayaran Online"
-                    : "Bayar Online (Midtrans Snap)"}
+                    : "Bayar Online"}
               </Button>
               <Divider label="atau" labelPosition="center" />
             </>
@@ -152,6 +152,7 @@ export function WalletClient(props: {
   const {
     error: paymentError,
     clearError: clearPaymentError,
+    initiatePayment,
   } = usePayment();
 
   async function buy(packageId: string) {
@@ -162,17 +163,27 @@ export function WalletClient(props: {
       method: "POST",
       body: JSON.stringify({ packageId }),
     });
-    setBusy(false);
     if (!result.ok) {
-      setError(result.message);
+      setBusy(false);
+      setError(result.message || "Gagal membuat invoice");
+      return;
+    }
+    if (!result.data?.id) {
+      setBusy(false);
+      setError("Gagal membuat invoice");
       return;
     }
 
-    // Jika online gateway aktif, langsung buka modal pembayaran Snap
-    if (gatewayEnabled && result.data?.id && result.data?.uniqueCode) {
-      setSnapInvoice({ id: result.data.id, code: result.data.uniqueCode });
+    // Jika online gateway aktif, langsung inisiasi dan redirect ke URL checkout
+    if (gatewayEnabled) {
+      const payRes = await initiatePayment(result.data.id);
+      if (payRes?.paymentUrl) {
+        window.location.href = payRes.paymentUrl;
+        return;
+      }
     }
 
+    setBusy(false);
     router.refresh();
   }
 
@@ -208,11 +219,23 @@ export function WalletClient(props: {
     router.refresh();
   }
 
-  const handlePayGateway = useCallback((invoiceId: string, invoiceCode: string) => {
-    setError("");
-    clearPaymentError();
-    setSnapInvoice({ id: invoiceId, code: invoiceCode });
-  }, [clearPaymentError]);
+  const handlePayGateway = useCallback(
+    async (invoiceId: string, _invoiceCode: string) => {
+      setError("");
+      clearPaymentError();
+      setPayingInvoiceId(invoiceId);
+      const payRes = await initiatePayment(invoiceId);
+      if (payRes?.paymentUrl) {
+        window.location.href = payRes.paymentUrl;
+        return;
+      }
+      setPayingInvoiceId(null);
+      if (!payRes) {
+        setError("Gagal memulai pembayaran online. Silakan coba lagi.");
+      }
+    },
+    [clearPaymentError, initiatePayment],
+  );
 
   const displayError = error || paymentError;
 

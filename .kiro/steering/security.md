@@ -14,3 +14,4 @@ inclusion: always
 - Bucket hasil generate bukan public-read.
 - Next.js tidak import Prisma, BullMQ, atau SDK Siray.
 - Payload aksi (email, token, OTP, password, profil) hanya JSON body. Dilarang query param (`?token=`, `?email=`). Filter GET daftar (`limit`, `offset`, `q`) boleh tetap query.
+- Endpoint browser pelanggan DILARANG mengekspos nama model upstream (OpenAI, Bytedance, Alibaba, Flux, dsb.) dan nama provider (Siray). Gunakan modelId abstrak (`t2i-standard`, `video-standard`, dsb.) tanpa displayName dan providerId.

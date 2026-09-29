@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 import "@fastify/multipart";
 import { ErrorCodes, type ObjectStorage } from "@ai-gen-free/core";
 import { AuthError, userFromCookie } from "../auth/service.js";
+import { requestIp } from "../http.js";
 import {
   approveInvoice,
   cancelInvoiceForAdmin,
@@ -112,7 +113,10 @@ export async function registerWalletRoutes(app: FastifyInstance, deps: { storage
     if (!session) return;
     try {
       const body = (req.body ?? {}) as { packageId?: unknown };
-      return await createInvoice(session.userId, body.packageId);
+      return await createInvoice(session.userId, body.packageId, {
+        ip: requestIp(req as any),
+        headers: req.headers,
+      });
     } catch (err) {
       return sendError(reply, err);
     }
@@ -154,6 +158,10 @@ export async function registerWalletRoutes(app: FastifyInstance, deps: { storage
         invoiceId: id,
         buffer,
         contentType: file.mimetype,
+        req: {
+          ip: requestIp(req as any),
+          headers: req.headers,
+        },
       });
     } catch (err) {
       if (isFileTooLarge(err)) {

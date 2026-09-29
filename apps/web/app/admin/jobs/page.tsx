@@ -1,6 +1,13 @@
+import type { Metadata } from "next";
 import { AdminJobsPageView } from "@/views/admin/jobs";
 import { ADMIN_PAGE_SIZE, parseOffset, type AdminJobRow } from "@/lib/admin";
 import { fetchAdminApi, loadAdminMe } from "@/lib/server-api";
+
+export const metadata: Metadata = {
+  title: "Daftar Job Generasi AI",
+  description: "Monitoring status antrean dan eksekusi job render AI.",
+  robots: { index: false, follow: false },
+};
 
 async function loadJobs(opts: { q: string; status: string; mode: string; userId: string; offset: number }) {
   const params = new URLSearchParams();

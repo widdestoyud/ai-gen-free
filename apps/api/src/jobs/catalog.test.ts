@@ -1,7 +1,14 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { AppError, ErrorCodes } from "@ai-gen-free/core";
-import { humanDisplayName, pickEnabledModel, resolveVideoPointCost, type CatalogRow } from "./catalog.js";
+import {
+  getCustomerCatalogDefaults,
+  humanDisplayName,
+  pickEnabledModel,
+  resolveVideoPointCost,
+  toOpaqueModelId,
+  type CatalogRow,
+} from "./catalog.js";
 
 const siray: CatalogRow = {
   mode: "t2i",
@@ -110,5 +117,32 @@ test("resolveVideoPointCost respects custom admin videoConfigPoints overrides", 
   assert.equal(resolveVideoPointCost("15s", "1080p", customConfig), 1500);
   // Unconfigured key falls back to standard default matrix
   assert.equal(resolveVideoPointCost("6s", "720p", customConfig), 210);
+});
+
+test("toOpaqueModelId masks vendor and model names into opaque capability IDs", () => {
+  assert.equal(toOpaqueModelId("t2i", "openai/gpt-image-2-t2i", false), "t2i-standard");
+  assert.equal(toOpaqueModelId("t2i", "bytedance/seedream-5.0-pro-t2i-spicy", true), "t2i-spicy");
+  assert.equal(toOpaqueModelId("i2i", "openai/gpt-image-2-edit", false), "i2i-standard");
+  assert.equal(toOpaqueModelId("i2i", "alibaba/qwen-image-3-edit-spicy", true), "i2i-spicy");
+  assert.equal(toOpaqueModelId("i2v", "bytedance/seedance-2.5-i2v", false), "video-standard");
+  assert.equal(toOpaqueModelId("i2v", "bytedance/seedance-2.0-i2v-spicy", true), "video-spicy");
+  assert.equal(toOpaqueModelId("t2v", "bytedance/seedance-2.5-i2v", false), "video-standard");
+  assert.equal(toOpaqueModelId("t2v", "alibaba/wan-2.7-i2v-uncensored", true), "video-spicy");
+});
+
+test("getCustomerCatalogDefaults provides opaque model IDs for client consumption", () => {
+  const defaults = getCustomerCatalogDefaults();
+  assert.equal(defaults.normalT2iModelId, "t2i-standard");
+  assert.equal(defaults.spicyT2iModelId, "t2i-spicy");
+  assert.equal(defaults.normalI2iModelId, "i2i-standard");
+  assert.equal(defaults.spicyI2iModelId, "i2i-spicy");
+  assert.equal(defaults.normalVideoModelId, "video-standard");
+  assert.equal(defaults.spicyVideoModelId, "video-spicy");
+
+  // Ensure NO vendor or provider strings leak into defaults
+  const values = Object.values(defaults);
+  for (const v of values) {
+    assert.doesNotMatch(v, /openai|bytedance|alibaba|flux|siray|gpt|seedance|seedream|wan|qwen/i);
+  }
 });
 

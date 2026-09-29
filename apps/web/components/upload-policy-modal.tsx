@@ -89,7 +89,8 @@ export function UploadPolicyModal({
                 Batal
               </Button>
               <Button
-                color="blue"
+                variant="gradient"
+                gradient={{ from: "#3b82f6", to: "#8b5cf6", deg: 135 }}
                 onClick={handleConfirm}
                 disabled={!agreed || loading}
                 loading={loading}

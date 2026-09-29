@@ -1,11 +1,11 @@
 export type Model = {
   mode: string;
   modelId: string;
-  displayName: string;
-  providerId: string;
   costPoints: number;
   videoConfigPoints?: Record<string, number> | null;
   isSpicy?: boolean;
+  displayName?: string;
+  providerId?: string;
 };
 
 export type DefaultGenerationModelsConfig = {

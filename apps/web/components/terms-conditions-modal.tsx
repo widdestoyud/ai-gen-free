@@ -42,31 +42,36 @@ export function TermsConditionsModal({ opened, onClose }: TermsConditionsModalPr
               </Text>
 
               <Text size="xs" fw={600} mt="xs">
-                3. Sistem Koin & Generasi
+                3. Sistem Sparks & Generasi
               </Text>
               <Text size="xs" c="dimmed">
-                Generasi media menggunakan koin platform yang tunduk pada aturan saldo dan antrian sistem. Cooldown berlaku setelah generasi berhasil sesuai dengan pengaturan sistem.
+                Generasi media menggunakan saldo Sparks. Sparks diperoleh melalui pembelian paket dengan pembayaran transfer manual terkurasi dan tidak memiliki masa kedaluwarsa. Sparks yang telah dibeli atau digunakan tidak dapat diuangkan kembali (non-refundable).
               </Text>
 
               <Text size="xs" fw={600} mt="xs">
-                4. Pembatasan Konten
+                4. Pembatasan Konten & Retensi Media
               </Text>
               <Text size="xs" c="dimmed">
-                Dilarang menggunakan platform untuk memproduksi, mengunggah, atau menyebarkan konten yang melanggar hukum, merugikan pihak ketiga, mengandung eksploitasi seksual anak, kekerasan ekstrem, atau pelanggaran hak cipta.
+                Dilarang menggunakan platform untuk memproduksi atau mengunggah konten yang melanggar hukum, eksploitasi seksual anak, kekerasan, atau pelanggaran hak cipta. Hasil generasi dan unggahan media disimpan selama 14 hari sebelum dihapus otomatis demi efisiensi penyimpanan, sementara riwayat teks prompt tetap disimpan.
               </Text>
 
               <Text size="xs" fw={600} mt="xs">
                 5. Batasan Tanggung Jawab
               </Text>
               <Text size="xs" c="dimmed">
-                Platform disediakan sebagaimana adanya (&quot;as is&quot;). Kami berhak membatasi, menangguhkan, atau menghentikan akses akun yang melanggar ketentuan ini sewaktu-waktu.
+                Platform disediakan sebagaimana adanya (&quot;as is&quot;). Kami berhak membatasi, menangguhkan, atau menghentikan akses akun yang melanggar ketentuan ini sewaktu-waktu. Untuk ketentuan lengkap, silakan kunjungi halaman Syarat &amp; Ketentuan.
               </Text>
             </Stack>
           </ScrollArea.Autosize>
         </Paper>
 
         <Group justify="flex-end">
-          <Button color="blue" onClick={onClose} size="sm">
+          <Button
+            variant="gradient"
+            gradient={{ from: "#3b82f6", to: "#8b5cf6", deg: 135 }}
+            onClick={onClose}
+            size="sm"
+          >
             Setuju
           </Button>
         </Group>

@@ -21,11 +21,18 @@ export function ResetPasswordView({ token }: { token: string }) {
               label="Email"
               type="email"
               required
+              disabled={ctrl.pending}
               value={ctrl.email}
               onChange={(ev) => ctrl.setEmail(ev.currentTarget.value)}
             />
             <ErrorAlert message={ctrl.error} code={ctrl.errorCode} transactionId={ctrl.transactionId} />
-            <Button type="submit" disabled={ctrl.pending}>
+            <Button
+              type="submit"
+              loading={ctrl.pending}
+              disabled={ctrl.pending}
+              variant="gradient"
+              gradient={{ from: "#3b82f6", to: "#8b5cf6", deg: 135 }}
+            >
               {ctrl.pending ? "Mengirim…" : "Kirim tautan"}
             </Button>
           </Stack>
@@ -40,11 +47,18 @@ export function ResetPasswordView({ token }: { token: string }) {
               label="Kata sandi baru"
               description="Minimal 8 karakter, 1 huruf kapital, 1 angka"
               required
+              disabled={ctrl.pending}
               value={ctrl.password}
               onChange={(ev) => ctrl.setPassword(ev.currentTarget.value)}
             />
             <ErrorAlert message={ctrl.error} code={ctrl.errorCode} transactionId={ctrl.transactionId} />
-            <Button type="submit" disabled={ctrl.pending}>
+            <Button
+              type="submit"
+              loading={ctrl.pending}
+              disabled={ctrl.pending}
+              variant="gradient"
+              gradient={{ from: "#3b82f6", to: "#8b5cf6", deg: 135 }}
+            >
               {ctrl.pending ? "Menyimpan…" : "Simpan kata sandi"}
             </Button>
           </Stack>

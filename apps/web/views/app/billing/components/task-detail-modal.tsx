@@ -186,9 +186,12 @@ export function TaskDetailModal({
     <Modal
       opened={opened}
       onClose={onClose}
-      size="90%"
+      size="1040px"
       centered
+      padding={0}
       classNames={{
+        root: classes.modalRoot,
+        inner: classes.modalInner,
         content: classes.modalContentFull,
         body: classes.modalBodyNoPadding,
         header: classes.modalHeaderClean,
@@ -343,7 +346,7 @@ export function TaskDetailModal({
                     Biaya
                   </Text>
                   <Text size="xs" fw={600}>
-                    {job?.cost ?? Math.abs(ledgerEntry?.amount ?? 0)} Poin
+                    {job?.cost ?? Math.abs(ledgerEntry?.amount ?? 0)} Sparks
                   </Text>
                 </div>
 

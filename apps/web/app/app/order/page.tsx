@@ -1,6 +1,13 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { fetchUserApi } from "@/lib/server-api";
 import { OrderPageView, type Invoice, type Package } from "@/views/app/order";
+
+export const metadata: Metadata = {
+  title: "Beli Paket Sparks",
+  description: "Pilihan paket saldo sparks tanpa langganan kartu kredit otomatis.",
+  robots: { index: false, follow: false },
+};
 
 async function loadOrderData() {
   const [catalog, invoices] = await Promise.all([

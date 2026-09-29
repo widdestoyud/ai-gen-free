@@ -1,116 +1,228 @@
 "use client";
 
-import { Container, Grid, Stack, Title, Text, Button, Group } from "@mantine/core";
+import { useState, useRef } from "react";
 import classes from "./landing.module.css";
-import { LandingPreview } from "./landing-preview";
-import type { PreviewTab } from "@/hooks/use-landing-page";
 
 interface LandingHeroProps {
   onStartCreation: () => void;
   onScrollTo: (id: string) => void;
-  activePreview: PreviewTab;
-  onSelectPreview: (tab: PreviewTab) => void;
 }
+
+
+const TEMPLATE_CAROUSEL_CARDS = [
+  {
+    id: "logos",
+    title: "Logos & Icons",
+    image: "/dreamina/carousel-logos.webp",
+  },
+  {
+    id: "video",
+    title: "AI video generator",
+    image: "/dreamina/carousel-video.webp",
+  },
+  {
+    id: "trending",
+    title: "Trending effects",
+    image: "/dreamina/carousel-trending.webp",
+  },
+  {
+    id: "photo",
+    title: "AI photo editor",
+    image: "/dreamina/carousel-photo.webp",
+  },
+  {
+    id: "style",
+    title: "Style transfer",
+    image: "/dreamina/carousel-style.webp",
+  },
+  {
+    id: "poster",
+    title: "Poster design",
+    image: "/dreamina/carousel-poster.webp",
+  },
+];
+
+// 3 repeated sets for infinite continuous marquee scrolling
+const ALL_CAROUSEL_CARDS = [
+  ...TEMPLATE_CAROUSEL_CARDS,
+  ...TEMPLATE_CAROUSEL_CARDS,
+  ...TEMPLATE_CAROUSEL_CARDS,
+];
 
 export function LandingHero({
   onStartCreation,
   onScrollTo,
-  activePreview,
-  onSelectPreview,
 }: LandingHeroProps) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const templateSectionRef = useRef<HTMLElement>(null);
+
+  const handleSwipeDown = () => {
+    if (templateSectionRef.current) {
+      templateSectionRef.current.scrollIntoView({ behavior: "smooth" });
+    } else {
+      onScrollTo("video-ai");
+    }
+  };
+
   return (
-    <section className={classes.heroSection}>
-      <Container size="lg">
-        <Grid gutter={48} align="center">
-          <Grid.Col span={{ base: 12, md: 6 }}>
-            <Stack gap="lg">
-              <Title className={classes.heroTitle} order={1}>
-                <span className={classes.heroTitleHighlight}>Wujudkan ide kreatif kamu</span>
-              </Title>
+    <>
+      {/* ==================================================================
+          WINDOW 1: Full-Screen Hero Video Banner
+          With Swipe for more (Does NOT overlap with Carousel)
+          ================================================================== */}
+      <section id="hero-banner" className={classes.heroBannerWindow}>
+        {/* Full-Screen Video Background */}
+        <video
+          ref={videoRef}
+          className={classes.dreaminaBgVideo}
+          autoPlay
+          loop
+          muted
+          playsInline
+          preload="auto"
+          poster="/dreamina/dreamina-hero-main.webp"
+        >
+          <source src="/dreamina/dreamina-hero-main.mp4" type="video/mp4" />
+        </video>
 
-              <Text className={classes.heroLead}>
-                Tinggalkan biaya sewa studio foto yang mahal dan langganan bulanan yang mengikat.
-                Cukup ketik deskripsi visual yang kamu inginkan dan atur format sesuai keinginan kamu.
-              </Text>
+        {/* Video Darkening Overlay */}
+        <div className={classes.dreaminaVideoOverlay} />
 
-              <Group gap="md">
-                <Button
-                  size="lg"
-                  color="blue"
+        {/* Center/Left Content: Layout matching reference screenshot */}
+        <div className={classes.heroCenterContent}>
+          {/* Heading */}
+          <h1 className={classes.heroGiantTitle}>
+            Create Without
+            <br />
+            Limits
+          </h1>
+
+          {/* Subtitle */}
+          <p className={classes.heroSubtitleText}>
+            Platform studio AI video dan photo
+            <br />
+            untuk kamu yang ingin kebebasan kreasi sesungguhnya
+          </p>
+
+          {/* CTA Button with existing blue-purple gradient */}
+          <button
+            type="button"
+            className={classes.heroGradientCtaBtn}
+            onClick={onStartCreation}
+          >
+            <span>Coba Sekarang</span>
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M5 12h14m-6-6 6 6-6 6" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Swipe down indicator — icon only, no background or border */}
+        <div
+          className={classes.swipeIndicator}
+          onClick={handleSwipeDown}
+          role="button"
+          tabIndex={0}
+          title="Scroll to templates"
+        >
+          <svg
+            className={classes.swipeArrowIcon}
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <line x1="12" y1="5" x2="12" y2="19" />
+            <polyline points="19 12 12 19 5 12" />
+          </svg>
+        </div>
+      </section>
+
+      {/* ==================================================================
+          WINDOW 2: Dedicated Template Showcase Window
+          (Separate window with clean white background, NO overlap on Hero Video)
+          ================================================================== */}
+      <section
+        id="dreamina-screen"
+        ref={templateSectionRef}
+        className={classes.templateShowcaseWindow}
+      >
+        {/* Top Header */}
+        <div className={classes.templateWindowHeader}>
+          <h2 className={classes.templateTitleHeading}>
+            <span className={classes.templateTitleLine1}>
+              Start with a Template.
+            </span>
+            <span className={classes.templateTitleLine2}>
+              Make <span className={classes.templateItalicWord}>Anything</span>, Any Style with AI
+            </span>
+          </h2>
+        </div>
+
+        {/* Center: Running Marquee Carousel */}
+        <div className={classes.carouselStage}>
+          <div className={classes.carouselTrackWrapper}>
+            <div className={classes.carouselTrack}>
+              {ALL_CAROUSEL_CARDS.map((card, idx) => (
+                <div
+                  key={`${card.id}-${idx}`}
+                  className={classes.templateCard}
                   onClick={onStartCreation}
                 >
-                  Mulai Buat Konten Sekarang
-                </Button>
-                <Button
-                  size="lg"
-                  variant="default"
-                  onClick={() => onScrollTo("harga")}
-                >
-                  Lihat Paket
-                </Button>
-              </Group>
-
-              <div className={classes.trustList}>
-                <div className={classes.trustItem}>
-                  <svg
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <rect x="1" y="4" width="22" height="16" rx="2" ry="2" />
-                    <line x1="1" y1="10" x2="23" y2="10" />
-                  </svg>
-                  <span>Tanpa Biaya Langganan Bulanan · Pay-as-you-Go</span>
+                  <img
+                    src={card.image}
+                    alt={card.title}
+                    className={classes.templateCardImg}
+                    loading="lazy"
+                    draggable={false}
+                  />
+                  <div className={classes.templateCardTopGradient} />
+                  <div className={classes.templateCardHeader}>
+                    <span className={classes.templateCardTitle}>
+                      {card.title}
+                    </span>
+                    <button
+                      type="button"
+                      className={classes.tryNowBtn}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onStartCreation();
+                      }}
+                    >
+                      Try now
+                      <svg
+                        width="12"
+                        height="12"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M7 17L17 7M17 7H7M17 7V17" />
+                      </svg>
+                    </button>
+                  </div>
                 </div>
-                <div className={classes.trustItem}>
-                  <svg
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-                  </svg>
-                  <span>Akses Pembayaran Instan</span>
-                </div>
-                <div className={classes.trustItem}>
-                  <svg
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-                    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-                  </svg>
-                  <span>Galeri 100% Privat</span>
-                </div>
-              </div>
-            </Stack>
-          </Grid.Col>
-
-          <Grid.Col span={{ base: 12, md: 6 }}>
-            <LandingPreview
-              activePreview={activePreview}
-              onSelectPreview={onSelectPreview}
-              onStartCreation={onStartCreation}
-            />
-          </Grid.Col>
-        </Grid>
-      </Container>
-    </section>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+    </>
   );
 }

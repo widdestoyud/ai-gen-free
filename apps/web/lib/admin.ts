@@ -63,6 +63,42 @@ export function auditActionLabel(action: string): string {
   return AUDIT_LABELS[action] ?? action;
 }
 
+export type UserActivityItem = {
+  id: string;
+  userId: string;
+  action: string;
+  ip: string | null;
+  provider: string | null;
+  os: string | null;
+  browser: string | null;
+  deviceType: string | null;
+  country: string | null;
+  city: string | null;
+  region: string | null;
+  metadata: unknown;
+  createdAt: string;
+};
+
+const ACTIVITY_LABELS: Record<string, string> = {
+  "auth.login": "Login Akun",
+  "auth.otp_verify": "Verifikasi OTP",
+  "auth.password_reset_confirmed": "Reset Password Selesai",
+  "auth.password_changed": "Ganti Password",
+  "profile.updated": "Ubah Profil",
+  "generate.t2i": "Generate Gambar (T2I)",
+  "generate.i2i": "Generate Edit Gambar (I2I)",
+  "generate.t2v": "Generate Video (T2V)",
+  "generate.i2v": "Generate Video (I2V)",
+  "upload.image": "Unggah Gambar Studio",
+  "billing.invoice_created": "Beli Koin (Invoice Dibuat)",
+  "billing.proof_submitted": "Unggah Bukti Bayar",
+  "billing.invoice_paid": "Koin Masuk (Lunas)",
+};
+
+export function activityActionLabel(action: string): string {
+  return ACTIVITY_LABELS[action] ?? action;
+}
+
 export function adminHref(path: string, params: Record<string, string | number | undefined | null>): string {
   const search = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {

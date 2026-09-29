@@ -3,13 +3,16 @@
 import { Button, Group } from "@mantine/core";
 import { useLogin } from "@/hooks/use-login";
 import { useRegister } from "@/hooks/use-register";
+import { useForgotPassword } from "@/hooks/use-forgot-password";
 import { OtpModal } from "@/components/otp-modal";
 import { LoginModal } from "./login-modal";
 import { RegisterModal } from "./register-modal";
+import { ForgotPasswordModal } from "./forgot-password-modal";
 
 export function LandingAuth() {
   const login = useLogin();
   const register = useRegister();
+  const forgotPassword = useForgotPassword();
 
   return (
     <>
@@ -25,6 +28,10 @@ export function LandingAuth() {
       <LoginModal
         opened={login.loginOpened}
         onClose={login.closeLogin}
+        onForgotPassword={() => {
+          login.closeLogin();
+          forgotPassword.openForgotPassword(login.email);
+        }}
         email={login.email}
         password={login.password}
         onEmailChange={login.setEmail}
@@ -51,6 +58,26 @@ export function LandingAuth() {
         transactionId={register.transactionId}
         pending={register.pending}
         onSubmit={register.submitRegister}
+      />
+
+      <ForgotPasswordModal
+        opened={forgotPassword.opened}
+        onClose={forgotPassword.closeForgotPassword}
+        onBackToLogin={() => {
+          forgotPassword.closeForgotPassword();
+          login.openLogin();
+          if (forgotPassword.email) {
+            login.setEmail(forgotPassword.email);
+          }
+        }}
+        email={forgotPassword.email}
+        onEmailChange={forgotPassword.setEmail}
+        success={forgotPassword.success}
+        error={forgotPassword.error}
+        errorCode={forgotPassword.errorCode}
+        transactionId={forgotPassword.transactionId}
+        pending={forgotPassword.pending}
+        onSubmit={forgotPassword.submitForgotPassword}
       />
 
       <OtpModal

@@ -1,7 +1,7 @@
 "use client";
 
 import { Alert, Button, Group, Modal, Stack, Text, TextInput } from "@mantine/core";
-import { FormEvent } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { ErrorAlert } from "./error-alert";
 import otpInput from "./otp-input.module.css";
 
@@ -36,13 +36,41 @@ export function OtpModal({
   resendCooldown?: number;
   resendSuccessMessage?: string | null;
 }) {
+  const [shake, setShake] = useState(false);
+
+  useEffect(() => {
+    if (error || errorCode) {
+      setShake(true);
+      const timer = setTimeout(() => setShake(false), 500);
+      return () => clearTimeout(timer);
+    }
+  }, [error, errorCode]);
+
+  const handleSubmit = (e: FormEvent) => {
+    if (pending) {
+      e.preventDefault();
+      return;
+    }
+    if (code.trim().length !== 6) {
+      setShake(true);
+      setTimeout(() => setShake(false), 500);
+    }
+    onSubmit(e);
+  };
+
   return (
     <Modal
       opened={opened}
-      onClose={onClose}
+      onClose={() => {
+        if (!pending) onClose();
+      }}
+      closeOnClickOutside={!pending}
+      closeOnEscape={!pending}
+      withCloseButton={!pending}
       title="Verifikasi Masuk"
       centered
       size="sm"
+      classNames={{ content: shake ? "modal-shake" : "" }}
     >
       <Stack gap="xs" mb="md">
         <Text size="sm">
@@ -53,7 +81,7 @@ export function OtpModal({
         </Text>
       </Stack>
 
-      <form onSubmit={onSubmit}>
+      <form onSubmit={handleSubmit}>
         <Stack gap="sm">
           <TextInput
             label="Kode OTP"
@@ -62,6 +90,7 @@ export function OtpModal({
             maxLength={6}
             required
             autoFocus
+            disabled={pending}
             value={code}
             onChange={(ev) => onCodeChange(ev.currentTarget.value.replace(/\D/g, "").slice(0, 6))}
             classNames={{ input: otpInput.input }}
@@ -75,7 +104,14 @@ export function OtpModal({
 
           <ErrorAlert message={error} code={errorCode} transactionId={transactionId} />
 
-          <Button type="submit" disabled={pending || code.length !== 6} fullWidth>
+          <Button
+            type="submit"
+            loading={pending}
+            disabled={pending || code.length !== 6}
+            variant="gradient"
+            gradient={{ from: "#3b82f6", to: "#8b5cf6", deg: 135 }}
+            fullWidth
+          >
             {pending ? "Memeriksa…" : "Masuk"}
           </Button>
 
@@ -86,7 +122,7 @@ export function OtpModal({
                 size="xs"
                 color="gray"
                 onClick={onResendOtp}
-                disabled={resendPending || resendCooldown > 0}
+                disabled={pending || resendPending || resendCooldown > 0}
                 loading={resendPending}
               >
                 {resendCooldown > 0

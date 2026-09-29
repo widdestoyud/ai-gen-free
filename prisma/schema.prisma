@@ -99,6 +99,7 @@ model User {
   verificationTokens  EmailVerificationToken[]
   passwordResetTokens PasswordResetToken[]
   uploads             Upload[]
+  activities          UserActivityLog[]
 }
 
 model EmailVerificationToken {
@@ -364,4 +365,25 @@ model SystemLog {
   @@index([transactionId])
   @@index([userId])
   @@index([jobId])
+}
+
+model UserActivityLog {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  action     String   /// e.g. "auth.login", "auth.otp_verify", "generate.t2i", "generate.video", "upload.create", "billing.invoice_created", "billing.paid", "profile.update"
+  ip         String
+  provider   String?  /// ISP / ASN: "Telkom Indonesia", "Indosat", "Biznet", etc.
+  os         String?  /// "Windows 10/11", "macOS", "Android", "iOS", "Linux"
+  browser    String?  /// "Chrome", "Safari", "Firefox", "Edge"
+  deviceType String?  /// "desktop", "mobile", "tablet"
+  country    String?  /// "ID", "SG", "US"
+  city       String?  /// "Jakarta", "Surabaya", "Bandung"
+  region     String?  /// "DKI Jakarta", "Jawa Barat"
+  metadata   Json     @default("{}")
+  createdAt  DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([action, createdAt])
+  @@index([ip])
 }

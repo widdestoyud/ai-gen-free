@@ -22,6 +22,7 @@ import { useAccountSettings } from "@/hooks/use-account-settings";
 import { UploadPolicyModal } from "@/components/upload-policy-modal";
 import { TermsConditionsModal } from "@/components/terms-conditions-modal";
 import { SpicyConsentModal } from "@/components/spicy-consent-modal";
+import Link from "next/link";
 import classes from "./account-settings.module.css";
 
 function calculateAge(dobStr?: string | null): number | null {
@@ -659,14 +660,41 @@ export function AccountSettings({ profile: initialProfile }: { profile: Customer
         <div className={classes.rowItem}>
           <Text className={classes.rowLabel}>Ketentuan Layanan</Text>
           <div className={classes.rowValueWrapper}>
-            <Button
-              size="compact-xs"
-              variant="subtle"
-              color="blue"
-              onClick={() => ctrl.setTermsModalOpened(true)}
-            >
-              Lihat Syarat &amp; Ketentuan
-            </Button>
+            <Group gap="xs">
+              <Button
+                component={Link}
+                href="/terms"
+                size="compact-xs"
+                variant="gradient"
+                gradient={{ from: "#3b82f6", to: "#8b5cf6", deg: 135 }}
+                rightSection={
+                  <svg
+                    width={12}
+                    height={12}
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                    <polyline points="15 3 21 3 21 9" />
+                    <line x1="10" y1="14" x2="21" y2="3" />
+                  </svg>
+                }
+              >
+                Buka Syarat &amp; Ketentuan (/terms)
+              </Button>
+              <Button
+                size="compact-xs"
+                variant="subtle"
+                color="gray"
+                onClick={() => ctrl.setTermsModalOpened(true)}
+              >
+                Pratinjau
+              </Button>
+            </Group>
           </div>
         </div>
 

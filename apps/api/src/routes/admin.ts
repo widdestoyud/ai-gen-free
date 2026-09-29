@@ -28,6 +28,7 @@ import {
   updateAdminModel,
 } from "../admin/service.js";
 import { getAdminJob, getAdminJobOutputFile, listAdminJobs } from "../jobs/service.js";
+import { listUserActivities } from "../activity/service.js";
 import type IORedis from "ioredis";
 
 const cookieSecure = process.env.COOKIE_SECURE === "true";
@@ -241,6 +242,25 @@ export async function registerAdminRoutes(app: FastifyInstance, deps: { storage:
     }
   };
   app.get("/admin/users/:id", handleGetUser);
+
+  const handleGetUserActivities = async (req: any, reply: any) => {
+    const session = await requireAdmin(req, reply);
+    if (!session) return;
+    try {
+      const { id } = req.params as { id: string };
+      const query = req.query as { limit?: unknown; offset?: unknown; action?: unknown };
+      const page = parseLimitOffset(query);
+      return await listUserActivities({
+        userId: id,
+        limit: page.limit,
+        offset: page.offset,
+        action: parseOptionalQueryString(query.action),
+      });
+    } catch (err) {
+      return sendError(reply, err);
+    }
+  };
+  app.get("/admin/users/:id/activities", handleGetUserActivities);
 
   const handleResetCooldown = async (req: any, reply: any) => {
     const session = await requireAdmin(req, reply);

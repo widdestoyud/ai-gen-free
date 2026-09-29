@@ -33,6 +33,9 @@ Baca root `AGENTS.md` dan ADR 0010, 0011, 0012, 0013, 0016, 0017.
   - Verifikasi email dan reset password: halaman FE boleh baca `?token=` dari tautan email, lalu `POST` JSON `{ token }` (dan `{ token, password }` untuk konfirmasi) ke BFF. Jangan `GET /api/auth/...?token=`.
 - **Error Codes & Tracking**:
   - Tampilkan `code` ber-prefix (`AXXX`, `BXXX`, dll.) dan `transaction_id` pada `ErrorAlert` untuk memudahkan logging dan penelusuran masalah.
+- **Penyembunyian Upstream Model & Provider**:
+  - Frontend studio generator dan endpoint browser (`/api/catalog/generate`) hanya mengonsumsi dan mengirim abstract identifier (`t2i-standard`, `t2i-spicy`, `video-standard`, `video-spicy`).
+  - Dilarang menampilkan nama model mentah (OpenAI, Bytedance, Alibaba, Flux, GPT, Seedance, Seedream, Wan, Qwen) atau nama provider (Siray) di UI pelanggan atau response publik.
 
 ## Wajib
 

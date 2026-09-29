@@ -312,9 +312,12 @@ export function MediaDetailModal({
       <Modal
         opened={opened}
         onClose={handleModalClose}
-        size="960px"
+        size="1040px"
         centered
+        padding={0}
         classNames={{
+          root: classes.modalRoot,
+          inner: classes.modalInner,
           content: classes.modalContentFull,
           body: classes.modalBodyNoPadding,
           header: classes.modalHeaderClean,
@@ -547,7 +550,7 @@ export function MediaDetailModal({
                 {isGenerated && typeof item.cost === "number" ? (
                   <div className={classes.metaRow}>
                     <span className={classes.metaLabel}>Biaya</span>
-                    <span className={classes.metaValueBold}>{item.cost} Poin</span>
+                    <span className={classes.metaValueBold}>{item.cost} Sparks</span>
                   </div>
                 ) : null}
 

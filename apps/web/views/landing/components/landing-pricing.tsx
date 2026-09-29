@@ -19,25 +19,30 @@ export function LandingPricing({ onSelectPlan, packages }: LandingPricingProps) 
 
   return (
     <section className={classes.pricingSection} id="harga">
-      <Container size="lg">
-        <Stack align="center" ta="center" mb={56}>
-          <Text size="xs" fw={800} c="blue.4" tt="uppercase" lts={1}>
-            PILIHAN PAKET STARTER & PRO · TANPA LANGGANAN KARTU KREDIT
-          </Text>
-          <Title order={2} fz={{ base: "1.8rem", sm: "2.6rem" }} fw={900}>
-            Investasi hemat,
+      <Container size="xl">
+        <div className={classes.sectionHeader}>
+          <span className={classes.sectionTag}>
+            INVESTASI HEMAT · TANPA AUTO-DEBET KARTU KREDIT
+          </span>
+          <Title className={classes.sectionTitle} order={2}>
+            Pilihan Paket Transparan.
             <br />
-            hasil <span className={classes.heroTitleHighlight}>sekelas studio profesional.</span>
+            <span className={classes.heroTitleHighlight}>
+              Hasil Sekelas Studio Profesional.
+            </span>
           </Title>
-          <Text c="dimmed" maw={640} fz="md">
-            Tanpa ikatan langganan bulanan yang mengikat. Cukup beli poin saat kamu butuh
-            mulai dari Rp 49.000. Poinmu aman dan tidak pernah kedaluwarsa.
+          <Text className={classes.sectionSubtitle}>
+            Tanpa ikatan langganan bulanan yang membengkak. Cukup isi saldo sparks saat kamu butuh mulai dari Rp 49.000.
+            Sparks-mu aman selamanya dan tidak pernah kedaluwarsa.
           </Text>
-        </Stack>
+        </div>
 
         <Grid gutter="xl" align="stretch">
           {plans.map((plan) => (
-            <Grid.Col span={{ base: 12, md: Math.max(4, Math.floor(12 / Math.min(plans.length, 3))) }} key={plan.id}>
+            <Grid.Col
+              span={{ base: 12, md: Math.max(4, Math.floor(12 / Math.min(plans.length, 3))) }}
+              key={plan.id}
+            >
               <PackageCard
                 id={plan.id}
                 name={plan.name}
@@ -58,7 +63,7 @@ export function LandingPricing({ onSelectPlan, packages }: LandingPricingProps) 
 
         <Stack align="center" ta="center" mt={48} gap="xs">
           <Text size="xs" c="dimmed">
-            Poin otomatis bertambah setelah pembayaran diverifikasi. Saldo poin aman tanpa batas kedaluwarsa.
+            Sparks otomatis bertambah setelah pembayaran terverifikasi. Saldo sparks berlaku selamanya tanpa batas kedaluwarsa.
           </Text>
         </Stack>
       </Container>

@@ -23,6 +23,16 @@ export class DefaultPaymentGatewayRegistry implements PaymentGatewayRegistry {
     }
   }
 
+  setDefault(driver: PaymentGatewayDriver): void {
+    if (this.gateways.has(driver)) {
+      this.defaultDriver = driver;
+    }
+  }
+
+  getDefaultDriver(): PaymentGatewayDriver | null {
+    return this.defaultDriver;
+  }
+
   getDefault(): PaymentGatewayPort | null {
     if (!this.defaultDriver) return null;
     return this.gateways.get(this.defaultDriver) ?? null;

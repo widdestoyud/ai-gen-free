@@ -49,6 +49,7 @@ export function useLogin() {
 
   async function submitLogin(e: FormEvent) {
     e.preventDefault();
+    if (pending) return;
     resetErrors();
     setPending(true);
 
@@ -107,6 +108,7 @@ export function useLogin() {
 
   async function verifyCode(e: FormEvent) {
     e.preventDefault();
+    if (pending) return;
     resetErrors();
     setPending(true);
 

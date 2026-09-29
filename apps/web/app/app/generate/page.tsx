@@ -1,7 +1,14 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { fetchUserApi } from "@/lib/server-api";
 import type { JobsListView, JobView } from "@/lib/job-status";
 import { type Model, GeneratePageView } from "@/views/app/generate";
+
+export const metadata: Metadata = {
+  title: "AI Studio — Generate Image & Video",
+  description: "Studio pembuatan gambar dan video AI beresolusi tinggi dengan kendali kreatif penuh.",
+  robots: { index: false, follow: false },
+};
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;

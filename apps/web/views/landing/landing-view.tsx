@@ -4,16 +4,15 @@ import { useLandingPage } from "@/hooks/use-landing-page";
 import { LandingHeader } from "./components/landing-header";
 import { LandingHero } from "./components/landing-hero";
 import { LandingModels } from "./components/landing-models";
-import { LandingPainPoints } from "./components/landing-pain-points";
 import { LandingFeatures } from "./components/landing-features";
 import { LandingPrivacy } from "./components/landing-privacy";
 import { LandingSteps } from "./components/landing-steps";
 import { LandingPricing } from "./components/landing-pricing";
 import { LandingFaq } from "./components/landing-faq";
-import { LandingCta } from "./components/landing-cta";
 import { LandingFooter } from "./components/landing-footer";
 import { LoginModal } from "./components/login-modal";
 import { RegisterModal } from "./components/register-modal";
+import { ForgotPasswordModal } from "./components/forgot-password-modal";
 import { OtpModal } from "@/components/otp-modal";
 import type { PublicPackage } from "@/lib/server-api";
 import classes from "./components/landing.module.css";
@@ -26,11 +25,12 @@ export function LandingPageView({ packages }: LandingPageViewProps = {}) {
   const {
     login,
     register,
-    activePreview,
-    setActivePreview,
+    forgotPassword,
     scrollToSection,
     handleStartCreation,
     handleOpenLogin,
+    handleOpenForgotPassword,
+    handleBackToLoginFromForgot,
   } = useLandingPage();
 
   return (
@@ -42,28 +42,29 @@ export function LandingPageView({ packages }: LandingPageViewProps = {}) {
       />
 
       <main>
+        {/* Jumbotron Video Hero Section */}
         <LandingHero
           onStartCreation={handleStartCreation}
           onScrollTo={scrollToSection}
-          activePreview={activePreview}
-          onSelectPreview={setActivePreview}
         />
 
-        <LandingModels />
+        {/* Inspiration Showcase Gallery */}
+        <LandingModels onStartCreation={handleStartCreation} />
 
-        <LandingPainPoints />
-
+        {/* Core Features & Workflow Bento Grid */}
         <LandingFeatures />
 
+        {/* Privacy & Security Guarantee */}
         <LandingPrivacy />
 
+        {/* 3 Simple Steps */}
         <LandingSteps />
 
+        {/* Pricing Packages */}
         <LandingPricing packages={packages} onSelectPlan={() => handleStartCreation()} />
 
+        {/* Frequently Asked Questions */}
         <LandingFaq />
-
-        <LandingCta onStartCreation={handleStartCreation} />
       </main>
 
       <LandingFooter />
@@ -72,6 +73,7 @@ export function LandingPageView({ packages }: LandingPageViewProps = {}) {
       <LoginModal
         opened={login.loginOpened}
         onClose={login.closeLogin}
+        onForgotPassword={handleOpenForgotPassword}
         email={login.email}
         password={login.password}
         onEmailChange={login.setEmail}
@@ -98,6 +100,20 @@ export function LandingPageView({ packages }: LandingPageViewProps = {}) {
         transactionId={register.transactionId}
         pending={register.pending}
         onSubmit={register.submitRegister}
+      />
+
+      <ForgotPasswordModal
+        opened={forgotPassword.opened}
+        onClose={forgotPassword.closeForgotPassword}
+        onBackToLogin={handleBackToLoginFromForgot}
+        email={forgotPassword.email}
+        onEmailChange={forgotPassword.setEmail}
+        success={forgotPassword.success}
+        error={forgotPassword.error}
+        errorCode={forgotPassword.errorCode}
+        transactionId={forgotPassword.transactionId}
+        pending={forgotPassword.pending}
+        onSubmit={forgotPassword.submitForgotPassword}
       />
 
       <OtpModal

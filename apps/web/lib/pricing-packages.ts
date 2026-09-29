@@ -29,11 +29,11 @@ export const DEFAULT_PRICING_PLANS: PricingPlanItem[] = [
     description: "Pilihan praktis untuk kebutuhan mendesak dan eksplorasi instan.",
     popular: false,
     perks: [
-      "500 poin langsung aktif",
+      "500 sparks langsung aktif",
       "Akses studio gambar hingga 50 image",
       "Akses generator video sinematik hingga 10 video",
       "Media penyimpanan private",
-      "Poin berlaku selamanya",
+      "Sparks berlaku selamanya",
     ],
   },
   {
@@ -49,11 +49,11 @@ export const DEFAULT_PRICING_PLANS: PricingPlanItem[] = [
     description: "Nilai terbaik untuk kebutuhan rutin, konten sosmed, dan visual jualan.",
     popular: true,
     perks: [
-      "1.750 poin langsung aktif",
+      "1.750 sparks langsung aktif",
       "Akses studio gambar hingga 80 image",
       "Akses generator video sinematik hingga 30 video",
       "Media penyimpanan private",
-      "Poin berlaku selamanya",
+      "Sparks berlaku selamanya",
     ],
   },
   {
@@ -69,11 +69,11 @@ export const DEFAULT_PRICING_PLANS: PricingPlanItem[] = [
     description: "Kapasitas besar untuk agensi, desainer, dan volume produksi intensif.",
     popular: false,
     perks: [
-      "4.500 poin langsung aktif",
+      "4.500 sparks langsung aktif",
       "Akses studio gambar hingga 500 image",
       "Akses generator video sinematik hingga 90 video",
       "Media penyimpanan private",
-      "Poin berlaku selamanya",
+      "Sparks berlaku selamanya",
     ],
   },
 ];
@@ -141,16 +141,16 @@ export function buildPlanFromPackage(
   const est = getPackageEstimation(pkg);
 
   const perks = [
-    `${pkg.points.toLocaleString("id-ID")} poin langsung aktif`,
+    `${pkg.points.toLocaleString("id-ID")} sparks langsung aktif`,
     est.imageText,
     est.videoText,
     "Media penyimpanan private",
-    "Poin berlaku selamanya",
+    "Sparks berlaku selamanya",
   ];
 
   return {
     id: pkg.id,
-    name: pkg.name || pkg.label || "Paket Poin",
+    name: pkg.name || pkg.label || "Paket Sparks",
     label: pkg.badgeText || (isPopular ? "Paling Populer" : "Starter"),
     badgeText: pkg.badgeText || null,
     price: `Rp ${pkg.amountIdr.toLocaleString("id-ID")}`,
