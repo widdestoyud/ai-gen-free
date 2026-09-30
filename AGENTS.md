@@ -54,6 +54,7 @@ Jangan mengarang ulang arsitektur. Jika ingin mengubah keputusan di `docs/adr/`,
   - **Pemisahan Generate & Library**: `/app/generate` berfokus khusus pada studio/prompt submit; seluruh riwayat media yang telah digenerate dipusatkan di `/app/library` (hit `GET /api/library` yang dipetakan ke `GET /customer/generated-lists`).
   - **Kamus API Mapping**: Seluruh endpoint FE (`/api/*`) wajib terdaftar di `apps/web/lib/api-mapping.ts` (`API_MAPPINGS` & `resolveBackendPath`) untuk menjamin transparansi pemetaan kontrak FE ke Fastify backend (`/customer/...`, `/admin/...`, `/invoices/...`).
 - Koleksi & Environment Postman: hanya **1 file koleksi** (`postman/ai-gen-free.postman_collection.json`) dan **1 file environment** (`postman/local.postman_environment.json`). Update Postman wajib menjaga tepat 1 koleksi dan 1 environment tanpa file ganda/duplikat.
+- Paginasi, Pengurutan, & Penyaringan Server-Side (ADR 0018): Seluruh API daftar data (`GET /admin/invoices`, `GET /admin/users`, `GET /customer/invoices`, `GET /customer/generated-lists`, `GET /admin/audit-logs`, dll.) **WAJIB** mengeksekusi paginasi (`page`, `limit`), penyaringan (`status`, `q`), dan pengurutan (`sortBy`, `sortOrder`) secara server-side pada database query layer dengan dukungan PostgreSQL Composite Indexing. Frontend (`apps/web`) **DILARANG** mengambil seluruh data lalu melakukan slice/filter/sort di memori browser.
 - Seluruh stack jalan lewat Docker Compose.
 
 
@@ -98,6 +99,7 @@ UI dan Route Handler Next.js **dilarang** memanggil SDK Siray, Prisma wallet mut
 - Public-read bucket untuk hasil generate.
 - Face swap orang nyata sebagai fitur default tanpa keputusan produk baru + ADR.
 - Memanggil atau mendaftarkan endpoint API di frontend tanpa mencatatnya di `apps/web/lib/api-mapping.ts`.
+- Melakukan client-side slicing/pagination, filtering, atau sorting pada daftar data di frontend (ADR 0018).
 - Mengekspos nama model upstream (OpenAI, Bytedance, Alibaba, Flux, GPT, Seedance, Wan, Qwen, dsb.) dan nama provider (Siray, dsb.) pada endpoint publik/pelanggan yang diakses browser (seperti `GET /api/catalog/generate`, `GET /customer/models`, `GET /customer/generated-lists`, dsb.). Endpoint browser hanya boleh mengekspos identifier abstrak (`t2i-standard`, `t2i-spicy`, `video-standard`, `video-spicy`), mode, isSpicy, dan matriks poin (`costPoints`/`videoConfigPoints`). Detail provider dan nama model mentah hanya untuk internal backend worker dan panel admin `/admin/*`.
 
 ## Cara menambah fitur

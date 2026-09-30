@@ -19,6 +19,9 @@ import { formatBytes, resolveUploadUrl } from "@/lib/format";
 import { extractReferenceImages, type ReferenceImageItem } from "@/lib/job-status";
 import { downloadMediaFile } from "@/lib/download-media";
 import { useImageViewer } from "@/hooks/use-image-viewer";
+import { SparkleIcon } from "./library-icons";
+import { requestJson } from "@/lib/api";
+import { ErrorAlert } from "@/components/error-alert";
 import classes from "./media-detail-modal.module.css";
 
 function DownloadIcon({ size = 16 }: { size?: number }) {
@@ -230,6 +233,7 @@ export function MediaDetailModal({
   items,
   onSelectItem,
   onDeleteUpload,
+  onUpscaleSuccess,
 }: {
   opened: boolean;
   onClose: () => void;
@@ -237,11 +241,17 @@ export function MediaDetailModal({
   items: LibraryItem[];
   onSelectItem: (item: LibraryItem) => void;
   onDeleteUpload?: (id: string) => Promise<boolean>;
+  onUpscaleSuccess?: () => void;
 }) {
   const [previewRef, setPreviewRef] = useState<ReferenceImageItem | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [upscaleCost, setUpscaleCost] = useState<number>(5);
+  const [confirmUpscale, setConfirmUpscale] = useState(false);
+  const [isUpscaling, setIsUpscaling] = useState(false);
+  const [upscaleError, setUpscaleError] = useState<string | null>(null);
+  const [upscaleSuccessMsg, setUpscaleSuccessMsg] = useState<string | null>(null);
   const viewer = useImageViewer({ resetKey: `${item?.id}-${opened}` });
 
   const currentIndex = items.findIndex((i) => i.id === item?.id);
@@ -250,7 +260,29 @@ export function MediaDetailModal({
 
   useEffect(() => {
     setConfirmDelete(false);
+    setConfirmUpscale(false);
+    setUpscaleError(null);
+    setUpscaleSuccessMsg(null);
   }, [item?.id, opened]);
+
+  useEffect(() => {
+    let active = true;
+    async function fetchCatalog() {
+      const res = await requestJson<{ models?: Array<{ modelId: string; costPoints: number }> }>("/api/catalog/generate");
+      if (active && res.ok && res.data?.models) {
+        const found = res.data.models.find(
+          (m) => m.modelId === "image-upscale" || m.modelId.toLowerCase().includes("upscale")
+        );
+        if (found && typeof found.costPoints === "number") {
+          setUpscaleCost(found.costPoints);
+        }
+      }
+    }
+    void fetchCatalog();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!opened) return;
@@ -304,6 +336,39 @@ export function MediaDetailModal({
       });
     } finally {
       setIsDownloading(false);
+    }
+  };
+
+  const handleUpscale = async () => {
+    if (!item?.url) return;
+    setIsUpscaling(true);
+    setUpscaleError(null);
+    setUpscaleSuccessMsg(null);
+    try {
+      const res = await requestJson<{ id?: string; job_id?: string }>("/api/generate", {
+        method: "POST",
+        body: JSON.stringify({
+          mode: "i2i",
+          modelId: "image-upscale",
+          prompt: "",
+          params: {
+            image: item.url,
+            upscale_mode: "factor",
+            upscale_factor: 8.0,
+          },
+        }),
+      });
+      if (!res.ok) {
+        setUpscaleError(res.message || "Gagal memulai proses upscale");
+        return;
+      }
+      setUpscaleSuccessMsg("Proses upscale 8x sedang berjalan! Hasil resolusi tinggi akan muncul di Library.");
+      setConfirmUpscale(false);
+      onUpscaleSuccess?.();
+    } catch (err) {
+      setUpscaleError(err instanceof Error ? err.message : "Terjadi kesalahan saat memulai upscale");
+    } finally {
+      setIsUpscaling(false);
     }
   };
 
@@ -430,18 +495,61 @@ export function MediaDetailModal({
                   </Badge>
                 </div>
 
-                {/* Tombol Aksi (Download & Delete) */}
+                {/* Tombol Aksi (Download, Upscale & Delete) */}
                 {item.url ? (
-                  <Button
-                    onClick={() => void handleDownload()}
-                    loading={isDownloading}
-                    variant="filled"
-                    fullWidth
-                    leftSection={<DownloadIcon size={16} />}
-                    className={classes.primaryDownloadBtn}
+                  !isVideo ? (
+                    <div className={classes.actionButtonsRow}>
+                      <Button
+                        onClick={() => void handleDownload()}
+                        loading={isDownloading}
+                        variant="filled"
+                        leftSection={<DownloadIcon size={16} />}
+                        className={classes.primaryDownloadBtn}
+                      >
+                        Download
+                      </Button>
+                      <Button
+                        onClick={() => {
+                          setUpscaleError(null);
+                          setConfirmUpscale(true);
+                        }}
+                        loading={isUpscaling}
+                        variant="filled"
+                        leftSection={<SparkleIcon size={14} />}
+                        className={classes.upscaleBtn}
+                      >
+                        Upscale ({upscaleCost} Sparks)
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button
+                      onClick={() => void handleDownload()}
+                      loading={isDownloading}
+                      variant="filled"
+                      fullWidth
+                      leftSection={<DownloadIcon size={16} />}
+                      className={classes.primaryDownloadBtn}
+                    >
+                      Download
+                    </Button>
+                  )
+                ) : null}
+
+                {upscaleError ? <ErrorAlert message={upscaleError} /> : null}
+
+                {upscaleSuccessMsg ? (
+                  <Paper
+                    p="xs"
+                    radius="md"
+                    style={{
+                      background: "rgba(34, 197, 94, 0.15)",
+                      border: "1px solid rgba(34, 197, 94, 0.3)",
+                    }}
                   >
-                    Download
-                  </Button>
+                    <Text size="xs" c="green.3" fw={500}>
+                      {upscaleSuccessMsg}
+                    </Text>
+                  </Paper>
                 ) : null}
 
                 {item.type === "upload" && onDeleteUpload ? (
@@ -672,6 +780,62 @@ export function MediaDetailModal({
           </Group>
         </Stack>
       ) : null}
+    </Modal>
+
+    {/* Modal Konfirmasi Upscale */}
+    <Modal
+      opened={confirmUpscale}
+      onClose={() => {
+        if (!isUpscaling) setConfirmUpscale(false);
+      }}
+      title="Tingkatkan Resolusi Gambar (Upscale)"
+      size="md"
+      centered
+      zIndex={350}
+    >
+      <Stack gap="md">
+        <Text size="sm" c="dimmed">
+          Tingkatkan kualitas dan ketajaman gambar hingga 8x lipat lebih tinggi menggunakan AI Image Upscaler.
+        </Text>
+
+        <Paper p="sm" withBorder radius="md" bg="rgba(255, 255, 255, 0.03)">
+          <Group justify="space-between">
+            <div>
+              <Text size="xs" c="dimmed">
+                Biaya Poin
+              </Text>
+              <Text size="sm" fw={600}>
+                Layanan AI Upscale
+              </Text>
+            </div>
+            <Badge color="violet" size="lg" variant="light" leftSection={<SparkleIcon size={12} />}>
+              {upscaleCost} Sparks
+            </Badge>
+          </Group>
+        </Paper>
+
+        {upscaleError ? <ErrorAlert message={upscaleError} /> : null}
+
+        <Group justify="flex-end" gap="xs" mt="xs">
+          <Button
+            variant="default"
+            size="sm"
+            disabled={isUpscaling}
+            onClick={() => setConfirmUpscale(false)}
+          >
+            Batal
+          </Button>
+          <Button
+            className={classes.upscaleBtn}
+            size="sm"
+            loading={isUpscaling}
+            leftSection={<SparkleIcon size={14} />}
+            onClick={() => void handleUpscale()}
+          >
+            Mulai Upscale
+          </Button>
+        </Group>
+      </Stack>
     </Modal>
   </>
   );

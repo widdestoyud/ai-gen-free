@@ -119,23 +119,36 @@ function parseBlock(blockText: string, defaultJobId?: string): ParsedEntry[] {
       }
     }
 
+    const isFal =
+      fields.provider === "falai" ||
+      fields.provider === "fal" ||
+      fields.service === "falai" ||
+      fields.falRequestId !== undefined ||
+      fields.falStatus !== undefined;
+    const service = isFal ? "falai" : (fields.service || "siray");
+
     const isError = Boolean(
       (httpStatus && httpStatus >= 400) ||
       fields.error ||
       fields.sirayFailCode ||
-      (fields.sirayCode && fields.sirayCode !== "success" && fields.sirayCode !== "0")
+      (fields.sirayCode && fields.sirayCode !== "success" && fields.sirayCode !== "0") ||
+      (fields.falStatus === "ERROR")
     );
 
     const level = isError ? "error" : "info";
-    const event = `siray.${phase}.${isError ? "failed" : "succeeded"}`;
+    const event = `${service}.${phase}.${isError ? "failed" : "succeeded"}`;
     const message = isError
-      ? `Siray HTTP ${httpStatus || "ERR"} [${fields.sirayCode || fields.sirayFailCode || "error"}]: ${fields.sirayMessage || fields.error || "Provider call failed"}`
-      : `Siray ${fields.phase || "call"} ${httpMethod || ""} ${httpPath || ""} berhasil (${httpStatus || 200})`;
+      ? (isFal
+          ? `fal.ai HTTP ${httpStatus || "ERR"}: ${fields.error || "Provider call failed"}`
+          : `Siray HTTP ${httpStatus || "ERR"} [${fields.sirayCode || fields.sirayFailCode || "error"}]: ${fields.sirayMessage || fields.error || "Provider call failed"}`)
+      : (isFal
+          ? `fal.ai ${fields.phase || "call"} ${httpMethod || ""} ${httpPath || ""} berhasil (${httpStatus || 200})`
+          : `Siray ${fields.phase || "call"} ${httpMethod || ""} ${httpPath || ""} berhasil (${httpStatus || 200})`);
 
     entries.push({
       timestamp: validTime,
       level,
-      service: "siray",
+      service,
       event,
       message,
       jobId,
@@ -145,7 +158,7 @@ function parseBlock(blockText: string, defaultJobId?: string): ParsedEntry[] {
       httpStatus,
       error: isError
         ? {
-            code: fields.sirayCode || fields.sirayFailCode,
+            code: fields.sirayCode || fields.sirayFailCode || (fields.falStatus === "ERROR" ? "FAL_ERROR" : undefined),
             message: fields.sirayMessage || fields.error,
             rawError: fields.error,
           }
@@ -155,6 +168,10 @@ function parseBlock(blockText: string, defaultJobId?: string): ParsedEntry[] {
         sirayTaskId: fields.sirayTaskId,
         sirayStatus: fields.sirayStatus,
         sirayProgress: fields.sirayProgress,
+        falRequestId: fields.falRequestId,
+        falStatus: fields.falStatus,
+        falQueuePosition: fields.falQueuePosition,
+        falDetail: fields.falDetail,
         request: reqObj as any,
         response: resObj as any,
       },
@@ -217,7 +234,8 @@ export async function syncLogFiles(): Promise<SyncResult> {
   }
 
   const sirayDir = join(baseDir, "siray");
-  const targetDirs = [sirayDir, baseDir].filter((d) => existsSync(d));
+  const falDir = join(baseDir, "fal");
+  const targetDirs = [sirayDir, falDir, baseDir].filter((d) => existsSync(d));
 
   let totalScanned = 0;
   let totalNew = 0;
@@ -380,6 +398,18 @@ export function startLogWatcher(): () => void {
           triggerDebouncedSync();
         });
         watchers.push(w2);
+      } catch {
+        // ignore
+      }
+    }
+
+    const falDir = join(baseDir, "fal");
+    if (existsSync(falDir)) {
+      try {
+        const w3 = watch(falDir, () => {
+          triggerDebouncedSync();
+        });
+        watchers.push(w3);
       } catch {
         // ignore
       }

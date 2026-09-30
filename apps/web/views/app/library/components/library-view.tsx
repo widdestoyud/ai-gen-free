@@ -321,6 +321,7 @@ export function LibraryView(props: {
         items={ctrl.items}
         onSelectItem={ctrl.openPreview}
         onDeleteUpload={ctrl.deleteUpload}
+        onUpscaleSuccess={() => void ctrl.refreshLibrary()}
       />
 
       <UploadPolicyModal

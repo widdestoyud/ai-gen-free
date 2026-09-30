@@ -107,6 +107,13 @@ function ensureSnapScriptLoaded(clientKey?: string, snapUrl?: string): Promise<b
   });
 }
 
+export type PaymentMethodsResponse = {
+  manualEnabled: boolean;
+  onlineEnabled: boolean;
+  activeOnlineGateway?: string | null;
+  methods: PaymentMethod[];
+};
+
 export function usePayment() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -114,21 +121,26 @@ export function usePayment() {
   const [paymentResult, setPaymentResult] = useState<PaymentResult | null>(null);
 
   /**
-   * Get available payment methods
+   * Get available payment methods and status
    */
-  const getPaymentMethods = useCallback(async (): Promise<PaymentMethod[]> => {
-    const result = await requestJson<{ methods?: PaymentMethod[] }>("/api/payment/methods");
-    if (!result.ok) {
-      return [
-        {
-          id: "manual",
-          name: "Transfer Manual",
-          description: "Transfer ke rekening dan unggah bukti",
-          enabled: true,
-        },
-      ];
+  const getPaymentMethods = useCallback(async (): Promise<PaymentMethodsResponse> => {
+    const result = await requestJson<PaymentMethodsResponse>("/api/payment/methods");
+    if (!result.ok || !result.data) {
+      return {
+        manualEnabled: true,
+        onlineEnabled: false,
+        activeOnlineGateway: null,
+        methods: [
+          {
+            id: "manual",
+            name: "Transfer Manual",
+            description: "Transfer ke rekening dan unggah bukti",
+            enabled: true,
+          },
+        ],
+      };
     }
-    return result.data?.methods ?? [];
+    return result.data;
   }, []);
 
   /**

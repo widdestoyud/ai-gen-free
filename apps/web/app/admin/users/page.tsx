@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { AdminUsersPageView } from "@/views/admin/users";
-import { ADMIN_PAGE_SIZE, parseOffset, type AdminUserRow } from "@/lib/admin";
+import type { AdminUserRow } from "@/lib/admin";
+import type { PaginationMeta } from "@/app/admin/page";
 import { fetchAdminApi, loadAdminMe } from "@/lib/server-api";
 
 export const metadata: Metadata = {
@@ -9,25 +10,76 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-async function loadUsers(q: string, offset: number) {
-  const params = new URLSearchParams();
-  if (q) params.set("q", q);
-  params.set("limit", String(ADMIN_PAGE_SIZE));
-  params.set("offset", String(offset));
-  const res = await fetchAdminApi(`/api/admin/users?${params.toString()}`);
-  if (!res || !res.ok) return [] as AdminUserRow[];
-  return ((await res.json()) as { users: AdminUserRow[] }).users;
+async function loadUsers(params?: {
+  q?: string;
+  role?: string;
+  page?: string;
+  limit?: string;
+  sortBy?: string;
+  sortOrder?: string;
+}): Promise<{ users: AdminUserRow[]; pagination: PaginationMeta }> {
+  const query = new URLSearchParams();
+  if (params?.q) query.set("q", params.q);
+  if (params?.role && params.role !== "all") query.set("role", params.role);
+  if (params?.page) query.set("page", params.page);
+  if (params?.limit) query.set("limit", params.limit);
+  if (params?.sortBy) query.set("sortBy", params.sortBy);
+  if (params?.sortOrder) query.set("sortOrder", params.sortOrder);
+
+  const qs = query.toString();
+  const res = await fetchAdminApi(`/api/admin/users${qs ? `?${qs}` : ""}`);
+  if (!res || !res.ok) {
+    return {
+      users: [],
+      pagination: {
+        page: Number(params?.page ?? 1),
+        limit: Number(params?.limit ?? 10),
+        total: 0,
+        totalPages: 1,
+        hasNext: false,
+        hasPrev: false,
+      },
+    };
+  }
+  const data = (await res.json()) as {
+    users?: AdminUserRow[];
+    items?: AdminUserRow[];
+    pagination?: PaginationMeta;
+  };
+  const list = data.items ?? data.users ?? [];
+  return {
+    users: list,
+    pagination: data.pagination ?? {
+      page: Number(params?.page ?? 1),
+      limit: Number(params?.limit ?? 10),
+      total: list.length,
+      totalPages: 1,
+      hasNext: false,
+      hasPrev: false,
+    },
+  };
 }
 
-export default async function AdminUsersPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ q?: string; offset?: string }>;
+export default async function AdminUsersPage(props: {
+  searchParams: Promise<{
+    q?: string;
+    role?: string;
+    page?: string;
+    limit?: string;
+    sortBy?: string;
+    sortOrder?: string;
+  }>;
 }) {
   const me = await loadAdminMe();
-  const sp = await searchParams;
-  const q = sp.q?.trim() ?? "";
-  const offset = parseOffset(sp.offset);
-  const users = me ? await loadUsers(q, offset) : [];
-  return <AdminUsersPageView me={me} users={users} q={q} offset={offset} />;
+  const searchParams = await props.searchParams;
+  const result = me ? await loadUsers(searchParams) : { users: [], pagination: { page: 1, limit: 10, total: 0, totalPages: 1, hasNext: false, hasPrev: false } };
+
+  return (
+    <AdminUsersPageView
+      me={me}
+      users={result.users}
+      pagination={result.pagination}
+      currentParams={searchParams}
+    />
+  );
 }

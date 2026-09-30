@@ -183,3 +183,18 @@ export function CloseIcon({ size = 14, ...props }: SVGProps<SVGSVGElement> & { s
     </svg>
   );
 }
+
+export function SparkleIcon({ size = 14, ...props }: SVGProps<SVGSVGElement> & { size?: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      {...props}
+    >
+      <path d="M12 2L14.2 8.8L21 11L14.2 13.2L12 20L9.8 13.2L3 11L9.8 8.8L12 2Z" />
+      <path d="M19 17L19.8 19.2L22 20L19.8 20.8L19 23L18.2 20.8L16 20L18.2 19.2L19 17Z" />
+    </svg>
+  );
+}

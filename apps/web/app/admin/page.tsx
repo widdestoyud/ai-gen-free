@@ -26,6 +26,15 @@ export type AdminInvoiceItem = {
   reviewNote?: string | null;
 };
 
+export type PaginationMeta = {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+  hasNext: boolean;
+  hasPrev: boolean;
+};
+
 // Backward-compatible alias for existing imports
 export type InboxItem = AdminInvoiceItem;
 
@@ -47,52 +56,101 @@ async function notifications() {
   };
 }
 
-async function fetchInvoices(): Promise<AdminInvoiceItem[]> {
-  const res = await fetchAdminApi("/api/admin/invoices");
-  if (!res || !res.ok) return [];
+async function fetchInvoices(params?: {
+  page?: string;
+  limit?: string;
+  status?: string;
+  sortBy?: string;
+  sortOrder?: string;
+  q?: string;
+}): Promise<{ items: AdminInvoiceItem[]; pagination: PaginationMeta }> {
+  const query = new URLSearchParams();
+  if (params?.page) query.set("page", params.page);
+  if (params?.limit) query.set("limit", params.limit);
+  if (params?.status) query.set("status", params.status);
+  if (params?.sortBy) query.set("sortBy", params.sortBy);
+  if (params?.sortOrder) query.set("sortOrder", params.sortOrder);
+  if (params?.q) query.set("q", params.q);
+
+  const qs = query.toString();
+  const res = await fetchAdminApi(`/api/admin/invoices${qs ? `?${qs}` : ""}`);
+  if (!res || !res.ok) {
+    return {
+      items: [],
+      pagination: {
+        page: Number(params?.page ?? 1),
+        limit: Number(params?.limit ?? 10),
+        total: 0,
+        totalPages: 1,
+        hasNext: false,
+        hasPrev: false,
+      },
+    };
+  }
   const data = (await res.json()) as {
-    invoices?: Array<{
-      id: string;
-      uniqueCode: string;
-      email: string;
-      amountIdr: number;
-      points: number;
-      proofSubmittedAt: string | null;
-      status: string;
-      statusLabel?: string;
-      paymentMethod?: string | null;
-      paymentGateway?: string | null;
-      gatewayPaymentChannel?: string | null;
-      gatewayExpiredAt?: string | null;
-      createdAt: string;
-      paidAt?: string | null;
-      reviewNote?: string | null;
-    }>;
+    invoices?: Array<any>;
+    items?: Array<any>;
+    pagination?: PaginationMeta;
   };
-  return (data.invoices ?? []).map((inv) => ({
-    invoiceId: inv.id,
-    uniqueCode: inv.uniqueCode,
-    email: inv.email,
-    amountIdr: inv.amountIdr,
-    points: inv.points,
-    proofSubmittedAt: inv.proofSubmittedAt,
-    status: inv.status,
-    statusLabel: inv.statusLabel,
-    paymentMethod: inv.paymentMethod,
-    paymentGateway: inv.paymentGateway,
-    gatewayPaymentChannel: inv.gatewayPaymentChannel,
-    gatewayExpiredAt: inv.gatewayExpiredAt,
-    createdAt: inv.createdAt,
-    paidAt: inv.paidAt,
-    reviewNote: inv.reviewNote,
-  }));
+  const list = data.items ?? data.invoices ?? [];
+  return {
+    items: list.map((inv) => ({
+      invoiceId: inv.id || inv.invoiceId,
+      uniqueCode: inv.uniqueCode,
+      email: inv.email,
+      amountIdr: inv.amountIdr,
+      points: inv.points,
+      proofSubmittedAt: inv.proofSubmittedAt,
+      status: inv.status,
+      statusLabel: inv.statusLabel,
+      paymentMethod: inv.paymentMethod,
+      paymentGateway: inv.paymentGateway,
+      gatewayPaymentChannel: inv.gatewayPaymentChannel,
+      gatewayExpiredAt: inv.gatewayExpiredAt,
+      createdAt: inv.createdAt,
+      paidAt: inv.paidAt,
+      reviewNote: inv.reviewNote,
+    })),
+    pagination: data.pagination ?? {
+      page: Number(params?.page ?? 1),
+      limit: Number(params?.limit ?? 10),
+      total: list.length,
+      totalPages: 1,
+      hasNext: false,
+      hasPrev: false,
+    },
+  };
 }
 
-export default async function AdminHomePage() {
+export default async function AdminHomePage(props: {
+  searchParams: Promise<{
+    page?: string;
+    limit?: string;
+    status?: string;
+    sortBy?: string;
+    sortOrder?: string;
+    q?: string;
+  }>;
+}) {
+  const searchParams = await props.searchParams;
   const me = await loadAdminMe();
-  const [inbox, allInvoices] = me
-    ? await Promise.all([notifications(), fetchInvoices()])
-    : [{ pendingCount: 0, openCount: 0, items: [], openItems: [] }, []];
+  const [inbox, invoicesData] = me
+    ? await Promise.all([notifications(), fetchInvoices(searchParams)])
+    : [
+        { pendingCount: 0, openCount: 0, items: [], openItems: [] },
+        {
+          items: [],
+          pagination: { page: 1, limit: 10, total: 0, totalPages: 1, hasNext: false, hasPrev: false },
+        },
+      ];
 
-  return <AdminHomeView me={me} inbox={inbox} allInvoices={allInvoices} />;
+  return (
+    <AdminHomeView
+      me={me}
+      inbox={inbox}
+      allInvoices={invoicesData.items}
+      pagination={invoicesData.pagination}
+      currentParams={searchParams}
+    />
+  );
 }

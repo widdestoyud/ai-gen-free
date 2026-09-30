@@ -2,12 +2,14 @@ import { Text } from "@mantine/core";
 import { AdminLoginForm } from "./components/admin-login-form";
 import { AdminPageShell } from "./components/admin-page-shell";
 import { AdminInbox } from "./components/admin-inbox";
-import type { AdminInvoiceItem } from "@/app/admin/page";
+import type { AdminInvoiceItem, PaginationMeta } from "@/app/admin/page";
 
 export function AdminHomeView({
   me,
   inbox,
   allInvoices = [],
+  pagination,
+  currentParams,
 }: {
   me: { user: { id: string; email: string; role: string } } | null;
   inbox: {
@@ -17,6 +19,15 @@ export function AdminHomeView({
     openItems: AdminInvoiceItem[];
   };
   allInvoices?: AdminInvoiceItem[];
+  pagination?: PaginationMeta;
+  currentParams?: {
+    page?: string;
+    limit?: string;
+    status?: string;
+    sortBy?: string;
+    sortOrder?: string;
+    q?: string;
+  };
 }) {
   if (!me) return <AdminLoginForm />;
 
@@ -36,6 +47,8 @@ export function AdminHomeView({
         allInvoices={allInvoices}
         pendingCount={inbox.pendingCount}
         openCount={inbox.openCount}
+        pagination={pagination}
+        currentParams={currentParams}
       />
     </AdminPageShell>
   );

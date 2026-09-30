@@ -7,9 +7,11 @@ import type { AdminModelItem, DefaultGenerationModelsConfig } from "./types";
 export function AdminModelsView({
   config,
   models,
+  selectedProvider = "all",
 }: {
   config: DefaultGenerationModelsConfig;
   models: AdminModelItem[];
+  selectedProvider?: string;
 }) {
   return (
     <AdminPageShell title="Pengaturan Model AI (Video & Gambar)">
@@ -22,7 +24,7 @@ export function AdminModelsView({
 
         <ModelDefaultsForm initialConfig={config} models={models} />
 
-        <ModelCatalogTable models={models} />
+        <ModelCatalogTable models={models} selectedProvider={selectedProvider} />
       </Stack>
     </AdminPageShell>
   );

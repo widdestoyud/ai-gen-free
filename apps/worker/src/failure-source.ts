@@ -1,4 +1,4 @@
-export type FailureSource = "siray" | "storage" | "app";
+export type FailureSource = "siray" | "falai" | "storage" | "app";
 
 export type ClassifiedFailure = {
   source: FailureSource;
@@ -30,11 +30,23 @@ export function classifyJobFailure(errorCode: string, err?: unknown): Classified
     };
   }
 
+  if (isFalFailure(blob)) {
+    return {
+      source: "falai",
+      errorCode,
+      message: `Gagal fal.ai: ${providerMessage(errorCode, detail)}`,
+      hint:
+        errorCode === "W002"
+          ? "fal.ai ContentPolicyViolation / NSFW detected: ubah prompt."
+          : "Cek FAL_KEY, kuota/akun fal.ai, dan log phase=submit|poll.",
+    };
+  }
+
   if (isSirayFailure(blob, errorCode)) {
     return {
       source: "siray",
       errorCode,
-      message: `Gagal Siray: ${sirayMessage(errorCode, detail)}`,
+      message: `Gagal Siray: ${providerMessage(errorCode, detail)}`,
       hint:
         errorCode === "W002"
           ? "Siray ContentPolicyViolation: ubah prompt. Bukan token, kuota, atau R2. GET job tetap 200 + errorCode W002 + errorMessage."
@@ -79,12 +91,16 @@ function isStorageFailure(blob: string, errorCode: string): boolean {
   );
 }
 
+function isFalFailure(blob: string): boolean {
+  return /fal\.ai|falai|fal_key|fal_api_key/.test(blob);
+}
+
 function isSirayFailure(blob: string, errorCode: string): boolean {
   if (["W001", "W002", "W003", "W004", "W005", "W007"].includes(errorCode)) return true;
   return /siray|provider_|output download|token bucket|task_id|circuit breaker/.test(blob);
 }
 
-function sirayMessage(errorCode: string, detail: string): string {
+function providerMessage(errorCode: string, detail: string): string {
   switch (errorCode) {
     case "W001":
       return `token/konfigurasi penyedia kosong atau ditolak (401/403). ${detail}`.trim();

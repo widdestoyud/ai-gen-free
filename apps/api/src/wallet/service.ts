@@ -85,12 +85,14 @@ export async function createInvoice(
 }
 
 export async function getInvoiceForUser(userId: string, id: string) {
+  await autoExpireInvoices();
   const invoice = await prisma.invoice.findFirst({ where: { id, userId } });
   if (!invoice) throw new AuthError(ErrorCodes.NOT_FOUND, "Invoice tidak ditemukan", 404);
   return serializeInvoice(invoice, true);
 }
 
 export async function listInvoicesForUser(userId: string) {
+  await autoExpireInvoices();
   const rows = await prisma.invoice.findMany({
     where: { userId },
     orderBy: { createdAt: "desc" },
@@ -99,19 +101,97 @@ export async function listInvoicesForUser(userId: string) {
   return rows.map((row) => serializeInvoice(row, true));
 }
 
-export async function listAdminInvoices() {
-  const rows = await prisma.invoice.findMany({
-    orderBy: { createdAt: "desc" },
-    take: 100,
-    include: { user: { select: { email: true } } },
+export async function autoExpireInvoices() {
+  const now = new Date();
+  const manualCutoff = new Date(now.getTime() - 60 * 60 * 1000);
+  await prisma.invoice.updateMany({
+    where: {
+      status: "unpaid",
+      OR: [
+        { gatewayExpiredAt: { lte: now } },
+        { gatewayExpiredAt: null, createdAt: { lte: manualCutoff } },
+      ],
+    },
+    data: { status: "expired" },
   });
-  return rows.map((row) => ({
+}
+
+export async function listAdminInvoices(opts?: {
+  status?: string;
+  page?: number;
+  limit?: number;
+  sortBy?: string;
+  sortOrder?: "asc" | "desc";
+  q?: string;
+}) {
+  await autoExpireInvoices();
+
+  const page = Math.max(1, opts?.page ?? 1);
+  const limit = Math.min(100, Math.max(1, opts?.limit ?? 10));
+  const skip = (page - 1) * limit;
+  const sortOrder = opts?.sortOrder === "asc" ? ("asc" as const) : ("desc" as const);
+  const sortBy = opts?.sortBy ?? "createdAt";
+
+  const where: Prisma.InvoiceWhereInput = {};
+  const status = opts?.status?.toLowerCase().trim();
+
+  if (status === "pending") {
+    where.status = { in: ["awaiting_review", "unpaid"] };
+  } else if (status === "canceled") {
+    where.status = { in: ["canceled", "rejected"] };
+  } else if (status === "kurasi") {
+    where.status = "awaiting_review";
+  } else if (status === "open") {
+    where.status = "unpaid";
+  } else if (status && status !== "all") {
+    where.status = status as any;
+  }
+
+  if (opts?.q && opts.q.trim()) {
+    const q = opts.q.trim();
+    where.OR = [
+      { uniqueCode: { contains: q, mode: "insensitive" } },
+      { user: { email: { contains: q, mode: "insensitive" } } },
+    ];
+  }
+
+  let orderBy: Prisma.InvoiceOrderByWithRelationInput = { createdAt: sortOrder };
+  if (sortBy === "amountIdr") orderBy = { amountIdr: sortOrder };
+  else if (sortBy === "points") orderBy = { points: sortOrder };
+  else if (sortBy === "status") orderBy = { status: sortOrder };
+  else if (sortBy === "uniqueCode") orderBy = { uniqueCode: sortOrder };
+
+  const [total, rows] = await Promise.all([
+    prisma.invoice.count({ where }),
+    prisma.invoice.findMany({
+      where,
+      orderBy,
+      skip,
+      take: limit,
+      include: { user: { select: { email: true } } },
+    }),
+  ]);
+
+  const items = rows.map((row) => ({
     ...serializeInvoice(row, false),
     email: row.user.email,
   }));
+
+  return {
+    items,
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit) || 1,
+      hasNext: page * limit < total,
+      hasPrev: page > 1,
+    },
+  };
 }
 
 export async function listNotifications() {
+  await autoExpireInvoices();
   const whereReview = { status: "awaiting_review" as const };
   const whereOpen = { status: "unpaid" as const };
 
@@ -132,21 +212,24 @@ export async function listNotifications() {
     }),
   ]);
 
-  const mapItem = (row: typeof reviewRows[0]) => ({
-    invoiceId: row.id,
-    uniqueCode: row.uniqueCode,
-    email: row.user.email,
-    amountIdr: asInt(row.amountIdr),
-    points: asInt(row.points),
-    proofSubmittedAt: row.proofSubmittedAt?.toISOString() ?? null,
-    status: row.status,
-    statusLabel: statusLabel(row.status),
-    paymentMethod: row.paymentMethod ?? null,
-    paymentGateway: row.paymentGateway ?? null,
-    gatewayPaymentChannel: row.gatewayPaymentChannel ?? null,
-    gatewayExpiredAt: row.gatewayExpiredAt?.toISOString() ?? null,
-    createdAt: row.createdAt.toISOString(),
-  });
+  const mapItem = (row: typeof reviewRows[0]) => {
+    const serialized = serializeInvoice(row, false);
+    return {
+      invoiceId: row.id,
+      uniqueCode: row.uniqueCode,
+      email: row.user.email,
+      amountIdr: asInt(row.amountIdr),
+      points: asInt(row.points),
+      proofSubmittedAt: row.proofSubmittedAt?.toISOString() ?? null,
+      status: serialized.status,
+      statusLabel: serialized.statusLabel,
+      paymentMethod: row.paymentMethod ?? null,
+      paymentGateway: row.paymentGateway ?? null,
+      gatewayPaymentChannel: row.gatewayPaymentChannel ?? null,
+      gatewayExpiredAt: row.gatewayExpiredAt?.toISOString() ?? null,
+      createdAt: row.createdAt.toISOString(),
+    };
+  };
 
   return {
     pendingCount,
@@ -180,7 +263,8 @@ export async function submitProof(opts: {
   const now = new Date();
   const isExpired =
     invoice.status === "expired" ||
-    (invoice.gatewayExpiredAt && invoice.gatewayExpiredAt < now);
+    (invoice.gatewayExpiredAt && invoice.gatewayExpiredAt < now) ||
+    (!invoice.gatewayExpiredAt && now.getTime() - invoice.createdAt.getTime() > 60 * 60 * 1000);
 
   if (isExpired) {
     if (invoice.status !== "expired") {
@@ -519,11 +603,13 @@ function serializeInvoice(
 ) {
   const amountIdr = asInt(invoice.amountIdr);
   const now = new Date();
+  const manualExpiry = new Date(invoice.createdAt.getTime() + 60 * 60 * 1000);
   const isExpired =
     invoice.status === "expired" ||
     ((invoice.status === "unpaid" || invoice.status === "rejected") &&
-      invoice.gatewayExpiredAt &&
-      new Date(invoice.gatewayExpiredAt) < now);
+      (invoice.gatewayExpiredAt
+        ? new Date(invoice.gatewayExpiredAt) < now
+        : manualExpiry < now));
 
   const effectiveStatus = isExpired ? "expired" : invoice.status;
 
@@ -543,6 +629,7 @@ function serializeInvoice(
     paymentGateway: invoice.paymentGateway ?? null,
     gatewayPaymentChannel: invoice.gatewayPaymentChannel ?? null,
     gatewayExpiredAt: invoice.gatewayExpiredAt?.toISOString() ?? null,
+    expiredAt: invoice.gatewayExpiredAt?.toISOString() ?? manualExpiry.toISOString(),
     instructions: withInstructions ? qrisInstructions(invoice.uniqueCode, amountIdr) : undefined,
   };
 }

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { AdminJobsPageView } from "@/views/admin/jobs";
-import { ADMIN_PAGE_SIZE, parseOffset, type AdminJobRow } from "@/lib/admin";
+import type { AdminJobRow } from "@/lib/admin";
+import type { PaginationMeta } from "@/app/admin/page";
 import { fetchAdminApi, loadAdminMe } from "@/lib/server-api";
 
 export const metadata: Metadata = {
@@ -9,41 +10,84 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-async function loadJobs(opts: { q: string; status: string; mode: string; userId: string; offset: number }) {
-  const params = new URLSearchParams();
-  if (opts.q) params.set("q", opts.q);
-  if (opts.status) params.set("status", opts.status);
-  if (opts.mode) params.set("mode", opts.mode);
-  if (opts.userId) params.set("userId", opts.userId);
-  params.set("limit", String(ADMIN_PAGE_SIZE));
-  params.set("offset", String(opts.offset));
-  const res = await fetchAdminApi(`/api/admin/jobs?${params.toString()}`);
-  if (!res || !res.ok) return [] as AdminJobRow[];
-  return ((await res.json()) as { jobs: AdminJobRow[] }).jobs;
+async function loadJobs(params?: {
+  q?: string;
+  status?: string;
+  mode?: string;
+  userId?: string;
+  page?: string;
+  limit?: string;
+  sortBy?: string;
+  sortOrder?: string;
+}): Promise<{ jobs: AdminJobRow[]; pagination: PaginationMeta }> {
+  const query = new URLSearchParams();
+  if (params?.q) query.set("q", params.q);
+  if (params?.status && params.status !== "all") query.set("status", params.status);
+  if (params?.mode && params.mode !== "all") query.set("mode", params.mode);
+  if (params?.userId) query.set("userId", params.userId);
+  if (params?.page) query.set("page", params.page);
+  if (params?.limit) query.set("limit", params.limit);
+  if (params?.sortBy) query.set("sortBy", params.sortBy);
+  if (params?.sortOrder) query.set("sortOrder", params.sortOrder);
+
+  const qs = query.toString();
+  const res = await fetchAdminApi(`/api/admin/jobs${qs ? `?${qs}` : ""}`);
+  if (!res || !res.ok) {
+    return {
+      jobs: [],
+      pagination: {
+        page: Number(params?.page ?? 1),
+        limit: Number(params?.limit ?? 10),
+        total: 0,
+        totalPages: 1,
+        hasNext: false,
+        hasPrev: false,
+      },
+    };
+  }
+  const data = (await res.json()) as {
+    jobs?: AdminJobRow[];
+    items?: AdminJobRow[];
+    pagination?: PaginationMeta;
+  };
+  const list = data.items ?? data.jobs ?? [];
+  return {
+    jobs: list,
+    pagination: data.pagination ?? {
+      page: Number(params?.page ?? 1),
+      limit: Number(params?.limit ?? 10),
+      total: list.length,
+      totalPages: 1,
+      hasNext: false,
+      hasPrev: false,
+    },
+  };
 }
 
-export default async function AdminJobsPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ q?: string; status?: string; mode?: string; userId?: string; offset?: string }>;
+export default async function AdminJobsPage(props: {
+  searchParams: Promise<{
+    q?: string;
+    status?: string;
+    mode?: string;
+    userId?: string;
+    page?: string;
+    limit?: string;
+    sortBy?: string;
+    sortOrder?: string;
+  }>;
 }) {
   const me = await loadAdminMe();
-  const sp = await searchParams;
-  const q = sp.q?.trim() ?? "";
-  const status = sp.status?.trim() ?? "";
-  const mode = sp.mode?.trim() ?? "";
-  const userId = sp.userId?.trim() ?? "";
-  const offset = parseOffset(sp.offset);
-  const jobs = me ? await loadJobs({ q, status, mode, userId, offset }) : [];
+  const searchParams = await props.searchParams;
+  const result = me
+    ? await loadJobs(searchParams)
+    : { jobs: [], pagination: { page: 1, limit: 10, total: 0, totalPages: 1, hasNext: false, hasPrev: false } };
+
   return (
     <AdminJobsPageView
       me={me}
-      jobs={jobs}
-      q={q}
-      status={status}
-      mode={mode}
-      userId={userId}
-      offset={offset}
+      jobs={result.jobs}
+      pagination={result.pagination}
+      currentParams={searchParams}
     />
   );
 }

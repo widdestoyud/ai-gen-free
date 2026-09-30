@@ -76,8 +76,19 @@ export function OrderClient(props: {
   const [search, setSearch] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const [gatewayEnabled, setGatewayEnabled] = useState(false);
+  const [manualEnabled, setManualEnabled] = useState(true);
+  const [onlineEnabled, setOnlineEnabled] = useState(false);
+  const [activeGateway, setActiveGateway] = useState<string | null>(null);
   const [payingInvoiceId, setPayingInvoiceId] = useState<string | null>(null);
+
+  // Choice modal when both manual & online are enabled
+  const [choiceInvoice, setChoiceInvoice] = useState<{
+    id: string;
+    uniqueCode: string;
+    amountIdr: number;
+    points: number;
+    name?: string;
+  } | null>(null);
 
   // Snap Payment Modal state
   const [snapInvoice, setSnapInvoice] = useState<{ id: string; code: string } | null>(null);
@@ -93,7 +104,21 @@ export function OrderClient(props: {
     error: paymentError,
     clearError: clearPaymentError,
     initiatePayment,
+    getPaymentMethods,
   } = usePayment();
+
+  useEffect(() => {
+    let mounted = true;
+    void getPaymentMethods().then((res) => {
+      if (!mounted) return;
+      setManualEnabled(res.manualEnabled ?? true);
+      setOnlineEnabled(res.onlineEnabled ?? false);
+      setActiveGateway(res.activeOnlineGateway ?? null);
+    });
+    return () => {
+      mounted = false;
+    };
+  }, [getPaymentMethods]);
 
   const filteredInvoices = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -125,22 +150,47 @@ export function OrderClient(props: {
       return;
     }
 
-    // Jika online gateway aktif, inisiasi sesi pembayaran dan redirect langsung
-    if (gatewayEnabled) {
-      const payRes = await initiatePayment(result.data.id);
+    const selectedPkg = props.packages.find((p) => p.id === packageId);
+    const invoiceId = result.data.id;
+    const invoiceCode = result.data.uniqueCode;
+    const amountIdr = selectedPkg?.amountIdr ?? 0;
+    const points = selectedPkg?.points ?? 0;
+
+    // Skenario 1: Jika KEDUA metode pembayaran (Manual & Online) aktif
+    // Pelanggan dapat memilih apakah transfer manual atau online payment
+    if (manualEnabled && onlineEnabled) {
+      setBusy(false);
+      setChoiceInvoice({
+        id: invoiceId,
+        uniqueCode: invoiceCode,
+        amountIdr,
+        points,
+        name: selectedPkg?.name,
+      });
+      router.refresh();
+      return;
+    }
+
+    // Skenario 2: Jika HANYA Online Payment yang aktif
+    // Langsung redirect ke URL checkout
+    if (!manualEnabled && onlineEnabled) {
+      const payRes = await initiatePayment(invoiceId);
       if (payRes?.paymentUrl) {
         window.location.href = payRes.paymentUrl;
         return;
       }
+      setBusy(false);
+      router.refresh();
+      return;
     }
 
-    // Direct Payment (Manual Transfer / Upload Bukti): langsung buka modal unggah bukti
-    const selectedPkg = props.packages.find((p) => p.id === packageId);
+    // Skenario 3: Jika HANYA Manual Payment yang aktif (atau default)
+    // Langsung buka modal unggah bukti transfer
     setUploadInvoice({
-      id: result.data.id,
-      uniqueCode: result.data.uniqueCode,
-      amountIdr: selectedPkg?.amountIdr ?? 0,
-      points: selectedPkg?.points ?? 0,
+      id: invoiceId,
+      uniqueCode: invoiceCode,
+      amountIdr,
+      points,
       status: "unpaid",
       statusLabel: "Belum Bayar",
       hasProof: false,
@@ -386,7 +436,7 @@ export function OrderClient(props: {
                   <Table.Td className={classes.actionCell}>
                     {canPay ? (
                       <Group gap="xs" justify="flex-end">
-                        {gatewayEnabled ? (
+                        {onlineEnabled ? (
                           <Button
                             size="xs"
                             variant="gradient"
@@ -399,22 +449,24 @@ export function OrderClient(props: {
                               ? "Memproses..."
                               : hasGatewaySession && !gatewayExpired
                                 ? "Lanjut Bayar Online"
-                                : "Bayar Online"}
+                                : `Bayar Online (${activeGateway === "midtrans" ? "Midtrans" : "Xendit"})`}
                           </Button>
                         ) : null}
 
-                        <Button
-                          size="xs"
-                          variant="light"
-                          color="blue"
-                          onClick={() => {
-                            setUploadInvoice(inv);
-                            setSelectedFile(null);
-                          }}
-                          disabled={busy}
-                        >
-                          Unggah Bukti
-                        </Button>
+                        {manualEnabled ? (
+                          <Button
+                            size="xs"
+                            variant="light"
+                            color="blue"
+                            onClick={() => {
+                              setUploadInvoice(inv);
+                              setSelectedFile(null);
+                            }}
+                            disabled={busy}
+                          >
+                            Unggah Bukti
+                          </Button>
+                        ) : null}
 
                         <Button
                           size="xs"
@@ -539,7 +591,7 @@ export function OrderClient(props: {
                   <div className={classes.mobileInvoiceBottom}>
                     {canPay ? (
                       <Group gap="xs" justify="flex-end" style={{ width: "100%" }}>
-                        {gatewayEnabled ? (
+                        {onlineEnabled ? (
                           <Button
                             size="xs"
                             variant="gradient"
@@ -548,22 +600,24 @@ export function OrderClient(props: {
                             leftSection={isPaying ? <Loader size="xs" /> : null}
                             onClick={() => handlePayGateway(inv.id, inv.uniqueCode)}
                           >
-                            {isPaying ? "Memproses..." : "Bayar Online"}
+                            {isPaying ? "Memproses..." : `Bayar Online (${activeGateway === "midtrans" ? "Midtrans" : "Xendit"})`}
                           </Button>
                         ) : null}
 
-                        <Button
-                          size="xs"
-                          variant="light"
-                          color="blue"
-                          onClick={() => {
-                            setUploadInvoice(inv);
-                            setSelectedFile(null);
-                          }}
-                          disabled={busy}
-                        >
-                          Unggah Bukti
-                        </Button>
+                        {manualEnabled ? (
+                          <Button
+                            size="xs"
+                            variant="light"
+                            color="blue"
+                            onClick={() => {
+                              setUploadInvoice(inv);
+                              setSelectedFile(null);
+                            }}
+                            disabled={busy}
+                          >
+                            Unggah Bukti
+                          </Button>
+                        ) : null}
 
                         <Button
                           size="xs"
@@ -841,6 +895,170 @@ export function OrderClient(props: {
               fw={600}
             >
               Ya, Batalkan Pesanan
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
+
+      {/* Modal Pilihan Metode Pembayaran (Jika Manual & Online Gateway keduanya aktif) */}
+      <Modal
+        opened={Boolean(choiceInvoice)}
+        onClose={() => {
+          if (!busy) setChoiceInvoice(null);
+        }}
+        title={
+          <Group gap="xs">
+            <Text fw={700} size="md">
+              Pilih Metode Pembayaran
+            </Text>
+            {choiceInvoice?.uniqueCode && (
+              <Badge variant="light" color="blue" size="sm">
+                {choiceInvoice.uniqueCode}
+              </Badge>
+            )}
+          </Group>
+        }
+        centered
+        size="md"
+        radius="lg"
+        padding="lg"
+      >
+        <Stack gap="md">
+          <div className={classes.modalSummaryCard}>
+            <Group justify="space-between" align="center">
+              <div>
+                <Text size="xs" c="dimmed">
+                  Total Tagihan Pembayaran
+                </Text>
+                <Text size="xl" fw={800} c="blue.4">
+                  {choiceInvoice ? formatIdr(choiceInvoice.amountIdr) : "—"}
+                </Text>
+              </div>
+              <div style={{ textAlign: "right" }}>
+                <Text size="xs" c="dimmed">
+                  Sparks Diperoleh
+                </Text>
+                <Text size="md" fw={700} c="green.4">
+                  +{choiceInvoice?.points?.toLocaleString()} Sparks
+                </Text>
+              </div>
+            </Group>
+          </div>
+
+          <Text size="xs" c="dimmed">
+            Pilih cara pembayaran yang Anda inginkan untuk menyelesaikan pesanan:
+          </Text>
+
+          {/* Opsi 1: Online Gateway (Xendit / Midtrans) */}
+          <Paper
+            p="md"
+            withBorder
+            radius="md"
+            style={{
+              cursor: busy ? "not-allowed" : "pointer",
+              transition: "border-color 0.2s, transform 0.1s",
+              border: "1px solid rgba(59, 130, 246, 0.4)",
+              background: "rgba(59, 130, 246, 0.04)",
+            }}
+            onClick={async () => {
+              if (busy || !choiceInvoice) return;
+              setBusy(true);
+              const payRes = await initiatePayment(choiceInvoice.id);
+              if (payRes?.paymentUrl) {
+                window.location.href = payRes.paymentUrl;
+                return;
+              }
+              setBusy(false);
+            }}
+          >
+            <Group justify="space-between" align="center" wrap="nowrap">
+              <Stack gap={2}>
+                <Group gap="xs">
+                  <Text fw={700} size="sm" c="blue.4">
+                    Bayar Online Otomatis ({activeGateway === "midtrans" ? "Midtrans" : "Xendit"})
+                  </Text>
+                  <Badge color="blue" size="xs" variant="filled">
+                    Instan
+                  </Badge>
+                </Group>
+                <Text size="xs" c="dimmed">
+                  QRIS, Virtual Account (BCA, Mandiri, BNI, BRI), E-Wallet (GoPay, DANA, OVO, ShopeePay).
+                </Text>
+                <Text size="xs" c="blue.3" fw={500} mt={2}>
+                  Masa berlaku: 10 menit
+                </Text>
+              </Stack>
+              <Button
+                size="xs"
+                variant="gradient"
+                gradient={{ from: "#3b82f6", to: "#8b5cf6", deg: 135 }}
+                loading={busy}
+              >
+                Bayar Online →
+              </Button>
+            </Group>
+          </Paper>
+
+          {/* Opsi 2: Transfer Manual */}
+          <Paper
+            p="md"
+            withBorder
+            radius="md"
+            style={{
+              cursor: "pointer",
+              transition: "border-color 0.2s",
+            }}
+            onClick={() => {
+              if (!choiceInvoice) return;
+              const inv = choiceInvoice;
+              setChoiceInvoice(null);
+              setUploadInvoice({
+                id: inv.id,
+                uniqueCode: inv.uniqueCode,
+                amountIdr: inv.amountIdr,
+                points: inv.points,
+                status: "unpaid",
+                statusLabel: "Belum Bayar",
+                hasProof: false,
+              });
+            }}
+          >
+            <Group justify="space-between" align="center" wrap="nowrap">
+              <Stack gap={2}>
+                <Group gap="xs">
+                  <Text fw={700} size="sm">
+                    Transfer Manual (QRIS Satulabs)
+                  </Text>
+                  <Badge color="gray" size="xs" variant="light">
+                    Verifikasi Admin
+                  </Badge>
+                </Group>
+                <Text size="xs" c="dimmed">
+                  Pindai QRIS merchant WAY2ND, GAMING dan unggah bukti transfer.
+                </Text>
+                <Text size="xs" c="dimmed" fw={500} mt={2}>
+                  Masa berlaku: 1 jam (60 menit)
+                </Text>
+              </Stack>
+              <Button
+                size="xs"
+                variant="light"
+                color="blue"
+              >
+                Pilih Manual →
+              </Button>
+            </Group>
+          </Paper>
+
+          <Group justify="flex-end" mt="xs">
+            <Button
+              variant="subtle"
+              color="gray"
+              size="xs"
+              onClick={() => setChoiceInvoice(null)}
+              disabled={busy}
+            >
+              Tutup
             </Button>
           </Group>
         </Stack>

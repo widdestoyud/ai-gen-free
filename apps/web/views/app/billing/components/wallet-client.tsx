@@ -153,7 +153,9 @@ export function WalletClient(props: {
   const router = useRouter();
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const [gatewayEnabled, setGatewayEnabled] = useState(false);
+  const [manualEnabled, setManualEnabled] = useState(true);
+  const [onlineEnabled, setOnlineEnabled] = useState(false);
+  const [activeGateway, setActiveGateway] = useState<string | null>(null);
   const [payingInvoiceId, setPayingInvoiceId] = useState<string | null>(null);
 
   // Snap Payment Modal state
@@ -163,38 +165,25 @@ export function WalletClient(props: {
     error: paymentError,
     clearError: clearPaymentError,
     initiatePayment,
+    getPaymentMethods,
   } = usePayment();
 
-  async function buy(packageId: string) {
-    setError("");
-    clearPaymentError();
-    setBusy(true);
-    const result = await requestJson<{ id: string; uniqueCode: string }>("/api/invoices", {
-      method: "POST",
-      body: JSON.stringify({ packageId }),
+  useEffect(() => {
+    let mounted = true;
+    void getPaymentMethods().then((res) => {
+      if (!mounted) return;
+      setManualEnabled(res.manualEnabled ?? true);
+      setOnlineEnabled(res.onlineEnabled ?? false);
+      setActiveGateway(res.activeOnlineGateway ?? null);
     });
-    if (!result.ok) {
-      setBusy(false);
-      setError(result.message || "Gagal membuat invoice");
-      return;
-    }
-    if (!result.data?.id) {
-      setBusy(false);
-      setError("Gagal membuat invoice");
-      return;
-    }
+    return () => {
+      mounted = false;
+    };
+  }, [getPaymentMethods]);
 
-    // Jika online gateway aktif, langsung inisiasi dan redirect ke URL checkout
-    if (gatewayEnabled) {
-      const payRes = await initiatePayment(result.data.id);
-      if (payRes?.paymentUrl) {
-        window.location.href = payRes.paymentUrl;
-        return;
-      }
-    }
-
-    setBusy(false);
-    router.refresh();
+  async function buy(packageId: string) {
+    // Arahkan ke halaman order lengkap untuk memilih cara pembayaran
+    router.push("/app/order");
   }
 
   async function upload(invoiceId: string, file: File) {
@@ -260,9 +249,9 @@ export function WalletClient(props: {
         Isi saldo
       </Title>
 
-      {gatewayEnabled ? (
+      {onlineEnabled ? (
         <Text c="dimmed">
-          Pilih paket, lalu bayar instan via Midtrans (Virtual Account, QRIS, GoPay, ShopeePay).
+          Pilih paket, lalu bayar instan via Online Gateway ({activeGateway === "midtrans" ? "Midtrans" : "Xendit"}).
           Poin otomatis masuk setelah pembayaran berhasil.
         </Text>
       ) : (
@@ -297,7 +286,7 @@ export function WalletClient(props: {
           onUpload={upload}
           onPayGateway={handlePayGateway}
           onCancel={cancel}
-          gatewayEnabled={gatewayEnabled}
+          gatewayEnabled={onlineEnabled}
           payingInvoiceId={payingInvoiceId}
         />
       ))}

@@ -120,3 +120,13 @@ export function parseAdjustBody(body: { amount?: unknown; reason?: unknown }): {
   }
   return { amount, reason: trimmed };
 }
+
+export const PAYMENT_SETTINGS_KEY = "payment_settings";
+
+export interface PaymentSettingsConfig {
+  manualPaymentEnabled: boolean;
+  activeOnlineGateway: "midtrans" | "xendit" | "none";
+  manualExpiryMinutes: number;
+  onlineExpiryMinutes: number;
+}
+

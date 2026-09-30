@@ -101,6 +101,9 @@ export type CustomerCatalogItem = {
 };
 
 export function toOpaqueModelId(mode: string, rawModelId?: string, isSpicy?: boolean): string {
+  if (rawModelId && rawModelId.includes("upscale")) {
+    return "image-upscale";
+  }
   const spicy =
     typeof isSpicy === "boolean"
       ? isSpicy
@@ -125,6 +128,7 @@ export function getCustomerCatalogDefaults() {
     spicyI2iModelId: "i2i-spicy",
     normalVideoModelId: "video-standard",
     spicyVideoModelId: "video-spicy",
+    upscaleModelId: "image-upscale",
   };
 }
 
@@ -173,7 +177,13 @@ export function pickEnabledModel(rows: CatalogRow[], modeRaw: unknown, modelIdRa
   const isVideo = mode === "t2v" || mode === "i2v";
   const forMode = rows.filter((row) => row.mode === mode || (isVideo && (row.mode === "t2v" || row.mode === "i2v")));
   if (typeof modelIdRaw === "string" && modelIdRaw.trim()) {
-    const found = forMode.find((row) => row.modelId === modelIdRaw.trim());
+    const raw = modelIdRaw.trim();
+    const found = forMode.find(
+      (row) =>
+        row.modelId === raw ||
+        (raw === "image-upscale" && row.modelId.includes("upscale")) ||
+        (raw === "seedvr-upscale" && row.modelId.includes("upscale")),
+    );
     if (!found) {
       throw new AppError(ErrorCodes.VALIDATION_ERROR, "Model tidak tersedia");
     }
@@ -215,16 +225,18 @@ export async function listCustomerCatalog(): Promise<CustomerCatalogItem[]> {
 
   for (const row of rows) {
     const isSpicy = Boolean(row.isSpicy);
-    const opaqueId = toOpaqueModelId(row.mode, row.modelId, isSpicy);
-    const key = `${row.mode}_${isSpicy ? "spicy" : "normal"}`;
+    const isUpscale = row.modelId.includes("upscale");
+    const opaqueId = isUpscale ? "image-upscale" : toOpaqueModelId(row.mode, row.modelId, isSpicy);
+    const key = isUpscale ? "upscale" : `${row.mode}_${isSpicy ? "spicy" : "normal"}`;
 
     const isPreferred =
       (row.mode === "t2i" && !isSpicy && row.modelId === defaults.normalT2iModelId) ||
       (row.mode === "t2i" && isSpicy && row.modelId === defaults.spicyT2iModelId) ||
-      (row.mode === "i2i" && !isSpicy && row.modelId === defaults.normalI2iModelId) ||
-      (row.mode === "i2i" && isSpicy && row.modelId === defaults.spicyI2iModelId) ||
+      (row.mode === "i2i" && !isUpscale && !isSpicy && row.modelId === defaults.normalI2iModelId) ||
+      (row.mode === "i2i" && !isUpscale && isSpicy && row.modelId === defaults.spicyI2iModelId) ||
       ((row.mode === "t2v" || row.mode === "i2v") && !isSpicy && row.modelId === defaults.normalVideoModelId) ||
-      ((row.mode === "t2v" || row.mode === "i2v") && isSpicy && row.modelId === defaults.spicyVideoModelId);
+      ((row.mode === "t2v" || row.mode === "i2v") && isSpicy && row.modelId === defaults.spicyVideoModelId) ||
+      isUpscale;
 
     if (!map.has(key) || isPreferred) {
       map.set(key, {
@@ -273,6 +285,13 @@ export async function resolveModel(modeRaw: unknown, modelIdRaw: unknown, isSpic
       ? isSpicyRaw
       : Boolean(rawModelId && (rawModelId.includes("spicy") || rawModelId.includes("uncensored")));
 
+  if (rawModelId === "image-upscale" || rawModelId === "seedvr-upscale" || rawModelId.includes("upscale")) {
+    const upscaleRow = catalogRows.find((r) => r.modelId.includes("upscale"));
+    if (upscaleRow) {
+      return { ...upscaleRow, mode };
+    }
+  }
+
   const isAbstract =
     !rawModelId ||
     rawModelId === "t2i-standard" ||
@@ -306,7 +325,7 @@ export async function resolveModel(modeRaw: unknown, modelIdRaw: unknown, isSpic
       return { ...preferred, mode };
     }
 
-    const matchingSpicy = catalogRows.filter((r) => r.isSpicy === isExplicitSpicy);
+    const matchingSpicy = catalogRows.filter((r) => r.isSpicy === isExplicitSpicy && !r.modelId.includes("upscale"));
     if (matchingSpicy.length > 0) {
       return { ...matchingSpicy[0]!, mode };
     }

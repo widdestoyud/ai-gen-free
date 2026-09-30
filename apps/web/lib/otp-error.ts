@@ -8,6 +8,16 @@ export function parseAuthBridgeError(err: unknown): {
   transaction_id?: string;
   requiresOtp?: boolean;
 } {
+  if (typeof err === "string" && err.includes("||")) {
+    const [code, message, txid, flag] = err.split("||");
+    return {
+      code: code || "A002",
+      message: message || "Kode salah",
+      transaction_id: txid || undefined,
+      requiresOtp: flag === "OTP_REQUIRED",
+    };
+  }
+
   const anyErr = err as Record<string, unknown> | null;
   const cause = anyErr?.cause as Record<string, unknown> | null;
   const inner = (cause?.err as Record<string, unknown> | null) || cause || anyErr;

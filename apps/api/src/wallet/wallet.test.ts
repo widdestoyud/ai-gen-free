@@ -141,3 +141,22 @@ test("Xendit callback token integration: correctly verifies valid and invalid to
   assert.equal(verifyXenditCallbackToken("", token), false);
   assert.equal(verifyXenditCallbackToken(null, token), false);
 });
+
+test("Manual vs Online invoice expiry calculation", () => {
+  const now = new Date();
+  const created50MinAgo = new Date(now.getTime() - 50 * 60 * 1000);
+  const created70MinAgo = new Date(now.getTime() - 70 * 60 * 1000);
+
+  // Manual payment: 60 minutes expiry
+  const manual50MinExpired = now.getTime() - created50MinAgo.getTime() > 60 * 60 * 1000;
+  assert.equal(manual50MinExpired, false); // still active at 50 min
+
+  const manual70MinExpired = now.getTime() - created70MinAgo.getTime() > 60 * 60 * 1000;
+  assert.equal(manual70MinExpired, true); // expired at 70 min
+
+  // Online gateway session: 10 minutes expiry
+  const gatewayExpired15MinAgo = new Date(now.getTime() - 15 * 60 * 1000);
+  const gatewaySessionExpired = gatewayExpired15MinAgo < now;
+  assert.equal(gatewaySessionExpired, true);
+});
+

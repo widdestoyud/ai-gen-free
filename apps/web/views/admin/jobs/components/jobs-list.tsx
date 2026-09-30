@@ -6,6 +6,7 @@ import {
   Button,
   CloseButton,
   Group,
+  Pagination,
   Paper,
   Select,
   Stack,
@@ -18,7 +19,8 @@ import { useRouter } from "next/navigation";
 import { AppLink } from "@/components/app-link";
 import { ResponsiveTable } from "@/components/responsive-table";
 import { EmptyState } from "@/components/empty-state";
-import { ADMIN_PAGE_SIZE, adminHref, type AdminJobRow } from "@/lib/admin";
+import type { AdminJobRow } from "@/lib/admin";
+import type { PaginationMeta } from "@/app/admin/page";
 import { formatDateId } from "@/lib/format";
 import { jobStatusLabel } from "@/lib/job-status";
 import classes from "./jobs-list.module.css";
@@ -109,52 +111,105 @@ function getModeBadgeColor(mode: string) {
 
 export function AdminJobsList({
   jobs,
-  q,
-  status,
-  mode,
-  userId,
-  offset,
+  pagination = {
+    page: 1,
+    limit: 10,
+    total: jobs.length,
+    totalPages: 1,
+    hasNext: false,
+    hasPrev: false,
+  },
+  currentParams,
 }: {
   jobs: AdminJobRow[];
-  q: string;
-  status: string;
-  mode: string;
-  userId: string;
-  offset: number;
+  pagination?: PaginationMeta;
+  currentParams?: {
+    q?: string;
+    status?: string;
+    mode?: string;
+    userId?: string;
+    page?: string;
+    limit?: string;
+    sortBy?: string;
+    sortOrder?: string;
+  };
 }) {
   const router = useRouter();
-  const [query, setQuery] = useState(q);
-  const [statusValue, setStatusValue] = useState(status || "all");
-  const [modeValue, setModeValue] = useState(mode || "all");
+  const [query, setQuery] = useState(currentParams?.q ?? "");
+
+  function navigateQuery(overrides: {
+    q?: string;
+    status?: string;
+    mode?: string;
+    userId?: string | null;
+    page?: number;
+    limit?: number;
+    sortBy?: string;
+    sortOrder?: string;
+  }) {
+    const params = new URLSearchParams();
+
+    const nextQ = overrides.q !== undefined ? overrides.q : currentParams?.q || "";
+    const nextStatus =
+      overrides.status !== undefined ? overrides.status : currentParams?.status || "";
+    const nextMode = overrides.mode !== undefined ? overrides.mode : currentParams?.mode || "";
+    const nextUserId =
+      overrides.userId !== undefined
+        ? overrides.userId
+        : currentParams?.userId !== undefined
+          ? currentParams.userId
+          : "";
+    const nextPage =
+      overrides.page !== undefined
+        ? String(overrides.page)
+        : overrides.q !== undefined ||
+            overrides.status !== undefined ||
+            overrides.mode !== undefined ||
+            overrides.limit !== undefined
+          ? "1"
+          : currentParams?.page || "1";
+    const nextLimit =
+      overrides.limit !== undefined ? String(overrides.limit) : currentParams?.limit || "10";
+    const nextSortBy =
+      overrides.sortBy !== undefined ? overrides.sortBy : currentParams?.sortBy || "";
+    const nextSortOrder =
+      overrides.sortOrder !== undefined ? overrides.sortOrder : currentParams?.sortOrder || "";
+
+    if (nextQ.trim()) params.set("q", nextQ.trim());
+    if (nextStatus && nextStatus !== "all") params.set("status", nextStatus);
+    if (nextMode && nextMode !== "all") params.set("mode", nextMode);
+    if (nextUserId) params.set("userId", nextUserId);
+    if (nextPage && nextPage !== "1") params.set("page", nextPage);
+    if (nextLimit && nextLimit !== "10") params.set("limit", nextLimit);
+    if (nextSortBy) params.set("sortBy", nextSortBy);
+    if (nextSortOrder) params.set("sortOrder", nextSortOrder);
+
+    const qs = params.toString();
+    router.push(`/admin/jobs${qs ? `?${qs}` : ""}`);
+  }
 
   function onSearch(e: FormEvent) {
     e.preventDefault();
-    router.push(
-      adminHref("/admin/jobs", {
-        q: query.trim(),
-        status: statusValue === "all" ? "" : statusValue,
-        mode: modeValue === "all" ? "" : modeValue,
-        userId,
-        offset: 0,
-      }),
-    );
+    navigateQuery({ q: query.trim(), page: 1 });
   }
 
   function clearUserFilter() {
-    router.push(
-      adminHref("/admin/jobs", {
-        q: query.trim(),
-        status: statusValue === "all" ? "" : statusValue,
-        mode: modeValue === "all" ? "" : modeValue,
-        userId: undefined,
-        offset: 0,
-      }),
-    );
+    navigateQuery({ userId: null, page: 1 });
   }
 
   function exportCsv() {
     if (jobs.length === 0) return;
-    const headers = ["ID", "Email", "Mode", "Model ID", "Status", "Biaya", "Prompt", "Dibuat", "Selesai"];
+    const headers = [
+      "ID",
+      "Email",
+      "Mode",
+      "Model ID",
+      "Status",
+      "Biaya",
+      "Prompt",
+      "Dibuat",
+      "Selesai",
+    ];
     const rows = jobs.map((j) => [
       `"${j.id}"`,
       `"${j.email}"`,
@@ -178,25 +233,30 @@ export function AdminJobsList({
     URL.revokeObjectURL(url);
   }
 
+  const startItem = pagination.total > 0 ? (pagination.page - 1) * pagination.limit + 1 : 0;
+  const endItem = Math.min(pagination.page * pagination.limit, pagination.total);
+
   return (
     <Paper className={classes.historyContainer}>
       <div className={classes.headerRow}>
         <Stack gap={2}>
           <Text className={classes.title}>Daftar Job Generate AI</Text>
           <Text className={classes.subtitle}>
-            Log eksekusi provider dan render media AI.
+            Monitoring eksekusi dan riwayat render media AI terpusat.
           </Text>
         </Stack>
 
         <form onSubmit={onSearch} className={classes.controls}>
-          {userId ? (
+          {currentParams?.userId ? (
             <Badge
               variant="outline"
               color="blue"
               size="md"
-              rightSection={<CloseButton size="xs" onClick={clearUserFilter} aria-label="Hapus filter user" />}
+              rightSection={
+                <CloseButton size="xs" onClick={clearUserFilter} aria-label="Hapus filter user" />
+              }
             >
-              User: {userId.slice(0, 14)}...
+              User: {currentParams.userId.slice(0, 14)}...
             </Badge>
           ) : null}
 
@@ -210,18 +270,31 @@ export function AdminJobsList({
           />
           <Select
             size="xs"
-            value={statusValue}
-            onChange={(val) => setStatusValue(val ?? "all")}
+            value={currentParams?.status ?? "all"}
+            onChange={(val) => navigateQuery({ status: val ?? "all", page: 1 })}
             data={STATUS_OPTIONS}
             className={classes.selectInput}
             allowDeselect={false}
           />
           <Select
             size="xs"
-            value={modeValue}
-            onChange={(val) => setModeValue(val ?? "all")}
+            value={currentParams?.mode ?? "all"}
+            onChange={(val) => navigateQuery({ mode: val ?? "all", page: 1 })}
             data={MODE_OPTIONS}
             className={classes.selectInput}
+            allowDeselect={false}
+          />
+          <Select
+            size="xs"
+            w={110}
+            value={String(pagination.limit)}
+            onChange={(val) => val && navigateQuery({ limit: parseInt(val, 10), page: 1 })}
+            data={[
+              { value: "10", label: "10 / hal" },
+              { value: "20", label: "20 / hal" },
+              { value: "50", label: "50 / hal" },
+              { value: "100", label: "100 / hal" },
+            ]}
             allowDeselect={false}
           />
           <Button size="xs" type="submit" variant="light">
@@ -241,7 +314,12 @@ export function AdminJobsList({
 
       {jobs.length === 0 ? (
         <EmptyState minHeight={220}>
-          {q || status || mode || userId ? "Tidak ada job yang sesuai dengan filter pencarian." : "Belum ada job generate."}
+          {currentParams?.q ||
+          currentParams?.status ||
+          currentParams?.mode ||
+          currentParams?.userId
+            ? "Tidak ada job yang sesuai dengan filter pencarian."
+            : "Belum ada job generate."}
         </EmptyState>
       ) : (
         <ResponsiveTable
@@ -290,12 +368,14 @@ export function AdminJobsList({
                     {statusText}
                   </Badge>
                 </Table.Td>
-                <Table.Td className={classes.costCell}>
-                  {job.cost} Poin
-                </Table.Td>
+                <Table.Td className={classes.costCell}>{job.cost} Poin</Table.Td>
                 <Table.Td className={classes.dateCell} suppressHydrationWarning>
                   <Tooltip
-                    label={job.finishedAt ? `Selesai: ${formatDateId(job.finishedAt)}` : "Belum selesai"}
+                    label={
+                      job.finishedAt
+                        ? `Selesai: ${formatDateId(job.finishedAt)}`
+                        : "Belum selesai"
+                    }
                     withArrow
                   >
                     <span suppressHydrationWarning>{formatDateId(job.createdAt)}</span>
@@ -333,7 +413,14 @@ export function AdminJobsList({
                   gap: 10,
                 }}
               >
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "flex-start",
+                    gap: 8,
+                  }}
+                >
                   <div>
                     <Text fw={600} size="sm">
                       {job.email}
@@ -367,7 +454,13 @@ export function AdminJobsList({
                   </Text>
                 </div>
 
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                  }}
+                >
                   <div>
                     <Text size="xs" c="dimmed">
                       Biaya & Waktu
@@ -394,42 +487,19 @@ export function AdminJobsList({
 
       <div className={classes.paginationRow}>
         <Text size="xs" c="dimmed">
-          Menampilkan {jobs.length} job (Halaman {Math.floor(offset / ADMIN_PAGE_SIZE) + 1})
+          Menampilkan <strong>{startItem}–{endItem}</strong> dari{" "}
+          <strong>{pagination.total}</strong> job (Halaman {pagination.page} dari{" "}
+          {pagination.totalPages}).
         </Text>
-        <Group gap="xs">
-          {offset > 0 ? (
-            <Button
-              component={AppLink}
-              href={adminHref("/admin/jobs", {
-                q,
-                status,
-                mode,
-                userId,
-                offset: Math.max(0, offset - ADMIN_PAGE_SIZE),
-              })}
-              variant="default"
-              size="xs"
-            >
-              Sebelumnya
-            </Button>
-          ) : null}
-          {jobs.length >= ADMIN_PAGE_SIZE ? (
-            <Button
-              component={AppLink}
-              href={adminHref("/admin/jobs", {
-                q,
-                status,
-                mode,
-                userId,
-                offset: offset + ADMIN_PAGE_SIZE,
-              })}
-              variant="default"
-              size="xs"
-            >
-              Berikutnya
-            </Button>
-          ) : null}
-        </Group>
+
+        {pagination.totalPages > 1 && (
+          <Pagination
+            size="sm"
+            total={pagination.totalPages}
+            value={pagination.page}
+            onChange={(newPage) => navigateQuery({ page: newPage })}
+          />
+        )}
       </div>
     </Paper>
   );

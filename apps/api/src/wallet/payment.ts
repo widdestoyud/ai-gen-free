@@ -64,7 +64,7 @@ export async function initiatePayment(
   const isExpired =
     invoice.status === "expired" ||
     (invoice.gatewayExpiredAt && invoice.gatewayExpiredAt < now) ||
-    (!invoice.gatewayExpiredAt && now.getTime() - invoice.createdAt.getTime() > (deps.paymentDueMinutes ?? 10) * 60 * 1000);
+    (!invoice.gatewayExpiredAt && now.getTime() - invoice.createdAt.getTime() > 60 * 60 * 1000);
 
   if (isExpired) {
     if (invoice.status !== "expired") {
@@ -105,7 +105,7 @@ export async function initiatePayment(
     customerName: opts.customerName ?? invoice.user.displayName ?? undefined,
     customerPhone: opts.customerPhone ?? invoice.user.phoneNumber ?? undefined,
     callbackUrl,
-    paymentDueMinutes: deps.paymentDueMinutes ?? 60,
+    paymentDueMinutes: deps.paymentDueMinutes ?? 10,
     lineItems: [
       {
         name: `Top Up ${asInt(invoice.points)} Poin`,

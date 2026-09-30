@@ -6,6 +6,7 @@
 import type { FastifyInstance } from "fastify";
 import { ErrorCodes, type PaymentGatewayPort, type PaymentGatewayRegistry, type GatewayFrontendConfig, type PaymentGatewayDriver } from "@ai-gen-free/core";
 import { AuthError, userFromCookie } from "../auth/service.js";
+import { getPaymentSettings } from "../admin/service.js";
 import {
   initiatePayment,
   processPaymentNotification,
@@ -85,7 +86,7 @@ export interface PaymentRouteDeps {
 
 export async function registerPaymentRoutes(app: FastifyInstance, deps: PaymentRouteDeps) {
   // Helper to check if payment gateway is configured
-  function requirePaymentGateway(driver?: PaymentGatewayDriver): PaymentServiceDeps {
+  function requirePaymentGateway(driver?: PaymentGatewayDriver, dueMinutes?: number): PaymentServiceDeps {
     const gateway = driver ? deps.registry.get(driver) : deps.registry.getDefault();
     if (!gateway) {
       throw new AuthError(
@@ -97,7 +98,7 @@ export async function registerPaymentRoutes(app: FastifyInstance, deps: PaymentR
     return {
       paymentGateway: gateway,
       callbackBaseUrl: deps.callbackBaseUrl,
-      paymentDueMinutes: deps.paymentDueMinutes,
+      paymentDueMinutes: dueMinutes ?? deps.paymentDueMinutes ?? 10,
       frontendConfig: deps.registry.getFrontendConfig(driverKey as PaymentGatewayDriver) ?? undefined,
     };
   }
@@ -121,8 +122,18 @@ export async function registerPaymentRoutes(app: FastifyInstance, deps: PaymentR
         customerPhone?: string;
       };
 
-      const selectedDriver = (body.driver || body.provider) as PaymentGatewayDriver | undefined;
-      const serviceDeps = requirePaymentGateway(selectedDriver);
+      const paymentSettings = await getPaymentSettings();
+      if (paymentSettings.activeOnlineGateway === "none") {
+        throw new AuthError(
+          ErrorCodes.PAYMENT_GATEWAY_ERROR,
+          "Pembayaran online sedang dinonaktifkan. Silakan gunakan metode pembayaran manual.",
+          400,
+        );
+      }
+
+      const selectedDriver =
+        (body.driver || body.provider || paymentSettings.activeOnlineGateway) as PaymentGatewayDriver;
+      const serviceDeps = requirePaymentGateway(selectedDriver, paymentSettings.onlineExpiryMinutes);
 
       const result = await initiatePayment(serviceDeps, {
         userId: session.userId,
@@ -149,8 +160,7 @@ export async function registerPaymentRoutes(app: FastifyInstance, deps: PaymentR
 
     try {
       const query = (req.query ?? {}) as { provider?: string };
-      const gw = getGateway(query.provider);
-      const serviceDeps = makeServiceDeps(gw);
+      const serviceDeps = requirePaymentGateway(query.provider as PaymentGatewayDriver | undefined);
       const { id } = req.params as { id: string };
 
       const result = await checkPaymentStatus(serviceDeps, {
@@ -174,8 +184,7 @@ export async function registerPaymentRoutes(app: FastifyInstance, deps: PaymentR
 
     try {
       const query = (req.query ?? {}) as { provider?: string };
-      const gw = getGateway(query.provider);
-      const serviceDeps = makeServiceDeps(gw);
+      const serviceDeps = requirePaymentGateway(query.provider as PaymentGatewayDriver | undefined);
       const { id } = req.params as { id: string };
 
       const result = await checkPaymentStatus(serviceDeps, {
@@ -405,73 +414,72 @@ export async function registerPaymentRoutes(app: FastifyInstance, deps: PaymentR
     const session = await requireUser(req, reply);
     if (!session) return;
 
-    const methods: Array<Record<string, unknown>> = [
-      {
+    const paymentSettings = await getPaymentSettings();
+    const methods: Array<Record<string, unknown>> = [];
+
+    if (paymentSettings.manualPaymentEnabled) {
+      methods.push({
         id: "manual",
         name: "Transfer Manual",
-        description: "Transfer ke rekening dan unggah bukti",
+        description: "Transfer ke rekening dan unggah bukti (Masa berlaku 1 jam)",
         enabled: true,
-      },
-    ];
-
-    const defaultGateway = deps.registry.getDefault();
-    const defaultProvider = defaultGateway?.provider ?? "";
-
-    // Add Midtrans if registered
-    const midtransConfig = deps.registry.getFrontendConfig("midtrans");
-    if (midtransConfig) {
-      const meta = (midtransConfig.meta ?? {}) as Record<string, unknown>;
-      methods.push({
-        id: "midtrans",
-        name: "Pembayaran Online (Midtrans)",
-        description: "Virtual Account (BCA, Mandiri, BNI, BRI, Permata), QRIS, GoPay, ShopeePay",
-        enabled: true,
-        isDefault: defaultProvider.includes("midtrans"),
-        clientKey: meta.clientKey,
-        isProduction: meta.isProduction,
-        snapUrl: meta.snapUrl,
-        flowType: meta.flowType ?? "snap",
-        channels: [
-          { id: "va", name: "Virtual Account", banks: ["BCA", "Mandiri", "BNI", "BRI", "Permata"] },
-          { id: "qris", name: "QRIS", providers: ["GoPay", "ShopeePay", "BCA QRIS", "Dana", "OVO"] },
-          { id: "gopay", name: "GoPay / QRIS" },
-          { id: "shopeepay", name: "ShopeePay" },
-          { id: "cc", name: "Kartu Kredit/Debit" },
-        ],
+        expiryMinutes: paymentSettings.manualExpiryMinutes,
       });
     }
 
-    // Add DANA if registered
-    const danaConfig = deps.registry.getFrontendConfig("dana");
-    if (danaConfig) {
-      methods.push({
-        id: "dana",
-        name: "Pembayaran Online (DANA)",
-        description: "Bayar dengan saldo DANA, kartu kredit/debit, atau e-wallet lainnya",
-        enabled: true,
-        isDefault: defaultProvider.includes("dana"),
-        flowType: "redirect",
-      });
+    const activeGateway = paymentSettings.activeOnlineGateway;
+
+    // Add Midtrans if registered and active
+    if (activeGateway === "midtrans") {
+      const midtransConfig = deps.registry.getFrontendConfig("midtrans");
+      if (midtransConfig) {
+        const meta = (midtransConfig.meta ?? {}) as Record<string, unknown>;
+        methods.push({
+          id: "midtrans",
+          name: "Pembayaran Online (Midtrans)",
+          description: "Virtual Account (BCA, Mandiri, BNI, BRI, Permata), QRIS, GoPay, ShopeePay",
+          enabled: true,
+          isDefault: true,
+          expiryMinutes: paymentSettings.onlineExpiryMinutes,
+          clientKey: meta.clientKey,
+          isProduction: meta.isProduction,
+          snapUrl: meta.snapUrl,
+          flowType: meta.flowType ?? "snap",
+          channels: [
+            { id: "va", name: "Virtual Account", banks: ["BCA", "Mandiri", "BNI", "BRI", "Permata"] },
+            { id: "qris", name: "QRIS", providers: ["GoPay", "ShopeePay", "BCA QRIS", "Dana", "OVO"] },
+            { id: "gopay", name: "GoPay / QRIS" },
+            { id: "shopeepay", name: "ShopeePay" },
+            { id: "cc", name: "Kartu Kredit/Debit" },
+          ],
+        });
+      }
+    } else if (activeGateway === "xendit") {
+      // Add Xendit if registered and active
+      const xenditConfig = deps.registry.getFrontendConfig("xendit");
+      if (xenditConfig) {
+        methods.push({
+          id: "xendit",
+          name: "Pembayaran Online (Xendit)",
+          description: "QRIS, E-Wallet (OVO, DANA, ShopeePay, LinkAja), Virtual Account / Transfer Bank",
+          enabled: true,
+          isDefault: true,
+          expiryMinutes: paymentSettings.onlineExpiryMinutes,
+          flowType: "redirect",
+          channels: [
+            { id: "qris", name: "QRIS", providers: ["Semua Pembayaran QRIS"] },
+            { id: "ewallet", name: "E-Wallet", providers: ["OVO", "DANA", "ShopeePay", "LinkAja", "AstraPay", "JeniusPay"] },
+            { id: "va", name: "Virtual Account", banks: ["BCA", "Mandiri", "BNI", "BRI", "Permata", "BSI", "CIMB Niaga"] },
+          ],
+        });
+      }
     }
 
-    // Add Xendit if registered
-    const xenditConfig = deps.registry.getFrontendConfig("xendit");
-    if (xenditConfig) {
-      methods.push({
-        id: "xendit",
-        name: "Pembayaran Online (Xendit)",
-        description: "QRIS, E-Wallet (OVO, DANA, ShopeePay, LinkAja), Virtual Account / Transfer Bank",
-        enabled: true,
-        isDefault: defaultProvider.includes("xendit"),
-        flowType: "redirect",
-        channels: [
-          { id: "qris", name: "QRIS", providers: ["Semua Pembayaran QRIS"] },
-          { id: "ewallet", name: "E-Wallet", providers: ["OVO", "DANA", "ShopeePay", "LinkAja", "AstraPay", "JeniusPay"] },
-          { id: "va", name: "Virtual Account", banks: ["BCA", "Mandiri", "BNI", "BRI", "Permata", "BSI", "CIMB Niaga"] },
-        ],
-      });
-    }
-
-    return { methods };
+    return {
+      manualEnabled: paymentSettings.manualPaymentEnabled,
+      onlineEnabled: activeGateway !== "none",
+      activeOnlineGateway: activeGateway,
+      methods,
+    };
   });
 }

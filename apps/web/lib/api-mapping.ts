@@ -105,6 +105,18 @@ export const API_MAPPINGS: readonly ApiRouteMapping[] = [
     method: "POST",
     description: "Submit generate langsung ke adapter Siray",
   },
+  {
+    FE: "/api/generate/falai/:modelSlug",
+    BE: "/generate/falai/:modelSlug",
+    method: "POST",
+    description: "Submit generate langsung ke adapter fal.ai",
+  },
+  {
+    FE: "/api/generate/fal/:modelSlug",
+    BE: "/generate/fal/:modelSlug",
+    method: "POST",
+    description: "Submit generate langsung ke adapter fal.ai (alias)",
+  },
 
   // -------------------------------------------------------------
   // 2. Auth & Pelanggan (Registrasi, OTP, Reset Password)
@@ -330,6 +342,18 @@ export const API_MAPPINGS: readonly ApiRouteMapping[] = [
     BE: "/admin/topup/poin/:id",
     method: "POST",
     description: "Penyesuaian saldo poin user secara manual oleh admin",
+  },
+  {
+    FE: "/api/admin/settings/payment",
+    BE: "/admin/settings/payment",
+    method: "ALL",
+    description: "Ambil dan simpan pengaturan metode pembayaran (Transfer Manual & Online Gateway)",
+  },
+  {
+    FE: "/api/admin/settings/generate_cooldown_seconds",
+    BE: "/admin/settings/generate_cooldown_seconds",
+    method: "ALL",
+    description: "Ambil dan simpan pengaturan jeda cooldown generate",
   },
   {
     FE: "/api/admin/models/settings",
@@ -631,9 +655,24 @@ export function resolveBackendPath(fePath: string, method = "GET"): string {
   const generateFileMatch = m === "GET" ? path.match(/^\/api\/generate\/([^/]+)\/file$/) : null;
   if (generateFileMatch) return `/customer/generated/${generateFileMatch[1]}/file` + search;
 
-  // GET /api/generate/:id -> /customer/generated/:id (kecuali endpoint adapter spesifik /api/generate/siray/...)
+  // Adapter generate direct routes (Siray & Fal.ai)
+  const sirayMatch = m === "POST" ? path.match(/^\/api\/generate\/siray\/([^/]+)$/) : null;
+  if (sirayMatch) return `/generate/siray/${sirayMatch[1]}` + search;
+
+  const falaiMatch = m === "POST" ? path.match(/^\/api\/generate\/falai\/([^/]+)$/) : null;
+  if (falaiMatch) return `/generate/falai/${falaiMatch[1]}` + search;
+
+  const falMatch = m === "POST" ? path.match(/^\/api\/generate\/fal\/([^/]+)$/) : null;
+  if (falMatch) return `/generate/fal/${falMatch[1]}` + search;
+
+  // GET /api/generate/:id -> /customer/generated/:id (kecuali endpoint adapter spesifik)
   const generateDetailMatch =
-    m === "GET" && !path.startsWith("/api/generate/siray/") ? path.match(/^\/api\/generate\/([^/]+)$/) : null;
+    m === "GET" &&
+    !path.startsWith("/api/generate/siray/") &&
+    !path.startsWith("/api/generate/falai/") &&
+    !path.startsWith("/api/generate/fal/")
+      ? path.match(/^\/api\/generate\/([^/]+)$/)
+      : null;
   if (generateDetailMatch) return `/customer/generated/${generateDetailMatch[1]}` + search;
 
   // GET /api/jobs/:id/file -> /customer/generated/:id/file

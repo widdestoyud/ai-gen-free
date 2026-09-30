@@ -1,10 +1,11 @@
 "use client";
 
-import { useMemo, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import {
   Badge,
   Button,
   Group,
+  Pagination,
   Paper,
   Select,
   Stack,
@@ -17,7 +18,8 @@ import { useRouter } from "next/navigation";
 import { AppLink } from "@/components/app-link";
 import { ResponsiveTable } from "@/components/responsive-table";
 import { EmptyState } from "@/components/empty-state";
-import { ADMIN_PAGE_SIZE, adminHref, type AdminUserRow } from "@/lib/admin";
+import type { AdminUserRow } from "@/lib/admin";
+import type { PaginationMeta } from "@/app/admin/page";
 import { formatDateId } from "@/lib/format";
 import classes from "./users-list.module.css";
 
@@ -60,41 +62,83 @@ function SearchIcon() {
 
 export function AdminUsersList({
   users,
-  q,
-  offset,
+  pagination = {
+    page: 1,
+    limit: 10,
+    total: users.length,
+    totalPages: 1,
+    hasNext: false,
+    hasPrev: false,
+  },
+  currentParams,
 }: {
   users: AdminUserRow[];
-  q: string;
-  offset: number;
+  pagination?: PaginationMeta;
+  currentParams?: {
+    q?: string;
+    role?: string;
+    page?: string;
+    limit?: string;
+    sortBy?: string;
+    sortOrder?: string;
+  };
 }) {
   const router = useRouter();
-  const [query, setQuery] = useState(q);
-  const [roleFilter, setRoleFilter] = useState<string | null>("all");
-  const [statusFilter, setStatusFilter] = useState<string | null>("all");
+  const [query, setQuery] = useState(currentParams?.q ?? "");
+
+  function navigateQuery(overrides: {
+    q?: string;
+    role?: string;
+    page?: number;
+    limit?: number;
+    sortBy?: string;
+    sortOrder?: string;
+  }) {
+    const params = new URLSearchParams();
+
+    const nextQ = overrides.q !== undefined ? overrides.q : currentParams?.q || "";
+    const nextRole = overrides.role !== undefined ? overrides.role : currentParams?.role || "";
+    const nextPage =
+      overrides.page !== undefined
+        ? String(overrides.page)
+        : overrides.q !== undefined || overrides.role !== undefined || overrides.limit !== undefined
+          ? "1"
+          : currentParams?.page || "1";
+    const nextLimit =
+      overrides.limit !== undefined ? String(overrides.limit) : currentParams?.limit || "10";
+    const nextSortBy =
+      overrides.sortBy !== undefined ? overrides.sortBy : currentParams?.sortBy || "";
+    const nextSortOrder =
+      overrides.sortOrder !== undefined ? overrides.sortOrder : currentParams?.sortOrder || "";
+
+    if (nextQ.trim()) params.set("q", nextQ.trim());
+    if (nextRole && nextRole !== "all") params.set("role", nextRole);
+    if (nextPage && nextPage !== "1") params.set("page", nextPage);
+    if (nextLimit && nextLimit !== "10") params.set("limit", nextLimit);
+    if (nextSortBy) params.set("sortBy", nextSortBy);
+    if (nextSortOrder) params.set("sortOrder", nextSortOrder);
+
+    const qs = params.toString();
+    router.push(`/admin/users${qs ? `?${qs}` : ""}`);
+  }
 
   function onSearch(e: FormEvent) {
     e.preventDefault();
-    router.push(adminHref("/admin/users", { q: query.trim(), offset: 0 }));
+    navigateQuery({ q: query.trim(), page: 1 });
   }
 
-  const filteredUsers = useMemo(() => {
-    return users.filter((u) => {
-      if (roleFilter && roleFilter !== "all" && u.role !== roleFilter) {
-        return false;
-      }
-      if (statusFilter && statusFilter !== "all") {
-        const isCooldownActive = Boolean(u.nextGenerateAt && new Date(u.nextGenerateAt).getTime() > Date.now());
-        if (statusFilter === "cooldown" && !isCooldownActive) return false;
-        if (statusFilter === "ready" && isCooldownActive) return false;
-      }
-      return true;
-    });
-  }, [users, roleFilter, statusFilter]);
-
   function exportCsv() {
-    if (filteredUsers.length === 0) return;
-    const headers = ["ID", "Email", "Role", "Saldo Tersedia", "Saldo Terkunci", "Jeda Sampai", "Terdaftar"];
-    const rows = filteredUsers.map((u) => [
+    if (users.length === 0) return;
+    const headers = [
+      "ID",
+      "Email",
+      "Role",
+      "Saldo Tersedia",
+      "Saldo Terkunci",
+      "Jeda Sampai",
+      "Terdaftar",
+    ];
+    const rows = users.map((u) => [
       `"${u.id}"`,
       `"${u.email}"`,
       `"${u.role}"`,
@@ -115,13 +159,16 @@ export function AdminUsersList({
     URL.revokeObjectURL(url);
   }
 
+  const startItem = pagination.total > 0 ? (pagination.page - 1) * pagination.limit + 1 : 0;
+  const endItem = Math.min(pagination.page * pagination.limit, pagination.total);
+
   return (
     <Paper className={classes.historyContainer}>
       <div className={classes.headerRow}>
         <Stack gap={2}>
           <Text className={classes.title}>Daftar Pengguna</Text>
           <Text className={classes.subtitle}>
-            Saldo dan data pengguna diambil dari ledger server terpusat.
+            Saldo dan data pengguna diambil dari database query layer terpusat.
           </Text>
         </Stack>
 
@@ -136,8 +183,8 @@ export function AdminUsersList({
           />
           <Select
             size="xs"
-            value={roleFilter}
-            onChange={setRoleFilter}
+            value={currentParams?.role ?? "all"}
+            onChange={(role) => navigateQuery({ role: role ?? "all", page: 1 })}
             data={[
               { value: "all", label: "Semua role" },
               { value: "customer", label: "Customer" },
@@ -148,14 +195,15 @@ export function AdminUsersList({
           />
           <Select
             size="xs"
-            value={statusFilter}
-            onChange={setStatusFilter}
+            w={110}
+            value={String(pagination.limit)}
+            onChange={(val) => val && navigateQuery({ limit: parseInt(val, 10), page: 1 })}
             data={[
-              { value: "all", label: "Semua status" },
-              { value: "ready", label: "Siap generate" },
-              { value: "cooldown", label: "Sedang jeda" },
+              { value: "10", label: "10 / hal" },
+              { value: "20", label: "20 / hal" },
+              { value: "50", label: "50 / hal" },
+              { value: "100", label: "100 / hal" },
             ]}
-            className={classes.selectInput}
             allowDeselect={false}
           />
           <Button size="xs" type="submit" variant="light">
@@ -166,20 +214,22 @@ export function AdminUsersList({
             variant="default"
             leftSection={<DownloadIcon />}
             onClick={exportCsv}
-            disabled={filteredUsers.length === 0}
+            disabled={users.length === 0}
           >
             Export CSV
           </Button>
         </form>
       </div>
 
-      {filteredUsers.length === 0 ? (
+      {users.length === 0 ? (
         <EmptyState minHeight={220}>
-          {q ? `Tidak ada pengguna yang cocok dengan pencarian "${q}".` : "Belum ada data pengguna."}
+          {currentParams?.q
+            ? `Tidak ada pengguna yang cocok dengan pencarian "${currentParams.q}".`
+            : "Belum ada data pengguna."}
         </EmptyState>
       ) : (
         <ResponsiveTable
-          data={filteredUsers}
+          data={users}
           keyExtractor={(user) => user.id}
           renderHeader={() => (
             <Table.Tr className={classes.tableHeader}>
@@ -192,7 +242,9 @@ export function AdminUsersList({
             </Table.Tr>
           )}
           renderRow={(user) => {
-            const isCooldown = Boolean(user.nextGenerateAt && new Date(user.nextGenerateAt).getTime() > Date.now());
+            const isCooldown = Boolean(
+              user.nextGenerateAt && new Date(user.nextGenerateAt).getTime() > Date.now(),
+            );
 
             return (
               <Table.Tr key={user.id} className={classes.tableRow}>
@@ -222,7 +274,10 @@ export function AdminUsersList({
                 </Table.Td>
                 <Table.Td>
                   {isCooldown ? (
-                    <Tooltip label={`Jeda sampai: ${formatDateId(user.nextGenerateAt!)}`} withArrow>
+                    <Tooltip
+                      label={`Jeda sampai: ${formatDateId(user.nextGenerateAt!)}`}
+                      withArrow
+                    >
                       <Badge variant="light" color="yellow" size="sm" radius="sm">
                         Jeda Generate
                       </Badge>
@@ -251,7 +306,9 @@ export function AdminUsersList({
             );
           }}
           renderMobileCard={(user) => {
-            const isCooldown = Boolean(user.nextGenerateAt && new Date(user.nextGenerateAt).getTime() > Date.now());
+            const isCooldown = Boolean(
+              user.nextGenerateAt && new Date(user.nextGenerateAt).getTime() > Date.now(),
+            );
 
             return (
               <div
@@ -266,7 +323,14 @@ export function AdminUsersList({
                   gap: 10,
                 }}
               >
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "flex-start",
+                    gap: 8,
+                  }}
+                >
                   <div>
                     <Text fw={600} size="sm">
                       {user.email}
@@ -324,7 +388,13 @@ export function AdminUsersList({
                   </div>
                 </div>
 
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                  }}
+                >
                   <Text size="xs" c="dimmed" suppressHydrationWarning>
                     Daftar: {formatDateId(user.createdAt)}
                   </Text>
@@ -346,30 +416,19 @@ export function AdminUsersList({
 
       <div className={classes.paginationRow}>
         <Text size="xs" c="dimmed">
-          Menampilkan {filteredUsers.length} pengguna (Halaman {Math.floor(offset / ADMIN_PAGE_SIZE) + 1})
+          Menampilkan <strong>{startItem}–{endItem}</strong> dari{" "}
+          <strong>{pagination.total}</strong> pengguna (Halaman {pagination.page} dari{" "}
+          {pagination.totalPages}).
         </Text>
-        <Group gap="xs">
-          {offset > 0 ? (
-            <Button
-              component={AppLink}
-              href={adminHref("/admin/users", { q, offset: Math.max(0, offset - ADMIN_PAGE_SIZE) })}
-              variant="default"
-              size="xs"
-            >
-              Sebelumnya
-            </Button>
-          ) : null}
-          {users.length >= ADMIN_PAGE_SIZE ? (
-            <Button
-              component={AppLink}
-              href={adminHref("/admin/users", { q, offset: offset + ADMIN_PAGE_SIZE })}
-              variant="default"
-              size="xs"
-            >
-              Berikutnya
-            </Button>
-          ) : null}
-        </Group>
+
+        {pagination.totalPages > 1 && (
+          <Pagination
+            size="sm"
+            total={pagination.totalPages}
+            value={pagination.page}
+            onChange={(newPage) => navigateQuery({ page: newPage })}
+          />
+        )}
       </div>
     </Paper>
   );

@@ -5,13 +5,22 @@ import type { FetchedBytes } from "./fetch-output.js";
 const WEBP_QUALITY = 80;
 const MAX_LONG_SIDE = 2048;
 
+export type OptimizeOutputOptions = {
+  isUpscale?: boolean;
+  maxLongSide?: number;
+  quality?: number;
+};
+
 export type OptimizedOutput = FetchedBytes & {
   aspectRatio: string;
   width: number;
   height: number;
 };
 
-export async function optimizeOutputImage(input: FetchedBytes): Promise<OptimizedOutput> {
+export async function optimizeOutputImage(
+  input: FetchedBytes,
+  options?: OptimizeOutputOptions,
+): Promise<OptimizedOutput> {
   if (!isRasterImage(input)) {
     return {
       ...input,
@@ -29,17 +38,51 @@ export async function optimizeOutputImage(input: FetchedBytes): Promise<Optimize
     throw new Error("output image missing dimensions");
   }
 
+  const isUpscale = Boolean(options?.isUpscale);
+
+  if (isUpscale) {
+    // For upscale jobs:
+    // 1. Preserve original aspect ratio & full resolution (no center crop)
+    // 2. Allow up to 8192px max (do not downscale 4K/8K)
+    // 3. High quality WebP (quality: 94, effort: 6) to avoid compression artifacts on fine details
+    const maxDim = options?.maxLongSide ?? 8192;
+    const longSide = Math.max(width, height);
+    const scale = longSide > maxDim ? maxDim / longSide : 1;
+    const outW = Math.max(1, Math.round(width * scale));
+    const outH = Math.max(1, Math.round(height * scale));
+    const quality = options?.quality ?? 94;
+
+    let pipeline = base;
+    if (scale < 1) {
+      pipeline = pipeline.resize(outW, outH, { fit: "inside" });
+    }
+
+    const body = await pipeline
+      .webp({ quality, effort: 6 })
+      .toBuffer();
+
+    return {
+      body: new Uint8Array(body),
+      contentType: "image/webp",
+      aspectRatio: `${outW}:${outH}`,
+      width: outW,
+      height: outH,
+    };
+  }
+
   const aspect = nearestOutputAspect(width, height);
   const crop = centerCropBox(width, height, aspect);
   const longSide = Math.max(crop.width, crop.height);
-  const scale = longSide > MAX_LONG_SIDE ? MAX_LONG_SIDE / longSide : 1;
+  const maxDim = options?.maxLongSide ?? MAX_LONG_SIDE;
+  const scale = longSide > maxDim ? maxDim / longSide : 1;
   const outW = Math.max(1, Math.round(crop.width * scale));
   const outH = Math.max(1, Math.round(crop.height * scale));
+  const quality = options?.quality ?? WEBP_QUALITY;
 
   const body = await base
     .extract({ left: crop.left, top: crop.top, width: crop.width, height: crop.height })
     .resize(outW, outH, { fit: "fill" })
-    .webp({ quality: WEBP_QUALITY, effort: 4 })
+    .webp({ quality, effort: 4 })
     .toBuffer();
 
   return {

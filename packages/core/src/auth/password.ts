@@ -1,4 +1,4 @@
-import { scrypt, randomBytes, timingSafeEqual } from "node:crypto";
+import { scrypt, randomBytes, timingSafeEqual, createHash } from "node:crypto";
 import { promisify } from "node:util";
 
 const scryptAsync = promisify(scrypt);
@@ -44,6 +44,7 @@ export async function hashPassword(password: string): Promise<string> {
 
 /**
  * Verifikasi password terhadap hash scrypt tersimpan.
+ * Mendukung verifikasi langsung dan verifikasi pre-hash SHA-256.
  */
 export async function verifyPassword(password: string, storedHash: string): Promise<boolean> {
   const [salt, key] = storedHash.split(":");
@@ -51,8 +52,18 @@ export async function verifyPassword(password: string, storedHash: string): Prom
   try {
     const derivedKey = (await scryptAsync(password, salt, 64)) as Buffer;
     const keyBuffer = Buffer.from(key, "hex");
-    if (derivedKey.length !== keyBuffer.length) return false;
-    return timingSafeEqual(derivedKey, keyBuffer);
+    if (derivedKey.length === keyBuffer.length && timingSafeEqual(derivedKey, keyBuffer)) {
+      return true;
+    }
+    // Jika tidak cocok dan input belum berupa SHA-256 hex, coba verifikasi terhadap SHA-256-nya
+    if (!isSha256Hex(password)) {
+      const sha = createHash("sha256").update(password).digest("hex");
+      const derivedShaKey = (await scryptAsync(sha, salt, 64)) as Buffer;
+      if (derivedShaKey.length === keyBuffer.length && timingSafeEqual(derivedShaKey, keyBuffer)) {
+        return true;
+      }
+    }
+    return false;
   } catch {
     return false;
   }

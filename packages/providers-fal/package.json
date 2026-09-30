@@ -1,0 +1,15 @@
+{
+  "name": "@ai-gen-free/providers-fal",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "tsx --test src/token-bucket.test.ts src/map.test.ts src/fal.test.ts"
+  },
+  "dependencies": {
+    "@ai-gen-free/core": "workspace:*"
+  }
+}

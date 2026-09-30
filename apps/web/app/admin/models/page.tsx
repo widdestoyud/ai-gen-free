@@ -17,8 +17,9 @@ const FALLBACK_CONFIG: DefaultGenerationModelsConfig = {
   spicyVideoModelId: "bytedance/seedance-2.0-i2v-spicy",
 };
 
-async function loadData() {
-  const res = await fetchAdminApi("/api/admin/models/settings");
+async function loadData(provider?: string) {
+  const query = provider && provider !== "all" ? `?provider=${encodeURIComponent(provider)}` : "";
+  const res = await fetchAdminApi(`/api/admin/models/settings${query}`);
   if (!res || !res.ok) {
     return { config: FALLBACK_CONFIG, models: [] as AdminModelItem[] };
   }
@@ -29,8 +30,9 @@ async function loadData() {
   };
 }
 
-export default async function AdminModelsPage() {
+export default async function AdminModelsPage(props: { searchParams: Promise<{ provider?: string }> }) {
+  const searchParams = await props.searchParams;
   const me = await loadAdminMe();
-  const data = me ? await loadData() : { config: FALLBACK_CONFIG, models: [] };
-  return <AdminModelsView config={data.config} models={data.models} />;
+  const data = me ? await loadData(searchParams.provider) : { config: FALLBACK_CONFIG, models: [] };
+  return <AdminModelsView config={data.config} models={data.models} selectedProvider={searchParams.provider || "all"} />;
 }

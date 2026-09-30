@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import {
   Badge,
   Button,
@@ -8,7 +8,9 @@ import {
   Group,
   Image,
   Modal,
+  Pagination,
   Paper,
+  Select,
   Stack,
   Table,
   Tabs,
@@ -23,7 +25,7 @@ import { EmptyState } from "@/components/empty-state";
 import { ErrorAlert } from "@/components/error-alert";
 import { requestJson } from "@/lib/api";
 import { formatDateId, formatIdr } from "@/lib/format";
-import type { AdminInvoiceItem } from "@/app/admin/page";
+import type { AdminInvoiceItem, PaginationMeta } from "@/app/admin/page";
 import classes from "./admin-inbox.module.css";
 
 function DownloadIcon() {
@@ -81,21 +83,39 @@ function RefreshIcon() {
 }
 
 export function AdminInbox({
-  items,
-  openItems = [],
+  items: _items,
+  openItems: _openItems = [],
   allInvoices = [],
   pendingCount = 0,
   openCount = 0,
+  pagination = {
+    page: 1,
+    limit: 10,
+    total: 0,
+    totalPages: 1,
+    hasNext: false,
+    hasPrev: false,
+  },
+  currentParams,
 }: {
-  items: AdminInvoiceItem[];
+  items?: AdminInvoiceItem[];
   openItems?: AdminInvoiceItem[];
   allInvoices?: AdminInvoiceItem[];
   pendingCount?: number;
   openCount?: number;
+  pagination?: PaginationMeta;
+  currentParams?: {
+    page?: string;
+    limit?: string;
+    status?: string;
+    sortBy?: string;
+    sortOrder?: string;
+    q?: string;
+  };
 }) {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<string | null>("kurasi");
-  const [search, setSearch] = useState("");
+  const activeTab = currentParams?.status || "all";
+  const [search, setSearch] = useState(currentParams?.q || "");
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [busy, setBusy] = useState(false);
@@ -125,25 +145,50 @@ export function AdminInbox({
   // Loading state per invoice untuk Cek Status Midtrans
   const [checkingInvoiceId, setCheckingInvoiceId] = useState<string | null>(null);
 
-  // Filter items based on active tab & search
-  const currentList = useMemo(() => {
-    if (activeTab === "open") return openItems;
-    if (activeTab === "all") return allInvoices;
-    return items;
-  }, [activeTab, items, openItems, allInvoices]);
+  function navigateQuery(overrides: {
+    status?: string;
+    page?: number;
+    limit?: number;
+    sortBy?: string;
+    sortOrder?: string;
+    q?: string;
+  }) {
+    const params = new URLSearchParams();
 
-  const filteredItems = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return currentList;
-    return currentList.filter(
-      (item) =>
-        item.uniqueCode.toLowerCase().includes(q) ||
-        item.email.toLowerCase().includes(q) ||
-        item.invoiceId.toLowerCase().includes(q) ||
-        (item.paymentMethod && item.paymentMethod.toLowerCase().includes(q)) ||
-        (item.gatewayPaymentChannel && item.gatewayPaymentChannel.toLowerCase().includes(q)),
-    );
-  }, [currentList, search]);
+    const nextStatus =
+      overrides.status !== undefined ? overrides.status : currentParams?.status || "";
+    const nextPage =
+      overrides.page !== undefined
+        ? String(overrides.page)
+        : overrides.status !== undefined ||
+            overrides.q !== undefined ||
+            overrides.limit !== undefined ||
+            overrides.sortBy !== undefined
+          ? "1"
+          : currentParams?.page || "1";
+    const nextLimit =
+      overrides.limit !== undefined ? String(overrides.limit) : currentParams?.limit || "10";
+    const nextSortBy =
+      overrides.sortBy !== undefined ? overrides.sortBy : currentParams?.sortBy || "";
+    const nextSortOrder =
+      overrides.sortOrder !== undefined ? overrides.sortOrder : currentParams?.sortOrder || "";
+    const nextQ = overrides.q !== undefined ? overrides.q : currentParams?.q || "";
+
+    if (nextStatus && nextStatus !== "all") params.set("status", nextStatus);
+    if (nextPage && nextPage !== "1") params.set("page", nextPage);
+    if (nextLimit && nextLimit !== "10") params.set("limit", nextLimit);
+    if (nextSortBy) params.set("sortBy", nextSortBy);
+    if (nextSortOrder) params.set("sortOrder", nextSortOrder);
+    if (nextQ.trim()) params.set("q", nextQ.trim());
+
+    const qs = params.toString();
+    router.push(`/admin${qs ? `?${qs}` : ""}`);
+  }
+
+  function handleSearchSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    navigateQuery({ q: search, page: 1 });
+  }
 
   async function loadProof(item: AdminInvoiceItem) {
     setError("");
@@ -272,7 +317,7 @@ export function AdminInbox({
   }
 
   function exportCsv() {
-    if (filteredItems.length === 0) return;
+    if (allInvoices.length === 0) return;
     const headers = [
       "Invoice ID",
       "Kode Unik",
@@ -285,7 +330,7 @@ export function AdminInbox({
       "Waktu Submit Bukti",
       "Status",
     ];
-    const rows = filteredItems.map((item) => [
+    const rows = allInvoices.map((item) => [
       `"${item.invoiceId}"`,
       `"${item.uniqueCode}"`,
       `"${item.email}"`,
@@ -304,13 +349,16 @@ export function AdminInbox({
     link.href = url;
     link.setAttribute(
       "download",
-      `invoices-admin-${activeTab ?? "kurasi"}-${new Date().toISOString().slice(0, 10)}.csv`,
+      `invoices-admin-${activeTab}-${new Date().toISOString().slice(0, 10)}.csv`,
     );
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
   }
+
+  const startItem = pagination.total > 0 ? (pagination.page - 1) * pagination.limit + 1 : 0;
+  const endItem = Math.min(pagination.page * pagination.limit, pagination.total);
 
   return (
     <div className={classes.inboxContainer}>
@@ -342,20 +390,27 @@ export function AdminInbox({
 
         <Paper className={classes.statCard}>
           <Text size="xs" c="dimmed" fw={500}>
-            Total Riwayat
+            Total Filtered
           </Text>
           <Text size="xl" fw={700} c="teal">
-            {allInvoices.length}
+            {pagination.total}
           </Text>
           <Text size="xs" c="dimmed">
-            Keseluruhan invoice sistem
+            Invoice sesuai filter aktif
           </Text>
         </Paper>
       </div>
 
       {/* Tabs Menu */}
-      <Tabs value={activeTab} onChange={setActiveTab} mb="md">
+      <Tabs
+        value={activeTab}
+        onChange={(tab) => {
+          if (tab) navigateQuery({ status: tab, page: 1 });
+        }}
+        mb="md"
+      >
         <Tabs.List>
+          <Tabs.Tab value="all">Semua</Tabs.Tab>
           <Tabs.Tab
             value="kurasi"
             rightSection={
@@ -369,7 +424,7 @@ export function AdminInbox({
             Menunggu Kurasi
           </Tabs.Tab>
           <Tabs.Tab
-            value="open"
+            value="pending"
             rightSection={
               openCount > 0 ? (
                 <Badge size="xs" color="blue" variant="filled">
@@ -378,18 +433,11 @@ export function AdminInbox({
               ) : undefined
             }
           >
-            Pesanan Open
+            Pending / Open
           </Tabs.Tab>
-          <Tabs.Tab
-            value="all"
-            rightSection={
-              <Badge size="xs" color="gray" variant="light">
-                {allInvoices.length}
-              </Badge>
-            }
-          >
-            Semua Riwayat
-          </Tabs.Tab>
+          <Tabs.Tab value="paid">Lunas</Tabs.Tab>
+          <Tabs.Tab value="expired">Kadaluarsa</Tabs.Tab>
+          <Tabs.Tab value="canceled">Dibatalkan</Tabs.Tab>
         </Tabs.List>
       </Tabs>
 
@@ -397,36 +445,89 @@ export function AdminInbox({
       <div className={classes.headerRow}>
         <Stack gap={2}>
           <Text className={classes.title}>
-            {activeTab === "open"
-              ? "Daftar Pesanan Sedang Open"
-              : activeTab === "all"
-                ? "Seluruh Riwayat Invoice"
-                : "Daftar Bukti Menunggu Kurasi"}
+            {activeTab === "open" || activeTab === "pending"
+              ? "Daftar Pesanan Pending / Open"
+              : activeTab === "kurasi"
+                ? "Daftar Bukti Menunggu Kurasi"
+                : activeTab === "paid"
+                  ? "Daftar Pesanan Lunas"
+                  : activeTab === "expired"
+                    ? "Daftar Pesanan Kadaluarsa"
+                    : activeTab === "canceled"
+                      ? "Daftar Pesanan Dibatalkan / Ditolak"
+                      : "Seluruh Riwayat Invoice"}
           </Text>
           <Text className={classes.subtitle}>
-            {activeTab === "open"
-              ? "Pantau invoice yang baru dibuat atau sedang dalam proses pembayaran online."
-              : activeTab === "all"
-                ? "Daftar lengkap seluruh invoice dengan status lunas, ditolak, maupun dibatalkan."
-                : "Verifikasi bukti transfer pengguna sebelum poin dikreditkan ke saldo akun."}
+            {activeTab === "open" || activeTab === "pending"
+              ? "Pantau invoice yang baru dibuat atau sedang dalam proses pembayaran online / manual."
+              : activeTab === "kurasi"
+                ? "Verifikasi bukti transfer pengguna sebelum poin dikreditkan ke saldo akun."
+                : activeTab === "paid"
+                  ? "Riwayat invoice yang sudah berhasil diverifikasi dan dibayar."
+                  : activeTab === "expired"
+                    ? "Invoice yang sudah melewati batas waktu pembayaran (sesi berakhir)."
+                    : activeTab === "canceled"
+                      ? "Invoice yang dibatalkan oleh pelanggan atau ditolak oleh admin."
+                      : "Daftar lengkap seluruh transaksi di sistem."}
           </Text>
         </Stack>
 
         <div className={classes.controls}>
-          <TextInput
+          <form onSubmit={handleSearchSubmit}>
+            <Group gap="xs">
+              <TextInput
+                size="xs"
+                placeholder="Cari kode atau email..."
+                value={search}
+                onChange={(e) => setSearch(e.currentTarget.value)}
+                leftSection={<SearchIcon />}
+                className={classes.searchInput}
+              />
+              <Button size="xs" variant="light" type="submit">
+                Cari
+              </Button>
+            </Group>
+          </form>
+
+          <Select
             size="xs"
-            placeholder="Cari kode, email, atau metode..."
-            value={search}
-            onChange={(e) => setSearch(e.currentTarget.value)}
-            leftSection={<SearchIcon />}
-            className={classes.searchInput}
+            w={160}
+            value={`${currentParams?.sortBy ?? "createdAt"}-${currentParams?.sortOrder ?? "desc"}`}
+            onChange={(val) => {
+              if (!val) return;
+              const [sortBy, sortOrder] = val.split("-");
+              navigateQuery({ sortBy, sortOrder, page: 1 });
+            }}
+            data={[
+              { value: "createdAt-desc", label: "Terbaru" },
+              { value: "createdAt-asc", label: "Terlama" },
+              { value: "amountIdr-desc", label: "Nominal Tertinggi" },
+              { value: "amountIdr-asc", label: "Nominal Terendah" },
+              { value: "points-desc", label: "Poin Tertinggi" },
+            ]}
           />
+
+          <Select
+            size="xs"
+            w={110}
+            value={String(pagination.limit)}
+            onChange={(val) => {
+              if (val) navigateQuery({ limit: parseInt(val, 10), page: 1 });
+            }}
+            data={[
+              { value: "10", label: "10 / hal" },
+              { value: "20", label: "20 / hal" },
+              { value: "50", label: "50 / hal" },
+              { value: "100", label: "100 / hal" },
+            ]}
+          />
+
           <Button
             size="xs"
             variant="default"
             leftSection={<DownloadIcon />}
             onClick={exportCsv}
-            disabled={filteredItems.length === 0}
+            disabled={allInvoices.length === 0}
           >
             Export CSV
           </Button>
@@ -443,19 +544,25 @@ export function AdminInbox({
         </Paper>
       )}
 
-      {filteredItems.length === 0 ? (
+      {allInvoices.length === 0 ? (
         <EmptyState minHeight={220}>
           {search
             ? `Tidak ada invoice yang cocok dengan pencarian "${search}".`
-            : activeTab === "open"
-              ? "Tidak ada pesanan sedang open saat ini."
-              : activeTab === "all"
-                ? "Belum ada riwayat invoice."
-                : "Tidak ada bukti menunggu kurasi saat ini."}
+            : activeTab === "kurasi"
+              ? "Tidak ada bukti menunggu kurasi saat ini."
+              : activeTab === "pending" || activeTab === "open"
+                ? "Tidak ada pesanan pending saat ini."
+                : activeTab === "paid"
+                  ? "Belum ada invoice lunas."
+                  : activeTab === "expired"
+                    ? "Tidak ada invoice kadaluarsa."
+                    : activeTab === "canceled"
+                      ? "Tidak ada invoice dibatalkan."
+                      : "Belum ada riwayat invoice."}
         </EmptyState>
       ) : (
         <ResponsiveTable
-          data={filteredItems}
+          data={allInvoices}
           keyExtractor={(item) => item.invoiceId}
           renderHeader={() => (
             <Table.Tr className={classes.tableHeader}>
@@ -524,7 +631,9 @@ export function AdminInbox({
                     item.proofSubmittedAt ? formatDateId(item.proofSubmittedAt) : "-"
                   ) : (
                     <div>
-                      <Text size="xs" suppressHydrationWarning>{item.createdAt ? formatDateId(item.createdAt) : "-"}</Text>
+                      <Text size="xs" suppressHydrationWarning>
+                        {item.createdAt ? formatDateId(item.createdAt) : "-"}
+                      </Text>
                       {isMidtrans && item.gatewayExpiredAt && isUnpaid && (
                         <Text
                           size="xs"
@@ -547,7 +656,7 @@ export function AdminInbox({
 
                 <Table.Td>
                   <Badge
-                    variant={isCanceled ? "outline" : "light"}
+                    variant={isCanceled || isExpired ? "outline" : "light"}
                     color={
                       isPaid
                         ? "teal"
@@ -593,7 +702,7 @@ export function AdminInbox({
                       </Button>
                     )}
 
-                    {isUnpaid && isMidtrans && (
+                    {isUnpaid && isMidtrans && !isExpired && (
                       <Button
                         size="xs"
                         variant="default"
@@ -608,7 +717,7 @@ export function AdminInbox({
                       </Button>
                     )}
 
-                    {(isUnpaid || isAwaiting || isRejected) && (
+                    {(isUnpaid || isAwaiting || isRejected) && !isExpired && (
                       <Button
                         size="xs"
                         variant="subtle"
@@ -636,7 +745,6 @@ export function AdminInbox({
             const isUnpaid = item.status === "unpaid";
 
             const isMidtrans = item.paymentMethod === "midtrans";
-
             const isChecking = checkingInvoiceId === item.invoiceId;
 
             return (
@@ -652,7 +760,14 @@ export function AdminInbox({
                   gap: 10,
                 }}
               >
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "flex-start",
+                    gap: 8,
+                  }}
+                >
                   <div>
                     <Text fw={700} size="sm" c="blue.4">
                       {item.uniqueCode}
@@ -662,7 +777,7 @@ export function AdminInbox({
                     </Text>
                   </div>
                   <Badge
-                    variant={isCanceled ? "outline" : "light"}
+                    variant={isCanceled || isExpired ? "outline" : "light"}
                     color={
                       isPaid
                         ? "teal"
@@ -729,7 +844,14 @@ export function AdminInbox({
                   </div>
                 </div>
 
-                <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, flexWrap: "wrap" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "flex-end",
+                    gap: 8,
+                    flexWrap: "wrap",
+                  }}
+                >
                   {isAwaiting && (
                     <Button
                       size="xs"
@@ -742,7 +864,7 @@ export function AdminInbox({
                     </Button>
                   )}
 
-                  {isUnpaid && isMidtrans && (
+                  {isUnpaid && isMidtrans && !isExpired && (
                     <Button
                       size="xs"
                       variant="default"
@@ -757,7 +879,7 @@ export function AdminInbox({
                     </Button>
                   )}
 
-                  {(isUnpaid || isAwaiting || isRejected) && (
+                  {(isUnpaid || isAwaiting || isRejected) && !isExpired && (
                     <Button
                       size="xs"
                       variant="subtle"
@@ -778,16 +900,22 @@ export function AdminInbox({
         />
       )}
 
+      {/* Pagination and Summary Footer */}
       <div className={classes.summaryFooter}>
         <Text size="xs" c="dimmed">
-          Menampilkan <strong>{filteredItems.length}</strong> invoice (
-          {activeTab === "open"
-            ? "Pesanan Open"
-            : activeTab === "all"
-              ? "Semua Riwayat"
-              : "Menunggu Kurasi"}
-          ).
+          Menampilkan <strong>{startItem}–{endItem}</strong> dari{" "}
+          <strong>{pagination.total}</strong> invoice (Halaman {pagination.page} dari{" "}
+          {pagination.totalPages}).
         </Text>
+
+        {pagination.totalPages > 1 && (
+          <Pagination
+            size="sm"
+            total={pagination.totalPages}
+            value={pagination.page}
+            onChange={(newPage) => navigateQuery({ page: newPage })}
+          />
+        )}
       </div>
 
       {/* Modal Bukti Bayar & Kurasi */}
@@ -850,7 +978,8 @@ export function AdminInbox({
               ) : (
                 <Paper p="md" mt="sm" withBorder>
                   <Text size="sm">
-                    File dokumen bukti ({previewType ?? "dokumen"}). Klik link di atas untuk membuka.
+                    File dokumen bukti ({previewType ?? "dokumen"}). Klik link di atas untuk
+                    membuka.
                   </Text>
                 </Paper>
               )}
@@ -942,7 +1071,8 @@ export function AdminInbox({
             <strong>{approvingItem?.uniqueCode}</strong> ({approvingItem?.email})?
           </Text>
           <Text size="sm" c="teal">
-            Sebanyak <strong>+{approvingItem?.points} Poin</strong> akan langsung dikreditkan ke akun pengguna.
+            Sebanyak <strong>+{approvingItem?.points} Poin</strong> akan langsung dikreditkan ke
+            akun pengguna.
           </Text>
           <Group justify="flex-end" mt="md">
             <Button variant="default" onClick={() => setApprovingItem(null)} disabled={busy}>
@@ -1021,7 +1151,8 @@ export function AdminInbox({
       >
         <Stack gap="sm">
           <Text size="sm">
-            Gunakan string QRIS berikut untuk simulator sandbox Midtrans atau aplikasi scanner sandbox:
+            Gunakan string QRIS berikut untuk simulator sandbox Midtrans atau aplikasi scanner
+            sandbox:
           </Text>
 
           {qrModalInfo?.qrString && (

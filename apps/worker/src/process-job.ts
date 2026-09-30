@@ -16,6 +16,23 @@ import { optimizeOutputImage } from "./optimize-output.js";
 import { resolveInputImages } from "./resolve-inputs.js";
 import { classifyJobFailure, formatFailureLog, formatFailureNote } from "./failure-source.js";
 import { appendSirayJobNote, rememberSirayTaskId } from "./siray-file-log.js";
+import { appendFalJobNote, rememberFalTaskId } from "./fal-file-log.js";
+
+function rememberProviderTaskId(providerId: string, taskId: string): void {
+  if (providerId === "falai" || providerId === "fal") {
+    rememberFalTaskId(taskId);
+  } else {
+    rememberSirayTaskId(taskId);
+  }
+}
+
+async function appendProviderJobNote(providerId: string, note: string): Promise<void> {
+  if (providerId === "falai" || providerId === "fal") {
+    await appendFalJobNote(note);
+  } else {
+    await appendSirayJobNote(note);
+  }
+}
 
 const RETENTION_MS = 14 * 24 * 60 * 60 * 1000;
 export const DEFAULT_IMAGE_TIMEOUT_MS = Number(process.env.IMAGE_JOB_TIMEOUT_MS ?? 90_000);
@@ -83,7 +100,7 @@ export type ProcessGenerateJobOpts = {
   now?: () => Date;
   sleep?: (ms: number) => Promise<void>;
   fetchBytes?: (url: string) => Promise<FetchedBytes>;
-  optimizeImage?: (input: FetchedBytes) => Promise<FetchedBytes>;
+  optimizeImage?: (input: FetchedBytes, options?: { isUpscale?: boolean }) => Promise<FetchedBytes>;
   lastAttempt?: boolean;
   pollIntervalMs?: number;
   timeoutMs?: number;
@@ -97,7 +114,7 @@ export async function processGenerateJob(opts: ProcessGenerateJobOpts): Promise<
   const sleep = opts.sleep ?? ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
   const wallet = opts.wallet ?? { captureJob, releaseJob };
   const fetchBytes = opts.fetchBytes ?? ((url) => fetchOutputBytes(url));
-  const optimizeImage = opts.optimizeImage ?? ((input) => optimizeOutputImage(input));
+  const optimizeImage = opts.optimizeImage ?? ((input, options) => optimizeOutputImage(input, options));
   const pollIntervalMs = opts.pollIntervalMs ?? POLL_INTERVAL_MS;
   const chaosPauseAfterSuccessMs =
     opts.chaosPauseAfterSuccessMs ?? Number(process.env.CHAOS_PAUSE_AFTER_SUCCESS_MS ?? 0);
@@ -129,7 +146,7 @@ export async function processGenerateJob(opts: ProcessGenerateJobOpts): Promise<
   }
 
   let providerJobId = running.providerJobId;
-  if (providerJobId) rememberSirayTaskId(providerJobId);
+  if (providerJobId) rememberProviderTaskId(running.providerId, providerJobId);
   try {
     if (!providerJobId) {
       if (opts.circuitBreaker) {
@@ -150,7 +167,7 @@ export async function processGenerateJob(opts: ProcessGenerateJobOpts): Promise<
           contentType: "text/plain",
         });
       } catch (err) {
-        throw new RetryableProviderError(`storage not ready before Siray: ${errorDetail(err)}`, { cause: err });
+        throw new RetryableProviderError(`storage not ready before ${running.providerId}: ${errorDetail(err)}`, { cause: err });
       }
 
       const resolvedInputs = await resolveInputImages({
@@ -173,10 +190,10 @@ export async function processGenerateJob(opts: ProcessGenerateJobOpts): Promise<
         inputFiles: [],
       });
       providerJobId = handle.providerJobId;
-      rememberSirayTaskId(providerJobId);
+      rememberProviderTaskId(running.providerId, providerJobId);
       await opts.store.saveProviderJobId(job.id, providerJobId);
       console.log(JSON.stringify({ event: "job.provider_submitted", jobId: job.id, providerJobId }));
-      await appendSirayJobNote(`RESULT=submitted sirayTaskId=${providerJobId} jobId=${job.id}`);
+      await appendProviderJobNote(running.providerId, `RESULT=submitted ${running.providerId === "falai" ? "falTaskId" : "sirayTaskId"}=${providerJobId} jobId=${job.id}`);
     }
 
     const cachedUrls = cachedOutputUrls(running.params);
@@ -216,8 +233,9 @@ export async function processGenerateJob(opts: ProcessGenerateJobOpts): Promise<
       }
       if (status.state === "succeeded") {
         const urls = status.outputUrls ?? [];
-        await appendSirayJobNote(
-          `SIRAY_SUCCESS jobId=${job.id} urls=${urls.length} chaosPauseMs=${Number.isFinite(chaosPauseAfterSuccessMs) ? chaosPauseAfterSuccessMs : 0}`,
+        await appendProviderJobNote(
+          running.providerId,
+          `PROVIDER_SUCCESS jobId=${job.id} urls=${urls.length} chaosPauseMs=${Number.isFinite(chaosPauseAfterSuccessMs) ? chaosPauseAfterSuccessMs : 0}`,
         );
         await opts.store.saveProviderOutputUrls(job.id, urls);
         running.params = { ...running.params, providerOutputUrls: urls };
@@ -275,7 +293,7 @@ async function completeSuccess(
   wallet: WalletPort,
   now: () => Date,
   fetchBytes: (url: string) => Promise<FetchedBytes>,
-  optimizeImage: (input: FetchedBytes) => Promise<FetchedBytes>,
+  optimizeImage: (input: FetchedBytes, options?: { isUpscale?: boolean }) => Promise<FetchedBytes>,
 ) {
   const already = await opts.store.hasOutputAsset(job.id);
   let outputContentType = job.mode === "i2v" || job.mode === "t2v" ? "video/mp4" : "image/webp";
@@ -283,21 +301,24 @@ async function completeSuccess(
     const url = outputUrls[0];
     if (!url) {
       await failJob(job, JobErrorCodes.PROVIDER_ERROR, opts, wallet, now, {
-        sourceHint: "siray",
-        err: new Error("Siray SUCCESS tanpa URL output"),
+        sourceHint: job.providerId === "falai" ? undefined : "siray",
+        err: new Error(`${job.providerId} SUCCESS tanpa URL output`),
       });
       return;
     }
     const sleep = opts.sleep ?? ((ms: number) => new Promise((resolve) => setTimeout(resolve, ms)));
+    const isUpscale =
+      job.modelId.toLowerCase().includes("upscale") ||
+      (job.mode === "i2i" && job.modelId.toLowerCase().includes("upscale"));
     let lastErr: unknown;
     for (let attempt = 1; attempt <= 3; attempt++) {
       try {
         const fetched = await fetchBytes(url);
         let stored: FetchedBytes = fetched;
         try {
-          stored = await optimizeImage(fetched);
+          stored = await optimizeImage(fetched, { isUpscale });
         } catch (err) {
-          await appendSirayJobNote(`OPTIMIZE_SKIP jobId=${job.id} detail=${errorDetail(err)}`);
+          await appendProviderJobNote(job.providerId, `OPTIMIZE_SKIP jobId=${job.id} detail=${errorDetail(err)}`);
         }
         outputContentType = stored.contentType;
         const ext = extensionFor(stored.contentType);
@@ -310,7 +331,8 @@ async function completeSuccess(
           sha256: sha256Hex(stored.body),
           expiresAt: new Date(now().getTime() + RETENTION_MS),
         });
-        await appendSirayJobNote(
+        await appendProviderJobNote(
+          job.providerId,
           `STORED jobId=${job.id} key=${key} bytes=${stored.body.byteLength} type=${stored.contentType}`,
         );
         lastErr = undefined;
@@ -319,7 +341,8 @@ async function completeSuccess(
         lastErr = err;
         const detail = errorDetail(err);
         const classified = classifyJobFailure(JobErrorCodes.OUTPUT_COPY_FAILED, err);
-        await appendSirayJobNote(
+        await appendProviderJobNote(
+          job.providerId,
           `COPY_RETRY jobId=${job.id} attempt=${attempt} source=${classified.source} url=${url} message=${classified.message}`,
         );
         if (isPermanentStorageError(err)) break;
@@ -328,7 +351,8 @@ async function completeSuccess(
     }
     if (lastErr) {
       const classified = classifyJobFailure(JobErrorCodes.OUTPUT_COPY_FAILED, lastErr);
-      await appendSirayJobNote(
+      await appendProviderJobNote(
+        job.providerId,
         `COPY_FAILED jobId=${job.id} source=${classified.source} url=${url} message=${classified.message} hint=${classified.hint}`,
       );
       console.error(formatFailureLog(classified, { jobId: job.id, phase: "copy" }));
@@ -366,7 +390,7 @@ async function completeSuccess(
     await opts.circuitBreaker.recordSuccess(elapsedMs);
   }
   console.log(JSON.stringify({ event: "job.completed", jobId: job.id, status: "succeeded" }));
-  await appendSirayJobNote(`RESULT=succeeded jobId=${job.id}`);
+  await appendProviderJobNote(job.providerId, `RESULT=succeeded jobId=${job.id}`);
 }
 
 async function failJob(
@@ -408,7 +432,7 @@ async function failJob(
     } catch {}
   }
   console.error(formatFailureLog(classified, { jobId: job.id, status: "failed" }));
-  await appendSirayJobNote(formatFailureNote(classified, job.id));
+  await appendProviderJobNote(job.providerId, formatFailureNote(classified, job.id));
 }
 
 function errorDetail(err: unknown): string {
@@ -436,7 +460,8 @@ function shouldDeferCopy(job: GenerateJobRecord, err: unknown): boolean {
 
 async function deferCopy(job: GenerateJobRecord, err: unknown): Promise<void> {
   const classified = classifyJobFailure(JobErrorCodes.OUTPUT_COPY_FAILED, err);
-  await appendSirayJobNote(
+  await appendProviderJobNote(
+    job.providerId,
     `COPY_DEFERRED jobId=${job.id} source=${classified.source} message=${classified.message} hold=kept`,
   );
   console.warn(

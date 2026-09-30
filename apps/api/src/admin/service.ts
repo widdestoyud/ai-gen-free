@@ -5,8 +5,10 @@ import {
   DEFAULT_FALLBACK_MODELS,
   DEFAULT_GENERATION_MODELS_KEY,
   GENERATE_COOLDOWN_KEY,
+  PAYMENT_SETTINGS_KEY,
   asCooldownSeconds,
   type DefaultGenerationModelsConfig,
+  type PaymentSettingsConfig,
 } from "./parse.js";
 
 function iso(value: Date | null | undefined): string | null {
@@ -15,6 +17,103 @@ function iso(value: Date | null | undefined): string | null {
 
 function logEvent(event: string, payload: Record<string, unknown>) {
   console.log(JSON.stringify({ event, ...payload }));
+}
+
+export async function getPaymentSettings(): Promise<PaymentSettingsConfig> {
+  const row = await prisma.appSetting.findUnique({ where: { key: PAYMENT_SETTINGS_KEY } });
+  const raw = row?.value as Partial<PaymentSettingsConfig> | null | undefined;
+
+  const envGateway = (process.env.PAYMENT_GATEWAY || process.env.PAYMENT_DRIVER || "xendit").toLowerCase().trim();
+  const defaultOnlineGateway: "midtrans" | "xendit" | "none" =
+    envGateway === "midtrans" ? "midtrans" : envGateway === "none" ? "none" : "xendit";
+
+  const config: PaymentSettingsConfig = {
+    manualPaymentEnabled: typeof raw?.manualPaymentEnabled === "boolean" ? raw.manualPaymentEnabled : true,
+    activeOnlineGateway:
+      raw?.activeOnlineGateway === "midtrans" || raw?.activeOnlineGateway === "xendit" || raw?.activeOnlineGateway === "none"
+        ? raw.activeOnlineGateway
+        : defaultOnlineGateway,
+    manualExpiryMinutes: typeof raw?.manualExpiryMinutes === "number" && raw.manualExpiryMinutes > 0 ? raw.manualExpiryMinutes : 60,
+    onlineExpiryMinutes: typeof raw?.onlineExpiryMinutes === "number" && raw.onlineExpiryMinutes > 0 ? raw.onlineExpiryMinutes : 10,
+  };
+  return config;
+}
+
+export async function putPaymentSettings(opts: {
+  config: {
+    manualPaymentEnabled?: unknown;
+    activeOnlineGateway?: unknown;
+    manualExpiryMinutes?: unknown;
+    onlineExpiryMinutes?: unknown;
+  };
+  actorId: string;
+  ip: string;
+}): Promise<PaymentSettingsConfig> {
+  const current = await getPaymentSettings();
+
+  let nextManualEnabled = current.manualPaymentEnabled;
+  if (opts.config.manualPaymentEnabled !== undefined) {
+    if (typeof opts.config.manualPaymentEnabled !== "boolean") {
+      throw new AppError(ErrorCodes.VALIDATION_ERROR, "manualPaymentEnabled harus bernilai boolean");
+    }
+    nextManualEnabled = opts.config.manualPaymentEnabled;
+  }
+
+  let nextOnlineGateway = current.activeOnlineGateway;
+  if (opts.config.activeOnlineGateway !== undefined) {
+    const rawGw = String(opts.config.activeOnlineGateway).toLowerCase().trim();
+    if (rawGw !== "midtrans" && rawGw !== "xendit" && rawGw !== "none") {
+      throw new AppError(ErrorCodes.VALIDATION_ERROR, "activeOnlineGateway hanya boleh 'midtrans', 'xendit', atau 'none'");
+    }
+    nextOnlineGateway = rawGw as "midtrans" | "xendit" | "none";
+  }
+
+  if (!nextManualEnabled && nextOnlineGateway === "none") {
+    throw new AppError(ErrorCodes.VALIDATION_ERROR, "Minimal satu metode pembayaran (Transfer Manual atau Online Gateway) harus aktif");
+  }
+
+  const manualExpiryMinutes =
+    typeof opts.config.manualExpiryMinutes === "number" && opts.config.manualExpiryMinutes > 0
+      ? opts.config.manualExpiryMinutes
+      : current.manualExpiryMinutes;
+
+  const onlineExpiryMinutes =
+    typeof opts.config.onlineExpiryMinutes === "number" && opts.config.onlineExpiryMinutes > 0
+      ? opts.config.onlineExpiryMinutes
+      : current.onlineExpiryMinutes;
+
+  const nextConfig: PaymentSettingsConfig = {
+    manualPaymentEnabled: nextManualEnabled,
+    activeOnlineGateway: nextOnlineGateway,
+    manualExpiryMinutes,
+    onlineExpiryMinutes,
+  };
+
+  await prisma.$transaction(async (tx) => {
+    await tx.appSetting.upsert({
+      where: { key: PAYMENT_SETTINGS_KEY },
+      update: { value: nextConfig },
+      create: { key: PAYMENT_SETTINGS_KEY, value: nextConfig },
+    });
+    await tx.auditLog.create({
+      data: {
+        actorId: opts.actorId,
+        action: "settings.payment.updated",
+        target: PAYMENT_SETTINGS_KEY,
+        ip: opts.ip,
+        meta: { from: current, to: nextConfig },
+      },
+    });
+  });
+
+  logEvent("admin.settings.payment_updated", {
+    actorId: opts.actorId,
+    key: PAYMENT_SETTINGS_KEY,
+    from: current,
+    to: nextConfig,
+  });
+
+  return nextConfig;
 }
 
 export async function getGenerateCooldownSetting() {
@@ -221,22 +320,67 @@ async function serializeAdminUser(
   };
 }
 
-export async function listAdminUsers(opts: { q?: string; limit: number; offset: number }) {
-  const rows = await prisma.user.findMany({
-    where: opts.q ? { email: { contains: opts.q, mode: "insensitive" } } : {},
-    orderBy: { createdAt: "desc" },
-    take: opts.limit,
-    skip: opts.offset,
-    select: {
-      id: true,
-      email: true,
-      role: true,
-      nextGenerateAt: true,
-      createdAt: true,
-    },
-  });
+export async function listAdminUsers(opts: {
+  q?: string;
+  role?: string;
+  page?: number;
+  limit?: number;
+  offset?: number;
+  sortBy?: string;
+  sortOrder?: "asc" | "desc";
+}) {
+  const page =
+    opts.page && opts.page > 0
+      ? opts.page
+      : opts.offset !== undefined
+        ? Math.floor(opts.offset / (opts.limit || 10)) + 1
+        : 1;
+  const limit = Math.min(100, Math.max(1, opts.limit ?? 10));
+  const skip = opts.offset !== undefined ? opts.offset : (page - 1) * limit;
+  const sortOrder = opts.sortOrder === "asc" ? ("asc" as const) : ("desc" as const);
+  const sortBy = opts.sortBy ?? "createdAt";
+
+  const where: Prisma.UserWhereInput = {};
+  if (opts.q && opts.q.trim()) {
+    where.email = { contains: opts.q.trim(), mode: "insensitive" };
+  }
+  if (opts.role && opts.role !== "all") {
+    where.role = opts.role;
+  }
+
+  let orderBy: Prisma.UserOrderByWithRelationInput = { createdAt: sortOrder };
+  if (sortBy === "email") orderBy = { email: sortOrder };
+  else if (sortBy === "role") orderBy = { role: sortOrder };
+
+  const [total, rows] = await Promise.all([
+    prisma.user.count({ where }),
+    prisma.user.findMany({
+      where,
+      orderBy,
+      take: limit,
+      skip,
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        nextGenerateAt: true,
+        createdAt: true,
+      },
+    }),
+  ]);
+
+  const users = await Promise.all(rows.map((row) => serializeAdminUser(row, {})));
   return {
-    users: await Promise.all(rows.map((row) => serializeAdminUser(row, {}))),
+    users,
+    items: users,
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit) || 1,
+      hasNext: skip + limit < total,
+      hasPrev: skip > 0,
+    },
   };
 }
 
@@ -324,25 +468,62 @@ export async function adjustUserWallet(opts: {
   };
 }
 
-export async function listAuditLogs(opts: { limit: number; offset: number; action?: string }) {
-  const rows = await prisma.auditLog.findMany({
-    where: opts.action ? { action: opts.action } : {},
-    orderBy: { createdAt: "desc" },
-    take: opts.limit,
-    skip: opts.offset,
-    include: { actor: { select: { email: true } } },
-  });
+export async function listAuditLogs(opts: {
+  action?: string;
+  actorId?: string;
+  page?: number;
+  limit?: number;
+  offset?: number;
+  sortBy?: string;
+  sortOrder?: "asc" | "desc";
+}) {
+  const page =
+    opts.page && opts.page > 0
+      ? opts.page
+      : opts.offset !== undefined
+        ? Math.floor(opts.offset / (opts.limit || 10)) + 1
+        : 1;
+  const limit = Math.min(100, Math.max(1, opts.limit ?? 10));
+  const skip = opts.offset !== undefined ? opts.offset : (page - 1) * limit;
+  const sortOrder = opts.sortOrder === "asc" ? ("asc" as const) : ("desc" as const);
+
+  const where: Prisma.AuditLogWhereInput = {};
+  if (opts.action && opts.action !== "all") where.action = opts.action;
+  if (opts.actorId) where.actorId = opts.actorId;
+
+  const [total, rows] = await Promise.all([
+    prisma.auditLog.count({ where }),
+    prisma.auditLog.findMany({
+      where,
+      orderBy: { createdAt: sortOrder },
+      take: limit,
+      skip,
+      include: { actor: { select: { email: true } } },
+    }),
+  ]);
+
+  const items = rows.map((row) => ({
+    id: row.id,
+    actorId: row.actorId,
+    actorEmail: row.actor?.email ?? null,
+    action: row.action,
+    target: row.target,
+    ip: row.ip,
+    meta: row.meta,
+    createdAt: row.createdAt.toISOString(),
+  }));
+
   return {
-    items: rows.map((row) => ({
-      id: row.id,
-      actorId: row.actorId,
-      actorEmail: row.actor?.email ?? null,
-      action: row.action,
-      target: row.target,
-      ip: row.ip,
-      meta: row.meta,
-      createdAt: row.createdAt.toISOString(),
-    })),
+    items,
+    logs: items,
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit) || 1,
+      hasNext: skip + limit < total,
+      hasPrev: skip > 0,
+    },
   };
 }
 
@@ -372,11 +553,25 @@ function serializeAdminModel(row: {
   };
 }
 
-export async function listAdminModels() {
-  const rows = await prisma.modelCatalog.findMany({
-    orderBy: { createdAt: "asc" },
-  });
-  return { models: rows.map(serializeAdminModel) };
+export async function listAdminModels(opts: { provider?: string } = {}) {
+  const where: any = {};
+  if (opts.provider && opts.provider !== "all") {
+    where.providerId = { equals: opts.provider, mode: "insensitive" };
+  }
+  const [rows, allProviders] = await Promise.all([
+    prisma.modelCatalog.findMany({
+      where,
+      orderBy: { createdAt: "asc" },
+    }),
+    prisma.modelCatalog.findMany({
+      select: { providerId: true },
+      distinct: ["providerId"],
+    }),
+  ]);
+  return {
+    models: rows.map(serializeAdminModel),
+    providers: allProviders.map((p) => p.providerId),
+  };
 }
 
 export async function listAdminModelsByProvider(provider: string) {

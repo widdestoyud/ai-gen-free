@@ -22,8 +22,13 @@ export async function submitJob(opts: {
   };
 }) {
   const idempotencyKey = parseIdempotencyKey(opts.idempotencyKey);
-  const prompt = parsePrompt(opts.body.prompt);
   const model = await resolveModel(opts.body.mode, opts.body.modelId, opts.body.isSpicy);
+  const isImageTransform =
+    model.mode === "i2i" ||
+    model.mode === "inpaint" ||
+    model.mode === "faceswap" ||
+    model.modelId.includes("upscale");
+  const prompt = parsePrompt(opts.body.prompt, isImageTransform);
   const params = parseGenerateParams(opts.body.params, model.providerId);
   if (opts.assertReady) {
     try {
@@ -426,26 +431,51 @@ export async function listAdminJobs(opts: {
   mode?: JobMode;
   userId?: string;
   q?: string;
-  limit: number;
-  offset: number;
+  page?: number;
+  limit?: number;
+  offset?: number;
+  sortBy?: string;
+  sortOrder?: "asc" | "desc";
 }) {
-  const rows = await prisma.job.findMany({
-    where: {
-      ...(opts.status ? { status: opts.status } : {}),
-      ...(opts.mode ? { mode: opts.mode } : {}),
-      ...(opts.userId ? { userId: opts.userId } : {}),
-      ...(opts.q ? { user: { email: { contains: opts.q, mode: "insensitive" } } } : {}),
-    },
-    orderBy: { createdAt: "desc" },
-    take: opts.limit,
-    skip: opts.offset,
-    include: {
-      user: { select: { email: true } },
-      ...outputInclude,
-    },
-  });
+  const page =
+    opts.page && opts.page > 0
+      ? opts.page
+      : opts.offset !== undefined
+        ? Math.floor(opts.offset / (opts.limit || 10)) + 1
+        : 1;
+  const limit = Math.min(100, Math.max(1, opts.limit ?? 10));
+  const skip = opts.offset !== undefined ? opts.offset : (page - 1) * limit;
+  const sortOrder = opts.sortOrder === "asc" ? ("asc" as const) : ("desc" as const);
+  const sortBy = opts.sortBy ?? "createdAt";
+
+  const where: Prisma.JobWhereInput = {
+    ...(opts.status ? { status: opts.status } : {}),
+    ...(opts.mode ? { mode: opts.mode } : {}),
+    ...(opts.userId ? { userId: opts.userId } : {}),
+    ...(opts.q ? { user: { email: { contains: opts.q, mode: "insensitive" } } } : {}),
+  };
+
+  let orderBy: Prisma.JobOrderByWithRelationInput = { createdAt: sortOrder };
+  if (sortBy === "cost") orderBy = { cost: sortOrder };
+  else if (sortBy === "status") orderBy = { status: sortOrder };
+  else if (sortBy === "mode") orderBy = { mode: sortOrder };
+
+  const [total, rows] = await Promise.all([
+    prisma.job.count({ where }),
+    prisma.job.findMany({
+      where,
+      orderBy,
+      take: limit,
+      skip,
+      include: {
+        user: { select: { email: true } },
+        ...outputInclude,
+      },
+    }),
+  ]);
+
   const now = new Date();
-  return rows.map((row) => {
+  const items = rows.map((row) => {
     const asset = row.assets[0];
     return {
       id: row.id,
@@ -463,6 +493,19 @@ export async function listAdminJobs(opts: {
       purged: isOutputPurged(asset, now),
     };
   });
+
+  return {
+    jobs: items,
+    items,
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit) || 1,
+      hasNext: skip + limit < total,
+      hasPrev: skip > 0,
+    },
+  };
 }
 
 export async function getAdminJob(opts: { id: string; storage: ObjectStorage }) {
@@ -534,8 +577,9 @@ function parseIdempotencyKey(raw: unknown): string {
   return raw.trim();
 }
 
-function parsePrompt(raw: unknown): string {
+function parsePrompt(raw: unknown, allowEmpty = false): string {
   if (typeof raw !== "string" || raw.trim().length === 0) {
+    if (allowEmpty) return "";
     throw new AppError(ErrorCodes.VALIDATION_ERROR, "Prompt wajib diisi");
   }
   const prompt = raw.trim();

@@ -298,6 +298,67 @@ async function main() {
     },
   });
 
+  // Fal.ai Models
+  await prisma.modelCatalog.upsert({
+    where: { mode_modelId: { mode: "t2i", modelId: "krea/v2/large/text-to-image" } },
+    update: {
+      displayName: "Krea 2 Large",
+      providerId: "falai",
+      costPoints: 10,
+      enabled: true,
+      isSpicy: false,
+    },
+    create: {
+      mode: "t2i",
+      modelId: "krea/v2/large/text-to-image",
+      displayName: "Krea 2 Large",
+      providerId: "falai",
+      costPoints: 10,
+      enabled: true,
+      isSpicy: false,
+    },
+  });
+
+  await prisma.modelCatalog.upsert({
+    where: { mode_modelId: { mode: "t2i", modelId: "fal-ai/krea-2/turbo/lora" } },
+    update: {
+      displayName: "Krea 2 Turbo LoRA",
+      providerId: "falai",
+      costPoints: 10,
+      enabled: true,
+      isSpicy: false,
+    },
+    create: {
+      mode: "t2i",
+      modelId: "fal-ai/krea-2/turbo/lora",
+      displayName: "Krea 2 Turbo LoRA",
+      providerId: "falai",
+      costPoints: 10,
+      enabled: true,
+      isSpicy: false,
+    },
+  });
+
+  await prisma.modelCatalog.upsert({
+    where: { mode_modelId: { mode: "i2i", modelId: "fal-ai/seedvr/upscale/image" } },
+    update: {
+      displayName: "SeedVR Image Upscaler",
+      providerId: "falai",
+      costPoints: 5,
+      enabled: true,
+      isSpicy: false,
+    },
+    create: {
+      mode: "i2i",
+      modelId: "fal-ai/seedvr/upscale/image",
+      displayName: "SeedVR Image Upscaler",
+      providerId: "falai",
+      costPoints: 5,
+      enabled: true,
+      isSpicy: false,
+    },
+  });
+
   const dummyEnabled = process.env.ENABLE_DUMMY_T2I === "true";
   await prisma.modelCatalog.upsert({
     where: { mode_modelId: { mode: "t2i", modelId: "dummy-t2i" } },

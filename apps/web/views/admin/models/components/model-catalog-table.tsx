@@ -12,10 +12,12 @@ import {
   Modal,
   NumberInput,
   Paper,
+  SegmentedControl,
   SimpleGrid,
   Stack,
   Switch,
   Table,
+  Tabs,
   Text,
   TextInput,
   Title,
@@ -52,7 +54,36 @@ const VIDEO_RESOLUTIONS = [
   { key: "1080p", label: "1080p (FHD)" },
 ] as const;
 
-export function ModelCatalogTable({ models = [] }: { models?: AdminModelItem[] }) {
+function renderProviderBadge(providerId: string) {
+  const p = (providerId || "").toLowerCase();
+  if (p === "falai" || p === "fal") {
+    return (
+      <Badge color="cyan" variant="light" size="sm">
+        fal.ai
+      </Badge>
+    );
+  }
+  if (p === "siray") {
+    return (
+      <Badge color="indigo" variant="light" size="sm">
+        Siray
+      </Badge>
+    );
+  }
+  return (
+    <Badge color="gray" variant="light" size="sm">
+      {providerId}
+    </Badge>
+  );
+}
+
+export function ModelCatalogTable({
+  models = [],
+  selectedProvider = "all",
+}: {
+  models?: AdminModelItem[];
+  selectedProvider?: string;
+}) {
   const router = useRouter();
   const [editingModel, setEditingModel] = useState<AdminModelItem | null>(null);
   const [opened, { open, close }] = useDisclosure(false);
@@ -65,6 +96,14 @@ export function ModelCatalogTable({ models = [] }: { models?: AdminModelItem[] }
   const [error, setError] = useState("");
 
   const isEditingVideo = editingModel?.mode === "i2v" || editingModel?.mode === "t2v";
+
+  function handleProviderChange(value: string) {
+    if (value === "all") {
+      router.push("/admin/models");
+    } else {
+      router.push(`/admin/models?provider=${encodeURIComponent(value)}`);
+    }
+  }
 
   function startEdit(model: AdminModelItem) {
     setEditingModel(model);
@@ -125,13 +164,24 @@ export function ModelCatalogTable({ models = [] }: { models?: AdminModelItem[] }
 
   return (
     <Card withBorder radius="md" p="md">
-      <Group justify="space-between" mb="md">
+      <Group justify="space-between" align="flex-start" mb="md">
         <div>
           <Title order={4}>Katalog Model Provider</Title>
           <Text size="sm" c="dimmed">
             Daftar seluruh model AI yang terdaftar di database. Anda dapat menyesuaikan nama tampilan, biaya poin bertingkat untuk video, serta status aktif/nonaktif.
           </Text>
         </div>
+
+        <SegmentedControl
+          value={selectedProvider}
+          onChange={handleProviderChange}
+          data={[
+            { label: "Semua Provider", value: "all" },
+            { label: "Siray", value: "siray" },
+            { label: "fal.ai", value: "falai" },
+          ]}
+          size="xs"
+        />
       </Group>
 
       <ResponsiveTable
@@ -168,7 +218,7 @@ export function ModelCatalogTable({ models = [] }: { models?: AdminModelItem[] }
                 </Badge>
               </Table.Td>
               <Table.Td>
-                <Text size="sm">{model.providerId}</Text>
+                {renderProviderBadge(model.providerId)}
               </Table.Td>
               <Table.Td>
                 {model.isSpicy ? (
@@ -261,7 +311,7 @@ export function ModelCatalogTable({ models = [] }: { models?: AdminModelItem[] }
                     Provider & Status
                   </Text>
                   <Group gap={6} mt={2}>
-                    <Text size="xs">{model.providerId}</Text>
+                    {renderProviderBadge(model.providerId)}
                     <Badge color={model.enabled ? "teal" : "gray"} variant="dot" size="xs">
                       {model.enabled ? "Aktif" : "Nonaktif"}
                     </Badge>

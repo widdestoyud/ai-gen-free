@@ -36,6 +36,9 @@ importers:
       '@ai-gen-free/providers-dana':
         specifier: workspace:*
         version: link:../../packages/providers-dana
+      '@ai-gen-free/providers-fal':
+        specifier: workspace:*
+        version: link:../../packages/providers-fal
       '@ai-gen-free/providers-midtrans':
         specifier: workspace:*
         version: link:../../packages/providers-midtrans
@@ -156,6 +159,9 @@ importers:
       '@ai-gen-free/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@ai-gen-free/providers-fal':
+        specifier: workspace:*
+        version: link:../../packages/providers-fal
       '@ai-gen-free/providers-siray':
         specifier: workspace:*
         version: link:../../packages/providers-siray
@@ -194,6 +200,12 @@ importers:
       dana-node:
         specifier: ^2.2.2
         version: 2.2.2
+
+  packages/providers-fal:
+    dependencies:
+      '@ai-gen-free/core':
+        specifier: workspace:*
+        version: link:../core
 
   packages/providers-midtrans:
     dependencies:

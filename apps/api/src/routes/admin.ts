@@ -18,12 +18,14 @@ import {
   getAdminUser,
   getDefaultGenerationModelsSetting,
   getGenerateCooldownSetting,
+  getPaymentSettings,
   listAdminModels,
   listAdminModelsByProvider,
   listAdminUsers,
   listAuditLogs,
   putDefaultGenerationModelsSetting,
   putGenerateCooldownSetting,
+  putPaymentSettings,
   resetUserCooldown,
   updateAdminModel,
 } from "../admin/service.js";
@@ -119,6 +121,13 @@ export async function registerAdminRoutes(app: FastifyInstance, deps: { storage:
       };
       const deviceIdHeader = req.headers["x-device-id"];
       const deviceId = body.deviceId ?? deviceIdHeader;
+      req.log.info({
+        event: "admin.login_attempt",
+        username: body.username,
+        email: body.email,
+        deviceId,
+        hasPassword: Boolean(body.password),
+      });
       const sessionToken =
         (typeof body.token === "string" && body.token.trim().length > 0 ? body.token.trim() : undefined) ??
         (typeof body.sessionToken === "string" && body.sessionToken.trim().length > 0 ? body.sessionToken.trim() : undefined) ??
@@ -192,10 +201,52 @@ export async function registerAdminRoutes(app: FastifyInstance, deps: { storage:
     const session = await requireAdmin(req, reply);
     if (!session) return;
     try {
-      const query = req.query as { q?: unknown; limit?: unknown; offset?: unknown };
-      const page = parseLimitOffset(query);
+      const query = (req.query ?? {}) as {
+        q?: unknown;
+        role?: unknown;
+        limit?: unknown;
+        offset?: unknown;
+        page?: unknown;
+        sortBy?: unknown;
+        sortOrder?: unknown;
+      };
+      const pageNum =
+        typeof query.page === "string"
+          ? parseInt(query.page, 10)
+          : typeof query.page === "number"
+            ? query.page
+            : undefined;
+      const limit =
+        typeof query.limit === "string"
+          ? parseInt(query.limit, 10)
+          : typeof query.limit === "number"
+            ? query.limit
+            : undefined;
+      const offset =
+        typeof query.offset === "string"
+          ? parseInt(query.offset, 10)
+          : typeof query.offset === "number"
+            ? query.offset
+            : undefined;
       const q = parseOptionalQueryString(query.q);
-      return await listAdminUsers({ q, ...page });
+      const role = parseOptionalQueryString(query.role);
+      const sortBy = typeof query.sortBy === "string" ? query.sortBy : undefined;
+      const sortOrder = query.sortOrder === "asc" ? ("asc" as const) : ("desc" as const);
+
+      const result = await listAdminUsers({
+        q,
+        role,
+        page: pageNum,
+        limit,
+        offset,
+        sortBy,
+        sortOrder,
+      });
+      return {
+        users: result.users,
+        items: result.users,
+        pagination: result.pagination,
+      };
     } catch (err) {
       return sendError(reply, err);
     }
@@ -230,6 +281,47 @@ export async function registerAdminRoutes(app: FastifyInstance, deps: { storage:
     }
   };
   app.put("/admin/settings/generate_cooldown_seconds", handlePutCooldown);
+
+  const handleGetPaymentSettings = async (req: any, reply: any) => {
+    const session = await requireAdmin(req, reply);
+    if (!session) return;
+    try {
+      const settings = await getPaymentSettings();
+      return {
+        ...settings,
+        availableGateways: ["xendit", "midtrans"],
+      };
+    } catch (err) {
+      return sendError(reply, err);
+    }
+  };
+  app.get("/admin/settings/payment", handleGetPaymentSettings);
+
+  const handlePutPaymentSettings = async (req: any, reply: any) => {
+    const session = await requireAdmin(req, reply);
+    if (!session) return;
+    try {
+      const body = (req.body ?? {}) as {
+        manualPaymentEnabled?: unknown;
+        activeOnlineGateway?: unknown;
+        manualExpiryMinutes?: unknown;
+        onlineExpiryMinutes?: unknown;
+      };
+      const settings = await putPaymentSettings({
+        config: body,
+        actorId: session.userId,
+        ip: requestIp(req),
+      });
+      return {
+        ...settings,
+        availableGateways: ["xendit", "midtrans"],
+      };
+    } catch (err) {
+      return sendError(reply, err);
+    }
+  };
+  app.put("/admin/settings/payment", handlePutPaymentSettings);
+  app.patch("/admin/settings/payment", handlePutPaymentSettings);
 
   const handleGetUser = async (req: any, reply: any) => {
     const session = await requireAdmin(req, reply);
@@ -300,23 +392,53 @@ export async function registerAdminRoutes(app: FastifyInstance, deps: { storage:
     const session = await requireAdmin(req, reply);
     if (!session) return;
     try {
-      const query = req.query as {
+      const query = (req.query ?? {}) as {
         status?: unknown;
         mode?: unknown;
         userId?: unknown;
         q?: unknown;
         limit?: unknown;
         offset?: unknown;
+        page?: unknown;
+        sortBy?: unknown;
+        sortOrder?: unknown;
       };
-      const page = parseLimitOffset(query);
+      const pageNum =
+        typeof query.page === "string"
+          ? parseInt(query.page, 10)
+          : typeof query.page === "number"
+            ? query.page
+            : undefined;
+      const limit =
+        typeof query.limit === "string"
+          ? parseInt(query.limit, 10)
+          : typeof query.limit === "number"
+            ? query.limit
+            : undefined;
+      const offset =
+        typeof query.offset === "string"
+          ? parseInt(query.offset, 10)
+          : typeof query.offset === "number"
+            ? query.offset
+            : undefined;
+      const sortBy = typeof query.sortBy === "string" ? query.sortBy : undefined;
+      const sortOrder = query.sortOrder === "asc" ? ("asc" as const) : ("desc" as const);
+
+      const result = await listAdminJobs({
+        status: parseJobStatus(query.status),
+        mode: parseJobMode(query.mode),
+        userId: parseOptionalQueryString(query.userId),
+        q: parseOptionalQueryString(query.q),
+        page: pageNum,
+        limit,
+        offset,
+        sortBy,
+        sortOrder,
+      });
       return {
-        jobs: await listAdminJobs({
-          status: parseJobStatus(query.status),
-          mode: parseJobMode(query.mode),
-          userId: parseOptionalQueryString(query.userId),
-          q: parseOptionalQueryString(query.q),
-          ...page,
-        }),
+        jobs: result.jobs,
+        items: result.jobs,
+        pagination: result.pagination,
       };
     } catch (err) {
       return sendError(reply, err);
@@ -356,12 +478,52 @@ export async function registerAdminRoutes(app: FastifyInstance, deps: { storage:
     const session = await requireAdmin(req, reply);
     if (!session) return;
     try {
-      const query = req.query as { limit?: unknown; offset?: unknown; action?: unknown };
-      const page = parseLimitOffset(query);
-      return await listAuditLogs({
-        ...page,
-        action: parseOptionalQueryString(query.action),
+      const query = (req.query ?? {}) as {
+        limit?: unknown;
+        offset?: unknown;
+        action?: unknown;
+        actorId?: unknown;
+        page?: unknown;
+        sortBy?: unknown;
+        sortOrder?: unknown;
+      };
+      const pageNum =
+        typeof query.page === "string"
+          ? parseInt(query.page, 10)
+          : typeof query.page === "number"
+            ? query.page
+            : undefined;
+      const limit =
+        typeof query.limit === "string"
+          ? parseInt(query.limit, 10)
+          : typeof query.limit === "number"
+            ? query.limit
+            : undefined;
+      const offset =
+        typeof query.offset === "string"
+          ? parseInt(query.offset, 10)
+          : typeof query.offset === "number"
+            ? query.offset
+            : undefined;
+      const action = parseOptionalQueryString(query.action);
+      const actorId = parseOptionalQueryString(query.actorId);
+      const sortBy = typeof query.sortBy === "string" ? query.sortBy : undefined;
+      const sortOrder = query.sortOrder === "asc" ? ("asc" as const) : ("desc" as const);
+
+      const result = await listAuditLogs({
+        action,
+        actorId,
+        page: pageNum,
+        limit,
+        offset,
+        sortBy,
+        sortOrder,
       });
+      return {
+        items: result.items,
+        logs: result.items,
+        pagination: result.pagination,
+      };
     } catch (err) {
       return sendError(reply, err);
     }
@@ -375,13 +537,15 @@ export async function registerAdminRoutes(app: FastifyInstance, deps: { storage:
     const session = await requireAdmin(req, reply);
     if (!session) return;
     try {
+      const provider = typeof req.query?.provider === "string" ? req.query.provider : undefined;
       const [settings, allModels] = await Promise.all([
         getDefaultGenerationModelsSetting(),
-        listAdminModels(),
+        listAdminModels({ provider }),
       ]);
       return {
         config: settings.value,
         models: allModels.models,
+        providers: allModels.providers,
       };
     } catch (err) {
       return sendError(reply, err);
@@ -424,7 +588,8 @@ export async function registerAdminRoutes(app: FastifyInstance, deps: { storage:
     const session = await requireAdmin(req, reply);
     if (!session) return;
     try {
-      return await listAdminModels();
+      const provider = typeof req.query?.provider === "string" ? req.query.provider : undefined;
+      return await listAdminModels({ provider });
     } catch (err) {
       return sendError(reply, err);
     }

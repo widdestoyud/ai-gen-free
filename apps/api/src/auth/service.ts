@@ -1178,7 +1178,12 @@ export async function loginAdmin(opts: {
 
   const user = await prisma.user.findFirst({
     where: {
-      OR: [{ email: internalEmail }, { email: identifier }],
+      role: "admin",
+      OR: [
+        { email: { equals: internalEmail, mode: "insensitive" } },
+        { email: { equals: identifier, mode: "insensitive" } },
+        { email: { startsWith: `${identifier}@`, mode: "insensitive" } },
+      ],
     },
   });
 

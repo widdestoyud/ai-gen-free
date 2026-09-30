@@ -1,35 +1,36 @@
 import { AdminPageShell, AdminUnauth } from "@/views/admin/components/admin-page-shell";
 import { AdminJobsList } from "./components/jobs-list";
 import type { AdminJobRow } from "@/lib/admin";
+import type { PaginationMeta } from "@/app/admin/page";
 
 export function AdminJobsPageView({
   me,
   jobs,
-  q,
-  status,
-  mode,
-  userId,
-  offset,
+  pagination,
+  currentParams,
 }: {
   me: unknown;
   jobs: AdminJobRow[];
-  q: string;
-  status: string;
-  mode: string;
-  userId: string;
-  offset: number;
+  pagination?: PaginationMeta;
+  currentParams?: {
+    q?: string;
+    status?: string;
+    mode?: string;
+    userId?: string;
+    page?: string;
+    limit?: string;
+    sortBy?: string;
+    sortOrder?: string;
+  };
 }) {
   if (!me) return <AdminUnauth />;
 
   return (
-    <AdminPageShell title="Daftar job">
+    <AdminPageShell title="Daftar Job Generasi">
       <AdminJobsList
         jobs={jobs}
-        q={q}
-        status={status}
-        mode={mode}
-        userId={userId}
-        offset={offset}
+        pagination={pagination}
+        currentParams={currentParams}
       />
     </AdminPageShell>
   );

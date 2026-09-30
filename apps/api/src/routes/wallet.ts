@@ -55,7 +55,10 @@ async function requireUser(
       ? (req.headers["authorization"] as string).slice(7).trim()
       : undefined);
 
-  const session = await userFromCookie(token, "user");
+  let session = await userFromCookie(token, "user");
+  if (!session) {
+    session = await userFromCookie(token, "admin");
+  }
   if (!session) {
     reply.status(401).send({ error: { code: ErrorCodes.UNAUTHENTICATED, message: "Silakan masuk" } });
     return null;
@@ -207,7 +210,34 @@ export async function registerWalletRoutes(app: FastifyInstance, deps: { storage
   app.get("/admin/invoices", async (req, reply) => {
     const session = await requireAdmin(req, reply);
     if (!session) return;
-    return { invoices: await listAdminInvoices() };
+    const query = (req.query ?? {}) as {
+      status?: unknown;
+      page?: unknown;
+      limit?: unknown;
+      sortBy?: unknown;
+      sortOrder?: unknown;
+      q?: unknown;
+    };
+    const page = typeof query.page === "string" ? parseInt(query.page, 10) : typeof query.page === "number" ? query.page : 1;
+    const limit = typeof query.limit === "string" ? parseInt(query.limit, 10) : typeof query.limit === "number" ? query.limit : 10;
+    const sortBy = typeof query.sortBy === "string" ? query.sortBy : undefined;
+    const sortOrder = query.sortOrder === "asc" ? "asc" : "desc";
+    const status = typeof query.status === "string" ? query.status : undefined;
+    const q = typeof query.q === "string" ? query.q : undefined;
+
+    const result = await listAdminInvoices({
+      status,
+      page,
+      limit,
+      sortBy,
+      sortOrder,
+      q,
+    });
+    return {
+      invoices: result.items,
+      items: result.items,
+      pagination: result.pagination,
+    };
   });
 
   app.get("/admin/invoices/:id/proof", async (req, reply) => {

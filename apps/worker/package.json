@@ -11,6 +11,7 @@
   "dependencies": {
     "@ai-gen-free/core": "workspace:*",
     "@ai-gen-free/db": "workspace:*",
+    "@ai-gen-free/providers-fal": "workspace:*",
     "@ai-gen-free/providers-siray": "workspace:*",
     "@ai-gen-free/storage": "workspace:*",
     "@ai-gen-free/wallet": "workspace:*",

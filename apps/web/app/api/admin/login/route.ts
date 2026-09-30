@@ -19,9 +19,16 @@ export async function POST(req: NextRequest) {
   try {
     const result = await adminSignIn("password", { username, password, redirect: false });
     if (result && typeof result === "object" && "error" in result && result.error) {
+      const parsed = parseAuthBridgeError(result.error);
       return Response.json(
-        { error: { code: "A012", message: "Kata sandi yang Anda masukkan salah." } },
-        { status: 401 },
+        {
+          transaction_id: parsed.transaction_id,
+          error: { code: parsed.code || "A012", message: parsed.message || "Kata sandi yang Anda masukkan salah." },
+        },
+        {
+          status: parsed.code === "A008" ? 429 : parsed.code === "A019" ? 409 : 401,
+          headers: parsed.transaction_id ? { "x-transaction-id": parsed.transaction_id } : undefined,
+        },
       );
     }
     return Response.json({ ok: true });
@@ -30,7 +37,7 @@ export async function POST(req: NextRequest) {
     return Response.json(
       {
         transaction_id: parsed.transaction_id,
-        error: { code: parsed.code || "A012", message: parsed.message },
+        error: { code: parsed.code || "A012", message: parsed.message || "Kata sandi yang Anda masukkan salah." },
       },
       {
         status: parsed.code === "A008" ? 429 : parsed.code === "A019" ? 409 : 401,

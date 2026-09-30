@@ -88,9 +88,11 @@ services:
       WORKER_HEALTH_PORT: "3002"
       WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-3}
       SIRAY_LOG_DIR: /app/logs/siray
+      FAL_LOG_DIR: /app/logs/fal
       CHAOS_PAUSE_AFTER_SUCCESS_MS: ${CHAOS_PAUSE_AFTER_SUCCESS_MS:-0}
     volumes:
       - ./logs/siray:/app/logs/siray
+      - ./logs/fal:/app/logs/fal
     expose:
       - "3002"
     depends_on:

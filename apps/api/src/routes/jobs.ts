@@ -7,6 +7,7 @@ import { userFromCookie } from "../auth/service.js";
 import { requestIp, sendError } from "../http.js";
 import { getCustomerCatalogDefaults, listCustomerCatalog } from "../jobs/catalog.js";
 import { resolveSirayGenerateSlug, sirayGenerateParamsFromBody } from "../jobs/siray-generate.js";
+import { resolveFalGenerateSlug, falGenerateParamsFromBody } from "../jobs/fal-generate.js";
 import {
   getJobForUser,
   getJobOutputFileForUser,
@@ -68,6 +69,7 @@ export async function registerJobRoutes(
         body: {
           mode: mapped.mode,
           modelId: mapped.modelId,
+          providerId: "siray",
           prompt: body.prompt,
           params: sirayGenerateParamsFromBody(body, mapped.defaultParams),
         },
@@ -80,6 +82,38 @@ export async function registerJobRoutes(
       return sendError(reply, err);
     }
   });
+
+  const handleFalGenerate = async (req: any, reply: any) => {
+    const session = await requireUser(req, reply);
+    if (!session) return;
+    try {
+      const { modelSlug } = req.params as { modelSlug: string };
+      const mapped = resolveFalGenerateSlug(modelSlug);
+      const body = (req.body ?? {}) as Record<string, unknown>;
+      const idempotencyKey =
+        req.headers["idempotency-key"] ?? `falai-${modelSlug}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+      const accepted = await submitJob({
+        userId: session.userId,
+        idempotencyKey,
+        body: {
+          mode: mapped.mode,
+          modelId: mapped.modelId,
+          providerId: "falai",
+          prompt: body.prompt,
+          params: falGenerateParamsFromBody(body, mapped.defaultParams),
+        },
+        enqueue: enqueueGenerate,
+        assertReady: () => assertGenerateReady(deps.storage),
+        req: { ip: requestIp(req as any), headers: req.headers },
+      });
+      return reply.code(202).send(accepted);
+    } catch (err) {
+      return sendError(reply, err);
+    }
+  };
+
+  app.post("/generate/falai/:modelSlug", handleFalGenerate);
+  app.post("/generate/fal/:modelSlug", handleFalGenerate);
 
   app.get("/customer/models", async (req, reply) => {
     const session = await requireUser(req, reply);

@@ -47,6 +47,35 @@ export function parseGenerateParams(raw: unknown, providerId: string): Prisma.In
   if (typeof input.audio_enable === "boolean") params.audio_enable = input.audio_enable;
   if (typeof input.audioEnable === "boolean") params.audio_enable = input.audioEnable;
 
+  // Upscaler parameters
+  if (typeof input.upscale_mode === "string") params.upscale_mode = input.upscale_mode;
+  if (typeof input.upscaleMode === "string") params.upscale_mode = input.upscaleMode;
+  if (typeof input.upscale_factor === "number") params.upscale_factor = input.upscale_factor;
+  if (typeof input.upscaleFactor === "number") params.upscale_factor = input.upscaleFactor;
+  if (typeof input.target_resolution === "string") params.target_resolution = input.target_resolution;
+  if (typeof input.targetResolution === "string") params.target_resolution = input.targetResolution;
+  if (typeof input.noise_scale === "number") params.noise_scale = input.noise_scale;
+  if (typeof input.noiseScale === "number") params.noise_scale = input.noiseScale;
+
+  // Fal.ai and LoRA-specific parameters
+  if (Array.isArray(input.loras)) {
+    params.loras = input.loras;
+  }
+  if (typeof input.lora === "string" || (typeof input.lora === "object" && input.lora !== null)) {
+    params.lora = input.lora;
+  }
+  if (typeof input.lora_url === "string") params.lora_url = input.lora_url;
+  if (typeof input.loraUrl === "string") params.lora_url = input.loraUrl;
+  if (typeof input.lora_path === "string") params.lora_path = input.lora_path;
+  if (typeof input.loraPath === "string") params.lora_path = input.loraPath;
+  if (typeof input.lora_scale === "number") params.lora_scale = input.lora_scale;
+  if (typeof input.loraScale === "number") params.lora_scale = input.loraScale;
+  if (typeof input.enable_safety_checker === "boolean") params.enable_safety_checker = input.enable_safety_checker;
+  else if (typeof input.enableSafetyChecker === "boolean") params.enable_safety_checker = input.enableSafetyChecker;
+  else if (providerId === "falai") params.enable_safety_checker = false;
+  if (typeof input.creativity === "number" || typeof input.creativity === "string") params.creativity = input.creativity;
+  if (typeof input.style === "string") params.style = input.style;
+
   if (providerId === "dummy" && input.fail === true) {
     params.fail = true;
   }

@@ -4,11 +4,13 @@ import IORedis from "ioredis";
 import { CircuitBreaker, type GenerationProvider } from "@ai-gen-free/core";
 import { createObjectStorageFromEnv, objectStorageParamsFromEnv } from "@ai-gen-free/storage";
 import { SirayProvider } from "@ai-gen-free/providers-siray";
+import { FalProvider } from "@ai-gen-free/providers-fal";
 import { DummyProvider } from "./dummy.js";
 import { fetchOutputBytes, fetchWithSirayAuth } from "./fetch-output.js";
 import { processGenerateJob } from "./process-job.js";
 import { recoverCopyPendingJobs, RECOVER_EVERY_MS } from "./recover-copy.js";
 import { appendSirayTrace, runWithSirayJobLog } from "./siray-file-log.js";
+import { appendFalTrace, runWithFalJobLog } from "./fal-file-log.js";
 import { createPrismaGenerateStore } from "./store.js";
 import {
   RETENTION_EVERY_MS,
@@ -62,7 +64,14 @@ console.log(
 const store = createPrismaGenerateStore();
 
 const sirayToken = process.env.SIRAY_API_TOKEN ?? "";
+const falKey = process.env.FALAI_API_KEY ?? process.env.FAL_KEY ?? process.env.FAL_API_KEY ?? "";
 const fetchBytes = (url: string) => fetchOutputBytes(url, fetchWithSirayAuth(sirayToken));
+
+const falProviderInstance = new FalProvider({
+  key: falKey,
+  apiBase: process.env.FALAI_API_BASE ?? process.env.FAL_API_BASE,
+  onTrace: (event) => appendFalTrace(event),
+});
 
 const providers = new Map<string, GenerationProvider>([
   ["dummy", new DummyProvider()],
@@ -74,6 +83,8 @@ const providers = new Map<string, GenerationProvider>([
       onTrace: (event) => appendSirayTrace(event),
     }),
   ],
+  ["falai", falProviderInstance],
+  ["fal", falProviderInstance],
 ]);
 
 const queueName = "generate";
@@ -95,16 +106,18 @@ const worker = new Worker(
     const maxAttempts = job.opts.attempts ?? 5;
     const lastAttempt = job.attemptsMade + 1 >= maxAttempts;
     await runWithSirayJobLog(jobId, () =>
-      processGenerateJob({
-        jobId,
-        providers,
-        storage,
-        store,
-        redis: connection,
-        circuitBreaker,
-        lastAttempt,
-        fetchBytes,
-      }),
+      runWithFalJobLog(jobId, () =>
+        processGenerateJob({
+          jobId,
+          providers,
+          storage,
+          store,
+          redis: connection,
+          circuitBreaker,
+          lastAttempt,
+          fetchBytes,
+        }),
+      ),
     );
     return { jobId };
   },
@@ -159,16 +172,18 @@ worker.on("failed", async (job) => {
   if (!jobId) return;
   try {
     await runWithSirayJobLog(jobId, () =>
-      processGenerateJob({
-        jobId,
-        providers,
-        storage,
-        store,
-        redis: connection,
-        circuitBreaker,
-        lastAttempt: true,
-        fetchBytes,
-      }),
+      runWithFalJobLog(jobId, () =>
+        processGenerateJob({
+          jobId,
+          providers,
+          storage,
+          store,
+          redis: connection,
+          circuitBreaker,
+          lastAttempt: true,
+          fetchBytes,
+        }),
+      ),
     );
   } catch (err) {
     console.error("worker fail-closed error", err);
