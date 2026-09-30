@@ -376,15 +376,22 @@
   width: 100%;
 }
 
-.primaryDownloadBtn {
+.actionButtonsRow .primaryDownloadBtn,
+.actionButtonsRow .upscaleBtn {
   flex: 1;
+  min-width: 0;
+  font-size: 13.5px !important;
+}
+
+.primaryDownloadBtn {
   background: #32333a !important;
   border: 1px solid rgba(255, 255, 255, 0.08) !important;
   color: #ffffff !important;
   font-weight: 600 !important;
-  font-size: 13.5px !important;
+  font-size: 14px !important;
   border-radius: 8px !important;
   height: 42px !important;
+  width: 100% !important;
   transition: all 0.15s ease !important;
 }
 
@@ -394,7 +401,6 @@
 }
 
 .upscaleBtn {
-  flex: 1;
   background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%) !important;
   border: 1px solid rgba(167, 139, 250, 0.35) !important;
   color: #ffffff !important;
