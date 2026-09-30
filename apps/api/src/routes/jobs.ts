@@ -129,9 +129,13 @@ export async function registerJobRoutes(
     const session = await requireUser(req, reply);
     if (!session) return;
     try {
+      const idempotencyKey =
+        (typeof req.headers["idempotency-key"] === "string" && req.headers["idempotency-key"].trim()) ||
+        (typeof req.headers["x-idempotency-key"] === "string" && (req.headers["x-idempotency-key"] as string).trim()) ||
+        `gen-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
       const accepted = await submitJob({
         userId: session.userId,
-        idempotencyKey: req.headers["idempotency-key"],
+        idempotencyKey,
         body: (req.body ?? {}) as {
           mode?: unknown;
           modelId?: unknown;

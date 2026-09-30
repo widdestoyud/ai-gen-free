@@ -356,6 +356,12 @@ export function MediaDetailModal({
     try {
       const res = await requestJson<{ id?: string; job_id?: string }>("/api/generate", {
         method: "POST",
+        headers: {
+          "Idempotency-Key":
+            typeof crypto !== "undefined" && crypto.randomUUID
+              ? crypto.randomUUID()
+              : `upscale-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`,
+        },
         body: JSON.stringify({
           mode: "i2i",
           modelId: "image-upscale",
