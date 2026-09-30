@@ -248,6 +248,7 @@ export function MediaDetailModal({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [upscaleCost, setUpscaleCost] = useState<number>(5);
+  const [upscaleEnabled, setUpscaleEnabled] = useState<boolean>(false);
   const [confirmUpscale, setConfirmUpscale] = useState(false);
   const [isUpscaling, setIsUpscaling] = useState(false);
   const [upscaleError, setUpscaleError] = useState<string | null>(null);
@@ -266,6 +267,7 @@ export function MediaDetailModal({
   }, [item?.id, opened]);
 
   useEffect(() => {
+    if (!opened) return;
     let active = true;
     async function fetchCatalog() {
       const res = await requestJson<{ models?: Array<{ modelId: string; costPoints: number }> }>("/api/catalog/generate");
@@ -273,16 +275,23 @@ export function MediaDetailModal({
         const found = res.data.models.find(
           (m) => m.modelId === "image-upscale" || m.modelId.toLowerCase().includes("upscale")
         );
-        if (found && typeof found.costPoints === "number") {
-          setUpscaleCost(found.costPoints);
+        if (found) {
+          setUpscaleEnabled(true);
+          if (typeof found.costPoints === "number") {
+            setUpscaleCost(found.costPoints);
+          }
+        } else {
+          setUpscaleEnabled(false);
         }
+      } else if (active) {
+        setUpscaleEnabled(false);
       }
     }
     void fetchCatalog();
     return () => {
       active = false;
     };
-  }, []);
+  }, [opened]);
 
   useEffect(() => {
     if (!opened) return;
@@ -497,7 +506,7 @@ export function MediaDetailModal({
 
                 {/* Tombol Aksi (Download, Upscale & Delete) */}
                 {item.url ? (
-                  !isVideo ? (
+                  !isVideo && upscaleEnabled ? (
                     <div className={classes.actionButtonsRow}>
                       <Button
                         onClick={() => void handleDownload()}

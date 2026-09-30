@@ -290,6 +290,7 @@ export async function resolveModel(modeRaw: unknown, modelIdRaw: unknown, isSpic
     if (upscaleRow) {
       return { ...upscaleRow, mode };
     }
+    throw new AppError(ErrorCodes.VALIDATION_ERROR, "Fitur atau model upscale sedang dinonaktifkan");
   }
 
   const isAbstract =
