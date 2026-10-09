@@ -16,11 +16,13 @@ import {
   Textarea,
 } from "@mantine/core";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { ResponsiveTable } from "@/components/responsive-table";
 import { EmptyState } from "@/components/empty-state";
 import { ErrorAlert } from "@/components/error-alert";
 import { requestJson } from "@/lib/api";
 import { formatIdr } from "@/lib/format";
+import { queryKeys } from "@/lib/query-keys";
 import type { AdminPackage } from "../types";
 import classes from "./packages-list.module.css";
 
@@ -62,6 +64,7 @@ function SearchIcon() {
 
 export function AdminPackagesList({ packages }: { packages: AdminPackage[] }) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
@@ -183,6 +186,8 @@ export function AdminPackagesList({ packages }: { packages: AdminPackage[] }) {
       setSuccessMessage(`Paket "${name}" berhasil dibuat.`);
     }
 
+    void queryClient.invalidateQueries({ queryKey: queryKeys.orderPackages() });
+    void queryClient.invalidateQueries({ queryKey: queryKeys.catalogPackages() });
     setFormOpen(false);
     router.refresh();
   };
@@ -202,6 +207,8 @@ export function AdminPackagesList({ packages }: { packages: AdminPackage[] }) {
       return;
     }
 
+    void queryClient.invalidateQueries({ queryKey: queryKeys.orderPackages() });
+    void queryClient.invalidateQueries({ queryKey: queryKeys.catalogPackages() });
     setSuccessMessage(`Paket "${deletingPackage.name}" berhasil dihapus.`);
     setDeletingPackage(null);
     router.refresh();
@@ -222,6 +229,8 @@ export function AdminPackagesList({ packages }: { packages: AdminPackage[] }) {
       return;
     }
 
+    void queryClient.invalidateQueries({ queryKey: queryKeys.orderPackages() });
+    void queryClient.invalidateQueries({ queryKey: queryKeys.catalogPackages() });
     setSuccessMessage(
       `Paket "${pkg.name}" kini ${!pkg.active ? "aktif" : "nonaktif"}.`,
     );

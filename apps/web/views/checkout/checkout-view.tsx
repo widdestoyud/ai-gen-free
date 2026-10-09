@@ -148,7 +148,7 @@ export function CheckoutView() {
       }
       return DEFAULT_PRICING_PLANS;
     },
-    staleTime: 1000 * 60,
+    staleTime: 5_000,
     refetchOnMount: "always",
   });
 

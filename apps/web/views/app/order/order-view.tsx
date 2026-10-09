@@ -55,8 +55,9 @@ export function OrderPageView(props: {
       return res.ok && Array.isArray(res.data?.packages) ? res.data.packages : [];
     },
     initialData: props.data?.packages,
-    staleTime: 60_000,
-    refetchOnWindowFocus: false,
+    staleTime: 5_000,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
   });
 
   // 2. Wallet balance query
