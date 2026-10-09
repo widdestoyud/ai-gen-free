@@ -11,8 +11,10 @@ import {
 import { AuthError } from "../auth/service.js";
 import { createMidtransPaymentGateway } from "./midtrans-factory.js";
 import { createXenditPaymentGateway } from "./xendit-factory.js";
+import { createDokuPaymentGateway } from "./doku-factory.js";
 import { generateMidtransSignature, verifyMidtransSignature } from "@ai-gen-free/providers-midtrans";
 import { verifyXenditCallbackToken } from "@ai-gen-free/providers-xendit";
+import { generateDokuSignature, verifyDokuNotificationSignature } from "@ai-gen-free/providers-doku";
 
 test("Topup catalog: returns predefined packages", async () => {
   const staticPackages = listStaticPackages();
@@ -168,6 +170,55 @@ test("Xendit callback token integration: correctly verifies valid and invalid to
   assert.equal(verifyXenditCallbackToken(null, token), false);
 });
 
+test("createDokuPaymentGateway: returns null when DOKU credentials are not configured", () => {
+  const saved = {
+    DOKU_CLIENT_ID: process.env.DOKU_CLIENT_ID,
+    DOKU_MERCHANT_KEY: process.env.DOKU_MERCHANT_KEY,
+    DOKU_MALL_ID: process.env.DOKU_MALL_ID,
+    DOKU_SECRET_KEY: process.env.DOKU_SECRET_KEY,
+    DOKU_API_KEY: process.env.DOKU_API_KEY,
+    DOKU_SHARED_KEY: process.env.DOKU_SHARED_KEY,
+  };
+  try {
+    delete process.env.DOKU_CLIENT_ID;
+    delete process.env.DOKU_MERCHANT_KEY;
+    delete process.env.DOKU_MALL_ID;
+    delete process.env.DOKU_SECRET_KEY;
+    delete process.env.DOKU_API_KEY;
+    delete process.env.DOKU_SHARED_KEY;
+    const gateway = createDokuPaymentGateway();
+    assert.equal(gateway, null);
+  } finally {
+    for (const [k, v] of Object.entries(saved)) {
+      if (v !== undefined) process.env[k] = v;
+      else delete process.env[k];
+    }
+  }
+});
+
+test("createDokuPaymentGateway: returns instance when DOKU credentials are configured", () => {
+  const originalClientId = process.env.DOKU_CLIENT_ID;
+  const originalSecret = process.env.DOKU_SECRET_KEY;
+  try {
+    process.env.DOKU_CLIENT_ID = "MCH-0001-TEST";
+    process.env.DOKU_SECRET_KEY = "SK-TEST-12345";
+    const gateway = createDokuPaymentGateway();
+    assert(gateway !== null);
+    assert.equal(gateway.provider, "doku");
+  } finally {
+    if (originalClientId) {
+      process.env.DOKU_CLIENT_ID = originalClientId;
+    } else {
+      delete process.env.DOKU_CLIENT_ID;
+    }
+    if (originalSecret) {
+      process.env.DOKU_SECRET_KEY = originalSecret;
+    } else {
+      delete process.env.DOKU_SECRET_KEY;
+    }
+  }
+});
+
 test("Manual vs Online invoice expiry calculation", () => {
   const now = new Date();
   const created50MinAgo = new Date(now.getTime() - 50 * 60 * 1000);
@@ -185,4 +236,5 @@ test("Manual vs Online invoice expiry calculation", () => {
   const gatewaySessionExpired = gatewayExpired15MinAgo < now;
   assert.equal(gatewaySessionExpired, true);
 });
+
 

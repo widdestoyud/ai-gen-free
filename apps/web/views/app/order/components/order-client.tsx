@@ -431,6 +431,7 @@ export function OrderClient(props: {
                 inv.paymentMethod === "online" ||
                 inv.paymentMethod === "midtrans" ||
                 inv.paymentMethod === "xendit" ||
+                inv.paymentMethod === "doku" ||
                 inv.paymentMethod === "dana" ||
                 Boolean(inv.gateway?.paymentUrl || inv.paymentGateway);
               const showOnlineButton = !isExplicitManual && onlineEnabled && (isExplicitOnline || !manualEnabled);
@@ -439,11 +440,13 @@ export function OrderClient(props: {
               const onlineGatewayLabel =
                 activeGateway === "midtrans"
                   ? "Midtrans"
-                  : activeGateway === "dana"
-                    ? "DANA"
-                    : activeGateway === "xendit"
-                      ? "Xendit"
-                      : "Online";
+                  : activeGateway === "doku"
+                    ? "DOKU"
+                    : activeGateway === "dana"
+                      ? "DANA"
+                      : activeGateway === "xendit"
+                        ? "Xendit"
+                        : "Online";
 
               return (
                 <Table.Tr key={inv.id} className={classes.tableRow}>
@@ -595,6 +598,7 @@ export function OrderClient(props: {
                 inv.paymentMethod === "online" ||
                 inv.paymentMethod === "midtrans" ||
                 inv.paymentMethod === "xendit" ||
+                inv.paymentMethod === "doku" ||
                 inv.paymentMethod === "dana" ||
                 Boolean(inv.gateway?.paymentUrl || inv.paymentGateway);
               const showOnlineButton = !isExplicitManual && onlineEnabled && (isExplicitOnline || !manualEnabled);
@@ -603,11 +607,13 @@ export function OrderClient(props: {
               const onlineGatewayLabel =
                 activeGateway === "midtrans"
                   ? "Midtrans"
-                  : activeGateway === "dana"
-                    ? "DANA"
-                    : activeGateway === "xendit"
-                      ? "Xendit"
-                      : "Online";
+                  : activeGateway === "doku"
+                    ? "DOKU"
+                    : activeGateway === "dana"
+                      ? "DANA"
+                      : activeGateway === "xendit"
+                        ? "Xendit"
+                        : "Online";
 
               return (
                 <div key={inv.id} className={classes.mobileInvoiceCard}>

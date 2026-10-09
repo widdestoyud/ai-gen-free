@@ -193,6 +193,8 @@ export function CheckoutView() {
       let onlineLabel = "Pembayaran Online";
       if (activeGateway === "dana") {
         onlineLabel = "DANA";
+      } else if (activeGateway === "doku") {
+        onlineLabel = "Pembayaran Online (DOKU)";
       } else if (activeGateway === "midtrans") {
         onlineLabel = "Pembayaran Online (Midtrans)";
       } else if (activeGateway === "xendit") {
@@ -313,11 +315,13 @@ export function CheckoutView() {
         return;
       }
 
-      // If redirect URL is provided (e.g. DANA / Xendit / Payment link)
+      // If redirect URL is provided (e.g. DANA / Xendit / DOKU / Payment link)
       if (
         payRes.paymentUrl &&
         (activeGateway === "dana" ||
+          activeGateway === "doku" ||
           payRes.frontendConfig?.meta?.flowType === "redirect" ||
+          payRes.frontendConfig?.driver === "doku" ||
           payRes.frontendConfig?.driver === "xendit" ||
           payRes.frontendConfig?.driver === "dana")
       ) {

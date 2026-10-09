@@ -1,3 +1,4 @@
+import { headers as getNextHeaders } from "next/headers";
 import { adminAuth } from "@/auth-admin";
 import { auth } from "@/auth";
 import { resolveBackendPath } from "./api-mapping";
@@ -13,11 +14,40 @@ export function adminBasicHeaders(): Record<string, string> {
   return { authorization: `Basic ${Buffer.from(`${user}:${pass}`).toString("base64")}` };
 }
 
+async function getForwardHeaders(): Promise<Record<string, string>> {
+  try {
+    const reqHeaders = await getNextHeaders();
+    const result: Record<string, string> = {};
+    const forwardList = [
+      "user-agent",
+      "cf-connecting-ip",
+      "cf-ipcity",
+      "cf-ipcountry",
+      "cf-region",
+      "cf-asorganization",
+      "x-forwarded-for",
+      "x-real-ip",
+      "x-device-id",
+    ];
+    for (const key of forwardList) {
+      const val = reqHeaders.get(key);
+      if (val) result[key] = val;
+    }
+    return result;
+  } catch {
+    return {};
+  }
+}
+
 export async function fetchUserApi(path: string, init: RequestInit = {}): Promise<Response | null> {
   try {
     const session = await auth();
     if (!session?.sid) return null;
+    const forwardHeaders = await getForwardHeaders();
     const headers = new Headers(init.headers);
+    for (const [k, v] of Object.entries(forwardHeaders)) {
+      if (!headers.has(k)) headers.set(k, v);
+    }
     headers.set("cookie", `sid=${session.sid}`);
     const method = init.method ?? "GET";
     const backendPath = resolveBackendPath(path, method);
@@ -31,10 +61,14 @@ export async function fetchAdminApi(path: string, init: RequestInit = {}): Promi
   try {
     const session = await adminAuth();
     if (!session?.sid) return null;
+    const forwardHeaders = await getForwardHeaders();
     const headers = new Headers(init.headers);
+    for (const [k, v] of Object.entries(forwardHeaders)) {
+      if (!headers.has(k)) headers.set(k, v);
+    }
     headers.set("cookie", `sid_admin=${session.sid}`);
     for (const [key, value] of Object.entries(adminBasicHeaders())) {
-      headers.set(key, value);
+      if (!headers.has(key)) headers.set(key, value);
     }
     const method = init.method ?? "GET";
     const backendPath = resolveBackendPath(path, method);

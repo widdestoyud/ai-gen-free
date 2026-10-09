@@ -37,13 +37,25 @@ export async function getPaymentSettings(): Promise<PaymentSettingsConfig> {
   const raw = row?.value as Partial<PaymentSettingsConfig> | null | undefined;
 
   const envGateway = (process.env.PAYMENT_GATEWAY || process.env.PAYMENT_DRIVER || "xendit").toLowerCase().trim();
-  const defaultOnlineGateway: "midtrans" | "xendit" | "none" =
-    envGateway === "midtrans" ? "midtrans" : envGateway === "none" ? "none" : "xendit";
+  const defaultOnlineGateway: "midtrans" | "xendit" | "doku" | "dana" | "none" =
+    envGateway === "midtrans"
+      ? "midtrans"
+      : envGateway === "doku"
+        ? "doku"
+        : envGateway === "dana"
+          ? "dana"
+          : envGateway === "none"
+            ? "none"
+            : "xendit";
 
   const config: PaymentSettingsConfig = {
     manualPaymentEnabled: typeof raw?.manualPaymentEnabled === "boolean" ? raw.manualPaymentEnabled : true,
     activeOnlineGateway:
-      raw?.activeOnlineGateway === "midtrans" || raw?.activeOnlineGateway === "xendit" || raw?.activeOnlineGateway === "none"
+      raw?.activeOnlineGateway === "midtrans" ||
+      raw?.activeOnlineGateway === "xendit" ||
+      raw?.activeOnlineGateway === "doku" ||
+      raw?.activeOnlineGateway === "dana" ||
+      raw?.activeOnlineGateway === "none"
         ? raw.activeOnlineGateway
         : defaultOnlineGateway,
     manualExpiryMinutes: typeof raw?.manualExpiryMinutes === "number" && raw.manualExpiryMinutes > 0 ? raw.manualExpiryMinutes : 60,
@@ -76,10 +88,10 @@ export async function putPaymentSettings(opts: {
   let nextOnlineGateway = current.activeOnlineGateway;
   if (opts.config.activeOnlineGateway !== undefined) {
     const rawGw = String(opts.config.activeOnlineGateway).toLowerCase().trim();
-    if (rawGw !== "midtrans" && rawGw !== "xendit" && rawGw !== "none") {
-      throw new AppError(ErrorCodes.VALIDATION_ERROR, "activeOnlineGateway hanya boleh 'midtrans', 'xendit', atau 'none'");
+    if (rawGw !== "midtrans" && rawGw !== "xendit" && rawGw !== "doku" && rawGw !== "dana" && rawGw !== "none") {
+      throw new AppError(ErrorCodes.VALIDATION_ERROR, "activeOnlineGateway hanya boleh 'midtrans', 'xendit', 'doku', 'dana', atau 'none'");
     }
-    nextOnlineGateway = rawGw as "midtrans" | "xendit" | "none";
+    nextOnlineGateway = rawGw as "midtrans" | "xendit" | "doku" | "dana" | "none";
   }
 
   if (!nextManualEnabled && nextOnlineGateway === "none") {

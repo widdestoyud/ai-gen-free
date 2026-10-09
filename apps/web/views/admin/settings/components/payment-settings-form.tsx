@@ -8,7 +8,7 @@ import { requestJson } from "@/lib/api";
 
 export interface PaymentSettingsData {
   manualPaymentEnabled: boolean;
-  activeOnlineGateway: "midtrans" | "xendit" | "none";
+  activeOnlineGateway: "midtrans" | "xendit" | "doku" | "dana" | "none";
   manualExpiryMinutes: number;
   onlineExpiryMinutes: number;
   availableGateways?: string[];
@@ -21,7 +21,7 @@ export function AdminPaymentSettingsForm({
 }) {
   const router = useRouter();
   const [manualEnabled, setManualEnabled] = useState(initialSettings.manualPaymentEnabled);
-  const [onlineGateway, setOnlineGateway] = useState<"midtrans" | "xendit" | "none">(
+  const [onlineGateway, setOnlineGateway] = useState<"midtrans" | "xendit" | "doku" | "dana" | "none">(
     initialSettings.activeOnlineGateway,
   );
   const [error, setError] = useState("");
@@ -120,15 +120,28 @@ export function AdminPaymentSettingsForm({
 
               <Radio.Group
                 value={onlineGateway}
-                onChange={(val) => setOnlineGateway(val as "midtrans" | "xendit" | "none")}
+                onChange={(val) => setOnlineGateway(val as "midtrans" | "xendit" | "doku" | "dana" | "none")}
               >
                 <Stack gap="xs" mt="xs">
+                  <Radio
+                    value="doku"
+                    label={
+                      <div>
+                        <Text size="sm" fw={500}>
+                          DOKU (Direct API & DOKU Checkout)
+                        </Text>
+                        <Text size="xs" c="dimmed">
+                          Mendukung Virtual Account (BCA, Mandiri, BRI, BNI, Permata, CIMB, Danamon, BSI, BTN), QRIS, E-Wallet (DANA, OVO, ShopeePay), Kartu Kredit, Paylater, dan Gerai Retail (Alfamart/Indomaret).
+                        </Text>
+                      </div>
+                    }
+                  />
                   <Radio
                     value="xendit"
                     label={
                       <div>
                         <Text size="sm" fw={500}>
-                          Xendit (Aktif)
+                          Xendit
                         </Text>
                         <Text size="xs" c="dimmed">
                           Mendukung QRIS instan, E-Wallet (OVO, DANA, ShopeePay, LinkAja), dan Virtual Account transfer bank.
@@ -141,10 +154,23 @@ export function AdminPaymentSettingsForm({
                     label={
                       <div>
                         <Text size="sm" fw={500}>
-                          Midtrans Snap (Aktif)
+                          Midtrans Snap
                         </Text>
                         <Text size="xs" c="dimmed">
                           Mendukung Midtrans Snap Popup, Virtual Account (BCA, Mandiri, BNI, BRI, Permata), QRIS, GoPay, ShopeePay.
+                        </Text>
+                      </div>
+                    }
+                  />
+                  <Radio
+                    value="dana"
+                    label={
+                      <div>
+                        <Text size="sm" fw={500}>
+                          DANA Payment Gateway (SNAP)
+                        </Text>
+                        <Text size="xs" c="dimmed">
+                          Mendukung pembayaran langsung via DANA E-Wallet & QRIS.
                         </Text>
                       </div>
                     }

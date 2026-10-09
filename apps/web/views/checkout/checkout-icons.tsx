@@ -254,7 +254,15 @@ export function OnlinePaymentLogo({ active = false, gateway = "online" }: { acti
           letterSpacing: -0.2,
         }}
       >
-        {gateway === "midtrans" ? "Online (Midtrans)" : gateway === "xendit" ? "Online (Xendit)" : "Pembayaran Online"}
+        {gateway === "midtrans"
+          ? "Online (Midtrans)"
+          : gateway === "xendit"
+            ? "Online (Xendit)"
+            : gateway === "doku"
+              ? "Online (DOKU)"
+              : gateway === "dana"
+                ? "DANA"
+                : "Pembayaran Online"}
       </span>
     </div>
   );

@@ -12,6 +12,7 @@
     "@ai-gen-free/core": "workspace:*",
     "@ai-gen-free/db": "workspace:*",
     "@ai-gen-free/providers-dana": "workspace:*",
+    "@ai-gen-free/providers-doku": "workspace:*",
     "@ai-gen-free/providers-fal": "workspace:*",
     "@ai-gen-free/providers-midtrans": "workspace:*",
     "@ai-gen-free/providers-xendit": "workspace:*",

@@ -127,7 +127,7 @@ export const PAYMENT_SETTINGS_KEY = "payment_settings";
 
 export interface PaymentSettingsConfig {
   manualPaymentEnabled: boolean;
-  activeOnlineGateway: "midtrans" | "xendit" | "none";
+  activeOnlineGateway: "midtrans" | "xendit" | "doku" | "dana" | "none";
   manualExpiryMinutes: number;
   onlineExpiryMinutes: number;
 }

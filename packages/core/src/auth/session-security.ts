@@ -18,7 +18,7 @@ export interface SessionVerificationResult {
 }
 
 /**
- * Mendeteksi apakah User-Agent berasal dari HTTP testing client / tool otomatisasi.
+ * Mendeteksi apakah User-Agent berasal dari HTTP testing client / tool otomatisasi atau pentest.
  */
 export function isAutomatedToolUserAgent(ua?: string | null): boolean {
   if (!ua || typeof ua !== "string") return false;
@@ -34,11 +34,21 @@ export function isAutomatedToolUserAgent(ua?: string | null): boolean {
     lower.includes("python-urllib") ||
     lower.includes("go-http-client") ||
     lower.includes("insomnia") ||
-    lower.includes("httpie") ||
-    lower.includes("node-fetch") ||
-    lower.includes("axios/") ||
-    lower.includes("undici")
+    lower.includes("httpie")
   );
+}
+
+/**
+ * Mendeteksi apakah IP berasal dari jaringan internal / localhost / Docker network.
+ */
+export function isPrivateOrInternalIp(ip?: string | null): boolean {
+  if (!ip || typeof ip !== "string") return false;
+  const clean = ip.trim().replace(/^::ffff:/, "");
+  if (clean === "127.0.0.1" || clean === "::1" || clean === "localhost") return true;
+  if (clean.startsWith("10.") || clean.startsWith("192.168.")) return true;
+  // Subnet Docker / VPC RFC1918 (172.16.0.0 - 172.31.255.255)
+  if (/^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(clean)) return true;
+  return false;
 }
 
 /**
@@ -76,6 +86,12 @@ export function isUserAgentMatching(savedUa?: string | null, incomingUa?: string
   if (!savedUa) return true; // Sesi lama tanpa UA tersimpan diizinkan
   if (!incomingUa) return false; // Sesi tersimpan memiliki UA, tapi incoming request tanpa UA -> tolak
 
+  const lowerIncoming = incomingUa.toLowerCase();
+  // Request internal server-to-server dari Next.js runtime (undici, node-fetch)
+  if (lowerIncoming.includes("undici") || lowerIncoming.includes("node-fetch") || lowerIncoming.startsWith("node/")) {
+    return true;
+  }
+
   const savedFp = extractUaFingerprint(savedUa);
   const incomingFp = extractUaFingerprint(incomingUa);
 
@@ -103,10 +119,8 @@ export function isSubnetMatching(savedIp?: string | null, incomingIp?: string | 
 
   if (cleanSaved === cleanIncoming) return true;
 
-  // Localhost matching
-  const isLocalSaved = cleanSaved === "127.0.0.1" || cleanSaved === "::1" || cleanSaved === "localhost";
-  const isLocalIncoming = cleanIncoming === "127.0.0.1" || cleanIncoming === "::1" || cleanIncoming === "localhost";
-  if (isLocalSaved && isLocalIncoming) return true;
+  // Izinkan jika salah satu adalah IP internal/private (server-to-server Next.js ke Fastify)
+  if (isPrivateOrInternalIp(cleanSaved) || isPrivateOrInternalIp(cleanIncoming)) return true;
 
   // IPv4 Subnet /24 check (3 oktet pertama sama)
   const isIpv4Saved = /^\d+\.\d+\.\d+\.\d+$/.test(cleanSaved);
@@ -146,7 +160,7 @@ export function verifySessionBinding(
     if (context.strictIp) {
       const cleanSaved = session.ip.trim().replace(/^::ffff:/, "");
       const cleanIncoming = context.ip.trim().replace(/^::ffff:/, "");
-      if (cleanSaved !== cleanIncoming) {
+      if (cleanSaved !== cleanIncoming && !isPrivateOrInternalIp(cleanSaved) && !isPrivateOrInternalIp(cleanIncoming)) {
         return { valid: false, reason: "IP_MISMATCH" };
       }
     } else if (!isSubnetMatching(session.ip, context.ip)) {

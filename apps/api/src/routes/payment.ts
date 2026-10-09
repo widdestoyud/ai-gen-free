@@ -429,6 +429,73 @@ export async function registerPaymentRoutes(app: FastifyInstance, deps: PaymentR
   app.post("/webhook/xendit", handleXenditWebhook);
 
   /**
+   * POST /webhooks/doku & POST /webhook/doku
+   * Webhook endpoint untuk menerima notifikasi dari DOKU (Non-SNAP / Direct API)
+   * Divalidasi via HMAC-SHA256 Signature
+   */
+  const handleDokuWebhook = async (req: any, reply: any) => {
+    try {
+      const dokuGateway = deps.registry.get("doku");
+      if (!dokuGateway) {
+        return reply.status(503).send({
+          status: "ERROR",
+          error: { code: "GATEWAY_UNAVAILABLE", message: "DOKU gateway not configured" },
+        });
+      }
+
+      const serviceDeps: PaymentServiceDeps = {
+        paymentGateway: dokuGateway,
+        callbackBaseUrl: deps.callbackBaseUrl,
+        paymentDueMinutes: deps.paymentDueMinutes,
+      };
+
+      const headers: Record<string, string> = {};
+      for (const [key, value] of Object.entries(req.headers)) {
+        if (typeof value === "string") {
+          headers[key] = value;
+        } else if (Array.isArray(value)) {
+          headers[key] = value[0];
+        }
+      }
+
+      app.log.info({
+        event: "doku.webhook_received",
+        hasBody: Boolean(req.body),
+      });
+
+      const result = await processPaymentNotification(serviceDeps, req.body, headers);
+
+      app.log.info({
+        event: "doku.webhook_processed",
+        invoiceId: result.invoiceId,
+        status: result.status,
+      });
+
+      return { status: "OK", ...result };
+    } catch (err) {
+      app.log.error({
+        event: "doku.webhook_error",
+        error: err instanceof Error ? err.message : String(err),
+      });
+
+      if (err instanceof AuthError) {
+        return reply.status(200).send({
+          status: "ERROR",
+          error: { code: err.code, message: err.message },
+        });
+      }
+
+      return reply.status(500).send({
+        status: "ERROR",
+        error: { code: "INTERNAL_ERROR", message: "Internal server error" },
+      });
+    }
+  };
+
+  app.post("/webhooks/doku", handleDokuWebhook);
+  app.post("/webhook/doku", handleDokuWebhook);
+
+  /**
    * GET /payment/methods
    * Get available payment methods (public for checkout & pricing)
    */
@@ -489,6 +556,28 @@ export async function registerPaymentRoutes(app: FastifyInstance, deps: PaymentR
             { id: "qris", name: "QRIS", providers: ["Semua Pembayaran QRIS"] },
             { id: "ewallet", name: "E-Wallet", providers: ["OVO", "DANA", "ShopeePay", "LinkAja", "AstraPay", "JeniusPay"] },
             { id: "va", name: "Virtual Account", banks: ["BCA", "Mandiri", "BNI", "BRI", "Permata", "BSI", "CIMB Niaga"] },
+          ],
+        });
+      }
+    } else if (activeGateway === "doku") {
+      // Add DOKU if registered and active
+      const dokuConfig = deps.registry.getFrontendConfig("doku");
+      if (dokuConfig) {
+        methods.push({
+          id: "doku",
+          name: "Pembayaran Online (DOKU)",
+          description: "Virtual Account (BCA, Mandiri, BRI, BNI, Permata, CIMB, Danamon), QRIS, E-Wallet (DANA, OVO, ShopeePay), Kartu Kredit",
+          enabled: true,
+          isDefault: true,
+          expiryMinutes: paymentSettings.onlineExpiryMinutes,
+          flowType: "redirect",
+          channels: [
+            { id: "va", name: "Virtual Account", banks: ["BCA", "Mandiri", "BRI", "BNI", "Permata", "CIMB", "Danamon", "BSI", "BTN"] },
+            { id: "qris", name: "QRIS", providers: ["Semua Pembayaran QRIS"] },
+            { id: "ewallet", name: "E-Wallet", providers: ["DANA", "OVO", "ShopeePay", "LinkAja"] },
+            { id: "cc", name: "Kartu Kredit / Debit", providers: ["Visa", "Mastercard", "JCB"] },
+            { id: "paylater", name: "Paylater", providers: ["Akulaku", "Kredivo", "Indodana"] },
+            { id: "o2o", name: "Gerai Retail", providers: ["Alfamart", "Indomaret"] },
           ],
         });
       }

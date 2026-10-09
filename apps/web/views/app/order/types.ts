@@ -29,7 +29,7 @@ export type Invoice = {
   instructions?: string;
   reviewNote?: string | null;
   hasProof: boolean;
-  paymentMethod?: "manual" | "online" | "midtrans" | "xendit" | "dana" | string | null;
+  paymentMethod?: "manual" | "online" | "midtrans" | "xendit" | "doku" | "dana" | string | null;
   paymentGateway?: string | null;
   gateway?: GatewayPaymentInfo | null;
   paidAt?: string | null;

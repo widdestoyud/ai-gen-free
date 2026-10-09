@@ -682,6 +682,24 @@ export const API_MAPPINGS: readonly ApiRouteMapping[] = [
     description: "Webhook untuk menerima notifikasi dari Xendit",
   },
   {
+    FE: "/api/webhook/xendit",
+    BE: "/webhooks/xendit",
+    method: "POST",
+    description: "Webhook untuk menerima notifikasi dari Xendit (alias)",
+  },
+  {
+    FE: "/api/webhooks/doku",
+    BE: "/webhooks/doku",
+    method: "POST",
+    description: "Webhook untuk menerima notifikasi dari DOKU",
+  },
+  {
+    FE: "/api/webhook/doku",
+    BE: "/webhooks/doku",
+    method: "POST",
+    description: "Webhook untuk menerima notifikasi dari DOKU (alias)",
+  },
+  {
     FE: "/api/webhooks/dana",
     BE: "/webhooks/dana",
     method: "POST",

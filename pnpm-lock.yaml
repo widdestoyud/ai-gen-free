@@ -36,6 +36,9 @@ importers:
       '@ai-gen-free/providers-dana':
         specifier: workspace:*
         version: link:../../packages/providers-dana
+      '@ai-gen-free/providers-doku':
+        specifier: workspace:*
+        version: link:../../packages/providers-doku
       '@ai-gen-free/providers-fal':
         specifier: workspace:*
         version: link:../../packages/providers-fal
@@ -215,6 +218,12 @@ importers:
       dana-node:
         specifier: ^2.2.2
         version: 2.2.2
+
+  packages/providers-doku:
+    dependencies:
+      '@ai-gen-free/core':
+        specifier: workspace:*
+        version: link:../core
 
   packages/providers-fal:
     dependencies:

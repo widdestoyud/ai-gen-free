@@ -21,6 +21,7 @@ import { rewriteRequestUrl } from "./http-rewrite.js";
 import { createMidtransPaymentGateway } from "./wallet/midtrans-factory.js";
 import { createDanaPaymentGateway } from "./wallet/dana-factory.js";
 import { createXenditPaymentGateway } from "./wallet/xendit-factory.js";
+import { createDokuPaymentGateway } from "./wallet/doku-factory.js";
 import { DefaultPaymentGatewayRegistry } from "./wallet/gateway-registry.js";
 import { setCacheRedis } from "./lib/cache.js";
 import { startInvoiceExpirationScheduler } from "./wallet/service.js";
@@ -319,6 +320,23 @@ if (xenditGateway) {
       },
     },
     configuredGateway === "xendit",
+  );
+}
+
+// Register DOKU (if configured)
+const dokuGateway = createDokuPaymentGateway(app.log);
+if (dokuGateway) {
+  registry.register(
+    "doku",
+    dokuGateway,
+    {
+      driver: "doku",
+      provider: "doku-checkout",
+      meta: {
+        flowType: "redirect",
+      },
+    },
+    configuredGateway === "doku",
   );
 }
 
