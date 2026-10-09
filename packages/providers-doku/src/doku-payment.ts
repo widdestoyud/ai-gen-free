@@ -114,8 +114,18 @@ export class DokuPaymentProvider implements PaymentGatewayPort {
         },
       };
 
-      if (input.callbackUrl) {
-        requestBody.order.callback_url = input.callbackUrl;
+      const successUrl = input.successRedirectUrl || input.callbackUrl;
+      const cancelUrl = input.cancelRedirectUrl || input.failureRedirectUrl || input.callbackUrl;
+      const resultUrl = input.callbackUrl || successUrl;
+
+      if (successUrl) {
+        requestBody.order.callback_url = successUrl;
+      }
+      if (cancelUrl) {
+        requestBody.order.callback_url_cancel = cancelUrl;
+      }
+      if (resultUrl) {
+        requestBody.order.callback_url_result = resultUrl;
       }
 
       const allowedMethods =

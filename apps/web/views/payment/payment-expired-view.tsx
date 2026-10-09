@@ -4,7 +4,7 @@ import { Badge, Button, Card, Container, Divider, Group, Loader, Paper, Stack, T
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { requestJson } from "@/lib/api";
-import { formatIdr } from "@/lib/format";
+import { formatDateId, formatIdr } from "@/lib/format";
 
 interface InvoiceInfoResponse {
   id: string;
@@ -14,15 +14,16 @@ interface InvoiceInfoResponse {
   status: string;
   statusLabel: string;
   createdAt: string;
+  gatewayExpiredAt?: string | null;
 }
 
-export function PaymentFailedView({ invoiceId }: { invoiceId?: string }) {
+export function PaymentExpiredView({ invoiceId }: { invoiceId?: string }) {
   const [loading, setLoading] = useState(Boolean(invoiceId));
   const [invoice, setInvoice] = useState<InvoiceInfoResponse | null>(null);
 
   // Intercept Android and browser Back button to prevent returning to external payment gateway URL
   useEffect(() => {
-    window.history.pushState({ page: "payment_failed" }, "", window.location.href);
+    window.history.pushState({ page: "payment_expired" }, "", window.location.href);
 
     const handlePopState = () => {
       window.location.replace("/app/order");
@@ -47,14 +48,6 @@ export function PaymentFailedView({ invoiceId }: { invoiceId?: string }) {
       try {
         const infoRes = await requestJson<InvoiceInfoResponse>(`/api/invoices/${invoiceId}/payment-info`);
         if (isMounted && infoRes.ok && infoRes.data) {
-          if (infoRes.data.status === "paid") {
-            window.location.replace(`/payment/success?invoice=${encodeURIComponent(invoiceId || "")}`);
-            return;
-          }
-          if (infoRes.data.status === "expired") {
-            window.location.replace(`/payment/expired?invoice=${encodeURIComponent(invoiceId || "")}`);
-            return;
-          }
           setInvoice(infoRes.data);
         }
       } catch {
@@ -76,18 +69,18 @@ export function PaymentFailedView({ invoiceId }: { invoiceId?: string }) {
   return (
     <Container size="sm" py={60}>
       <Stack gap="xl" align="center">
-        {/* Warning / Error Badge */}
+        {/* Expired Clock Icon Badge */}
         <div
           style={{
             width: 80,
             height: 80,
             borderRadius: "50%",
-            background: "linear-gradient(135deg, #ef4444 0%, #dc2626 100%)",
+            background: "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
             color: "#ffffff",
-            boxShadow: "0 0 32px rgba(239, 68, 68, 0.35)",
+            boxShadow: "0 0 32px rgba(245, 158, 11, 0.35)",
           }}
         >
           <svg
@@ -96,31 +89,31 @@ export function PaymentFailedView({ invoiceId }: { invoiceId?: string }) {
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
-            strokeWidth="3"
+            strokeWidth="2.5"
             strokeLinecap="round"
             strokeLinejoin="round"
           >
-            <line x1="18" y1="6" x2="6" y2="18" />
-            <line x1="6" y1="6" x2="18" y2="18" />
+            <circle cx="12" cy="12" r="10" />
+            <polyline points="12 6 12 12 16 14" />
           </svg>
         </div>
 
         {/* Title and Subtitle */}
         <Stack gap="xs" align="center" style={{ textAlign: "center" }}>
           <Title order={1} fz={{ base: "1.75rem", sm: "2.25rem" }} fw={900}>
-            Pembayaran Belum Berhasil
+            Batas Waktu Pembayaran Berakhir
           </Title>
           <Text c="dimmed" size="sm" maw={460}>
-            Transaksi pembayaran Anda belum selesai, dibatalkan, atau telah kedaluwarsa. Saldo Anda belum terpotong.
+            Sesi transaksi pembayaran Anda telah kedaluwarsa (expired). Jangan khawatir, saldo rekening Anda tidak terpotong. Silakan buat pesanan baru untuk melanjutkan.
           </Text>
         </Stack>
 
-        {/* Invoice Summary if available */}
+        {/* Loading Spinner or Invoice Summary */}
         {loading ? (
           <Paper p="xl" withBorder radius="md" style={{ width: "100%", textAlign: "center" }}>
             <Loader size="md" mb="sm" />
             <Text size="sm" c="dimmed">
-              Memeriksa data transaksi...
+              Memeriksa rincian tagihan...
             </Text>
           </Paper>
         ) : invoice ? (
@@ -130,8 +123,8 @@ export function PaymentFailedView({ invoiceId }: { invoiceId?: string }) {
                 <Text size="sm" c="dimmed">
                   Status Tagihan
                 </Text>
-                <Badge color="red" variant="light" size="lg">
-                  {invoice.statusLabel || "Belum Lunas / Batal"}
+                <Badge color="yellow" variant="light" size="lg">
+                  Kedaluwarsa (Expired)
                 </Badge>
               </Group>
 
@@ -157,10 +150,19 @@ export function PaymentFailedView({ invoiceId }: { invoiceId?: string }) {
 
               <Group justify="space-between">
                 <Text size="sm" c="dimmed">
-                  Nominal
+                  Total Nominal
                 </Text>
                 <Text size="sm" fw={700}>
                   {formatIdr(invoice.amountIdr)}
+                </Text>
+              </Group>
+
+              <Group justify="space-between">
+                <Text size="sm" c="dimmed">
+                  Waktu Pembuatan
+                </Text>
+                <Text size="sm" c="gray.4" suppressHydrationWarning>
+                  {formatDateId(invoice.createdAt)}
                 </Text>
               </Group>
             </Stack>
@@ -168,28 +170,29 @@ export function PaymentFailedView({ invoiceId }: { invoiceId?: string }) {
         ) : null}
 
         {/* Action Buttons */}
-        <Stack gap="sm" style={{ width: "100%" }}>
+        <Group gap="md" style={{ width: "100%" }} justify="center">
           <Button
             component={Link}
             href="/app/order"
-            variant="gradient"
-            gradient={{ from: "#3b82f6", to: "#8b5cf6", deg: 135 }}
             size="md"
-            fullWidth
+            variant="filled"
+            color="blue"
+            radius="md"
+            style={{ flex: 1, maxWidth: 220 }}
           >
-            Coba Pembayaran Ulang
+            Pesan Ulang Paket
           </Button>
-
           <Button
             component={Link}
-            href="/app/billing"
-            variant="default"
+            href="/app/generate"
             size="md"
-            fullWidth
+            variant="default"
+            radius="md"
+            style={{ flex: 1, maxWidth: 220 }}
           >
-            Kembali ke Halaman Billing
+            Masuk ke Studio
           </Button>
-        </Stack>
+        </Group>
       </Stack>
     </Container>
   );

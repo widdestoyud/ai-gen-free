@@ -97,7 +97,10 @@ export async function initiatePayment(
   }
 
   // Create payment session via Payment Gateway
-  const callbackUrl = process.env.PAYMENT_SUCCESS_URL || `${deps.callbackBaseUrl}/payment/success?invoice=${invoice.id}`;
+  const successRedirectUrl = process.env.PAYMENT_SUCCESS_URL || `${deps.callbackBaseUrl}/payment/success?invoice=${invoice.id}`;
+  const failureRedirectUrl = process.env.PAYMENT_FAILED_URL || `${deps.callbackBaseUrl}/payment/failed?invoice=${invoice.id}`;
+  const expiredRedirectUrl = `${deps.callbackBaseUrl}/payment/expired?invoice=${invoice.id}`;
+  const cancelRedirectUrl = `${deps.callbackBaseUrl}/payment/failed?invoice=${invoice.id}`;
 
   const result = await deps.paymentGateway.createPayment({
     invoiceNumber: invoice.uniqueCode,
@@ -105,7 +108,11 @@ export async function initiatePayment(
     customerEmail: opts.customerEmail ?? invoice.user.email,
     customerName: opts.customerName ?? invoice.user.displayName ?? undefined,
     customerPhone: opts.customerPhone ?? invoice.user.phoneNumber ?? undefined,
-    callbackUrl,
+    callbackUrl: successRedirectUrl,
+    successRedirectUrl,
+    failureRedirectUrl,
+    cancelRedirectUrl,
+    expiredRedirectUrl,
     paymentDueMinutes: deps.paymentDueMinutes ?? 10,
     lineItems: [
       {

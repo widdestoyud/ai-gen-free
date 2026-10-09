@@ -15,8 +15,16 @@ export interface CreatePaymentInput {
   customerName?: string;
   /** Customer phone */
   customerPhone?: string;
-  /** Callback URL setelah payment */
+  /** Callback URL setelah payment (general / default fallback) */
   callbackUrl?: string;
+  /** Redirect URL ketika pembayaran sukses */
+  successRedirectUrl?: string;
+  /** Redirect URL ketika pembayaran gagal */
+  failureRedirectUrl?: string;
+  /** Redirect URL ketika pembayaran dibatalkan */
+  cancelRedirectUrl?: string;
+  /** Redirect URL ketika pembayaran expired / kedaluwarsa */
+  expiredRedirectUrl?: string;
   /** Payment methods yang diizinkan (provider-specific) */
   paymentMethods?: string[];
   /** Payment due in minutes */
