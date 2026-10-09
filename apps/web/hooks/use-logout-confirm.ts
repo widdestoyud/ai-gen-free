@@ -2,10 +2,12 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { requestJson } from "@/lib/api";
 
 export function useLogoutConfirm() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [opened, setOpened] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
@@ -28,6 +30,7 @@ export function useLogoutConfirm() {
       setError(result.message);
       return;
     }
+    queryClient.clear();
     setOpened(false);
     router.push("/");
     router.refresh();

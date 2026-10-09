@@ -2,12 +2,21 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { requestJson } from "@/lib/api";
-
+import { queryKeys } from "@/lib/query-keys";
 import { hashPasswordClient } from "@/lib/crypto";
 
-export function useLogin(defaultRedirect: string = "/app/generate") {
+export interface UseLoginOptions {
+  onSuccess?: (data?: any) => void;
+}
+
+export function useLogin(
+  defaultRedirect: string = "/app/generate",
+  options?: UseLoginOptions,
+) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [loginOpened, setLoginOpened] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -47,6 +56,16 @@ export function useLogin(defaultRedirect: string = "/app/generate") {
     resetErrors();
   }
 
+  async function invalidateAuthQueries() {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: queryKeys.customerProfile() }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.wallet() }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.orderInvoices() }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.billingLedger() }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.userStatus() }),
+    ]);
+  }
+
   async function submitLogin(e: FormEvent) {
     e.preventDefault();
     if (pending) return;
@@ -79,7 +98,22 @@ export function useLogin(defaultRedirect: string = "/app/generate") {
     }
 
     setLoginOpened(false);
-    router.push(defaultRedirect);
+    await invalidateAuthQueries();
+
+    if (options?.onSuccess) {
+      options.onSuccess(result.data);
+    }
+
+    if (typeof window !== "undefined") {
+      const currentPathWithSearch = window.location.pathname + window.location.search;
+      if (
+        defaultRedirect &&
+        defaultRedirect !== currentPathWithSearch &&
+        defaultRedirect !== window.location.pathname
+      ) {
+        router.push(defaultRedirect);
+      }
+    }
     router.refresh();
   }
 
@@ -128,7 +162,22 @@ export function useLogin(defaultRedirect: string = "/app/generate") {
 
     setOtpModalOpened(false);
     setPassword("");
-    router.push(defaultRedirect);
+    await invalidateAuthQueries();
+
+    if (options?.onSuccess) {
+      options.onSuccess(result.data);
+    }
+
+    if (typeof window !== "undefined") {
+      const currentPathWithSearch = window.location.pathname + window.location.search;
+      if (
+        defaultRedirect &&
+        defaultRedirect !== currentPathWithSearch &&
+        defaultRedirect !== window.location.pathname
+      ) {
+        router.push(defaultRedirect);
+      }
+    }
     router.refresh();
   }
 

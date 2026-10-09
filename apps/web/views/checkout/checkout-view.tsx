@@ -11,8 +11,8 @@ import {
   Text,
 } from "@mantine/core";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState, useEffect, useMemo, useCallback } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { requestJson } from "@/lib/api";
 import { formatIdr } from "@/lib/format";
 import { queryKeys } from "@/lib/query-keys";
@@ -46,6 +46,8 @@ interface PaymentOption {
 export function CheckoutView() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const queryClient = useQueryClient();
+
   const queryPackageId =
     searchParams.get("packageId") ||
     searchParams.get("id") ||
@@ -56,17 +58,13 @@ export function CheckoutView() {
     return `/checkout?packageId=${encodeURIComponent(queryPackageId)}`;
   }, [queryPackageId]);
 
-  const login = useLogin(checkoutUrl);
-  const register = useRegister();
-  const forgotPassword = useForgotPassword();
-
   const [selectedMethod, setSelectedMethod] = useState<CheckoutMethodId>("online");
   const [email, setEmail] = useState<string>("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>("");
   const [snapInvoice, setSnapInvoice] = useState<{ id: string; code: string } | null>(null);
 
-  // Manual payment upload modal state
+  // Manual payment QRIS & upload proof modal state
   const [manualInvoice, setManualInvoice] = useState<{
     id: string;
     uniqueCode: string;
@@ -77,54 +75,18 @@ export function CheckoutView() {
 
   const { initiatePayment, getPaymentMethods, error: paymentError, clearError: clearPaymentError } = usePayment();
 
-  // Fetch user profile in background
-  const { data: profileData, isLoading: isLoadingProfile } = useQuery<{ user?: { email?: string; name?: string } }>({
+  // Fetch user profile
+  const { data: profileData, isLoading: isLoadingProfile, refetch: refetchProfile } = useQuery<{ user?: { email?: string; name?: string } }>({
     queryKey: queryKeys.customerProfile(),
     queryFn: async () => {
       const res = await requestJson<{ user?: { email?: string; name?: string } }>("/api/customer-profile");
       return res.ok && res.data ? res.data : {};
     },
-    staleTime: 1000 * 60 * 5,
+    staleTime: 0,
+    refetchOnMount: "always",
   });
 
   const isAuthenticated = Boolean(profileData?.user?.email || profileData?.user?.name);
-
-  const handleOpenRegisterFromLogin = useCallback(() => {
-    const currentEmail = login.email;
-    login.closeLogin();
-    register.openRegister();
-    if (currentEmail) {
-      register.setEmail(currentEmail);
-    }
-  }, [login, register]);
-
-  const handleOpenLoginFromRegister = useCallback(() => {
-    const currentEmail = register.email;
-    register.closeRegister();
-    login.openLogin();
-    if (currentEmail) {
-      login.setEmail(currentEmail);
-    }
-  }, [login, register]);
-
-  const handleOpenForgotPassword = useCallback(() => {
-    login.closeLogin();
-    forgotPassword.openForgotPassword(login.email);
-  }, [login, forgotPassword]);
-
-  const handleBackToLoginFromForgot = useCallback(() => {
-    forgotPassword.closeForgotPassword();
-    login.openLogin();
-    if (forgotPassword.email) {
-      login.setEmail(forgotPassword.email);
-    }
-  }, [login, forgotPassword]);
-
-  useEffect(() => {
-    if (profileData?.user?.email) {
-      setEmail(profileData.user.email);
-    }
-  }, [profileData?.user?.email]);
 
   // Fetch catalog packages
   const { data: catalogPackages, isLoading: isLoadingPackages } = useQuery<PricingPlanItem[]>({
@@ -185,7 +147,7 @@ export function CheckoutView() {
   const manualEnabled = paymentConfig ? Boolean(paymentConfig.manualEnabled) : true;
   const activeGateway = paymentConfig?.activeOnlineGateway || "online";
 
-  // Build the 2 payment method options based on admin config
+  // Build the payment method options based on admin config
   const paymentOptions: PaymentOption[] = useMemo(() => {
     const options: PaymentOption[] = [];
 
@@ -230,6 +192,189 @@ export function CheckoutView() {
     }
   }, [onlineEnabled, manualEnabled, selectedMethod]);
 
+  useEffect(() => {
+    if (profileData?.user?.email) {
+      setEmail(profileData.user.email);
+    }
+  }, [profileData?.user?.email]);
+
+  // Flag to auto-proceed payment right after user successfully authenticates
+  const pendingPayRef = useRef(false);
+
+  // Core checkout & payment execution
+  const proceedPayment = useCallback(
+    async (overrideEmail?: string) => {
+      setError("");
+      clearPaymentError();
+      setBusy(true);
+
+      try {
+        // 1. Create Invoice
+        const targetPackageId = currentPackage?.id || queryPackageId;
+        const invoiceRes = await requestJson<{ id: string; uniqueCode: string }>("/api/invoices", {
+          method: "POST",
+          body: JSON.stringify({ packageId: targetPackageId, paymentMethod: selectedMethod }),
+        });
+
+        if (!invoiceRes.ok) {
+          setBusy(false);
+          if (
+            invoiceRes.status === 401 ||
+            invoiceRes.code === "UNAUTHENTICATED" ||
+            invoiceRes.code === "UNAUTHORIZED" ||
+            invoiceRes.message?.toLowerCase().includes("masuk") ||
+            invoiceRes.message?.toLowerCase().includes("sesi")
+          ) {
+            setError("");
+            clearPaymentError();
+            pendingPayRef.current = true;
+            login.openLogin();
+            return;
+          }
+          setError(invoiceRes.message || "Gagal membuat tagihan pesanan.");
+          return;
+        }
+
+        if (!invoiceRes.data?.id) {
+          setBusy(false);
+          setError("Gagal membuat tagihan pesanan.");
+          return;
+        }
+
+        const invoiceId = invoiceRes.data.id;
+        const uniqueCode = invoiceRes.data.uniqueCode;
+
+        // Invalidate invoice & wallet queries
+        void queryClient.invalidateQueries({ queryKey: queryKeys.orderInvoices() });
+        void queryClient.invalidateQueries({ queryKey: queryKeys.billingLedger() });
+
+        // 2. Handle Manual Transfer Payment (Buka Modal QRIS)
+        if (selectedMethod === "manual") {
+          setManualInvoice({
+            id: invoiceId,
+            uniqueCode,
+            amountIdr: currentPackage?.amountIdr ?? 0,
+            points: currentPackage?.points ?? 0,
+          });
+          setBusy(false);
+          return;
+        }
+
+        // 3. Handle Online Payment (DOKU / DANA / Xendit / Midtrans)
+        const customerEmail = overrideEmail || email || profileData?.user?.email || "";
+        const payRes = await initiatePayment(invoiceId, {
+          customerEmail: customerEmail || undefined,
+        });
+
+        if (!payRes) {
+          setBusy(false);
+          if (
+            paymentError &&
+            (paymentError.toLowerCase().includes("masuk") ||
+              paymentError.toLowerCase().includes("sesi") ||
+              paymentError.toLowerCase().includes("unauthenticated"))
+          ) {
+            setError("");
+            clearPaymentError();
+            pendingPayRef.current = true;
+            login.openLogin();
+            return;
+          }
+          setError("Gagal menginisiasi pembayaran online.");
+          return;
+        }
+
+        // If redirect URL is provided (e.g. DOKU / DANA / Xendit / Payment link)
+        if (
+          payRes.paymentUrl &&
+          (activeGateway === "dana" ||
+            activeGateway === "doku" ||
+            payRes.frontendConfig?.meta?.flowType === "redirect" ||
+            payRes.frontendConfig?.driver === "doku" ||
+            payRes.frontendConfig?.driver === "xendit" ||
+            payRes.frontendConfig?.driver === "dana")
+        ) {
+          window.location.href = payRes.paymentUrl;
+          return;
+        }
+
+        // If Midtrans Snap token exists, open embedded Snap popup
+        if (payRes.tokenId || payRes.paymentUrl) {
+          setSnapInvoice({ id: invoiceId, code: uniqueCode });
+          setBusy(false);
+          return;
+        }
+
+        setBusy(false);
+      } catch (err) {
+        setBusy(false);
+        setError(err instanceof Error ? err.message : "Terjadi kesalahan saat memproses pembayaran.");
+      }
+    },
+    [
+      currentPackage,
+      queryPackageId,
+      selectedMethod,
+      queryClient,
+      email,
+      profileData?.user?.email,
+      initiatePayment,
+      activeGateway,
+      paymentError,
+      clearPaymentError,
+    ],
+  );
+
+  // Authentication success callback (from email/pass or OTP)
+  const handleAuthSuccess = useCallback(async () => {
+    const refetched = await refetchProfile();
+    const activeEmail = refetched.data?.user?.email;
+    if (activeEmail) {
+      setEmail(activeEmail);
+    }
+    if (pendingPayRef.current) {
+      pendingPayRef.current = false;
+      void proceedPayment(activeEmail);
+    }
+  }, [refetchProfile, proceedPayment]);
+
+  const login = useLogin(checkoutUrl, {
+    onSuccess: handleAuthSuccess,
+  });
+  const register = useRegister();
+  const forgotPassword = useForgotPassword();
+
+  const handleOpenRegisterFromLogin = useCallback(() => {
+    const currentEmail = login.email;
+    login.closeLogin();
+    register.openRegister();
+    if (currentEmail) {
+      register.setEmail(currentEmail);
+    }
+  }, [login, register]);
+
+  const handleOpenLoginFromRegister = useCallback(() => {
+    const currentEmail = register.email;
+    register.closeRegister();
+    login.openLogin();
+    if (currentEmail) {
+      login.setEmail(currentEmail);
+    }
+  }, [login, register]);
+
+  const handleOpenForgotPassword = useCallback(() => {
+    login.closeLogin();
+    forgotPassword.openForgotPassword(login.email);
+  }, [login, forgotPassword]);
+
+  const handleBackToLoginFromForgot = useCallback(() => {
+    forgotPassword.closeForgotPassword();
+    login.openLogin();
+    if (forgotPassword.email) {
+      login.setEmail(forgotPassword.email);
+    }
+  }, [login, forgotPassword]);
+
   const handleClose = () => {
     if (isAuthenticated) {
       router.push("/app/order");
@@ -242,119 +387,13 @@ export function CheckoutView() {
     if (!isAuthenticated || !profileData?.user?.email) {
       setError("");
       clearPaymentError();
+      pendingPayRef.current = true;
       login.openLogin();
       return;
     }
 
-    setError("");
-    clearPaymentError();
-    setBusy(true);
-
-    try {
-      // 1. Create Invoice
-      const targetPackageId = currentPackage?.id || queryPackageId;
-      const invoiceRes = await requestJson<{ id: string; uniqueCode: string }>("/api/invoices", {
-        method: "POST",
-        body: JSON.stringify({ packageId: targetPackageId, paymentMethod: selectedMethod }),
-      });
-
-      if (!invoiceRes.ok) {
-        setBusy(false);
-        if (
-          invoiceRes.status === 401 ||
-          invoiceRes.code === "UNAUTHENTICATED" ||
-          invoiceRes.code === "UNAUTHORIZED" ||
-          invoiceRes.message?.toLowerCase().includes("masuk") ||
-          invoiceRes.message?.toLowerCase().includes("sesi")
-        ) {
-          setError("");
-          clearPaymentError();
-          login.openLogin();
-          return;
-        }
-        setError(invoiceRes.message || "Gagal membuat tagihan pesanan.");
-        return;
-      }
-
-      if (!invoiceRes.data?.id) {
-        setBusy(false);
-        setError("Gagal membuat tagihan pesanan.");
-        return;
-      }
-
-      const invoiceId = invoiceRes.data.id;
-      const uniqueCode = invoiceRes.data.uniqueCode;
-
-      // 2. Handle Manual Transfer Payment
-      if (selectedMethod === "manual") {
-        setBusy(false);
-        router.push("/app/order");
-        return;
-      }
-
-      // 3. Handle Online Payment (Midtrans, DANA, Xendit, etc.)
-      const customerEmail = email || profileData?.user?.email || "";
-      const payRes = await initiatePayment(invoiceId, {
-        customerEmail: customerEmail || undefined,
-      });
-
-      if (!payRes) {
-        setBusy(false);
-        if (
-          paymentError &&
-          (paymentError.toLowerCase().includes("masuk") ||
-            paymentError.toLowerCase().includes("sesi") ||
-            paymentError.toLowerCase().includes("unauthenticated"))
-        ) {
-          setError("");
-          clearPaymentError();
-          login.openLogin();
-          return;
-        }
-        setError("Gagal menginisiasi pembayaran online.");
-        return;
-      }
-
-      // If redirect URL is provided (e.g. DANA / Xendit / DOKU / Payment link)
-      if (
-        payRes.paymentUrl &&
-        (activeGateway === "dana" ||
-          activeGateway === "doku" ||
-          payRes.frontendConfig?.meta?.flowType === "redirect" ||
-          payRes.frontendConfig?.driver === "doku" ||
-          payRes.frontendConfig?.driver === "xendit" ||
-          payRes.frontendConfig?.driver === "dana")
-      ) {
-        window.location.href = payRes.paymentUrl;
-        return;
-      }
-
-      // If Midtrans Snap token exists, open embedded Snap popup
-      if (payRes.tokenId || payRes.paymentUrl) {
-        setSnapInvoice({ id: invoiceId, code: uniqueCode });
-        setBusy(false);
-        return;
-      }
-
-      setBusy(false);
-    } catch (err) {
-      setBusy(false);
-      setError(err instanceof Error ? err.message : "Terjadi kesalahan saat memproses pembayaran.");
-    }
-  }, [
-    isAuthenticated,
-    login,
-    email,
-    profileData?.user?.email,
-    currentPackage,
-    queryPackageId,
-    selectedMethod,
-    activeGateway,
-    initiatePayment,
-    paymentError,
-    clearPaymentError,
-    router,
-  ]);
+    await proceedPayment();
+  }, [isAuthenticated, profileData?.user?.email, clearPaymentError, login, proceedPayment]);
 
   const handleUploadProof = async () => {
     if (!manualInvoice || !selectedFile) return;
@@ -371,6 +410,9 @@ export function CheckoutView() {
       setError(result.message || "Gagal mengunggah bukti pembayaran.");
       return;
     }
+    void queryClient.invalidateQueries({ queryKey: queryKeys.orderInvoices() });
+    void queryClient.invalidateQueries({ queryKey: queryKeys.billingLedger() });
+    void queryClient.invalidateQueries({ queryKey: queryKeys.wallet() });
     setManualInvoice(null);
     setSelectedFile(null);
     router.push("/app/order");
@@ -387,7 +429,7 @@ export function CheckoutView() {
   return (
     <div className={classes.pageWrapper}>
       <div className={classes.checkoutContainer}>
-        {/* TOP BAR: Back button to /app/order */}
+        {/* TOP BAR: Back button */}
         <div className={classes.topBar}>
           <Button
             variant="subtle"
@@ -408,7 +450,7 @@ export function CheckoutView() {
               <span>💳 Payment Method</span>
             </div>
 
-            {/* Payment Method Cards (Hanya 2: Online & Manual sesuai config admin) */}
+            {/* Payment Method Cards */}
             <div className={classes.paymentMethodsGrid}>
               {paymentOptions.map((opt) => {
                 const isActive = selectedMethod === opt.id;
@@ -444,7 +486,7 @@ export function CheckoutView() {
             {error ? <ErrorAlert message={error} /> : null}
             {paymentError ? <ErrorAlert message={paymentError} /> : null}
 
-            {/* Order Details List (Rincian Produk, Paket, Harga, Metode) */}
+            {/* Order Details List */}
             <div className={classes.orderDetailsList}>
               <div className={classes.orderDetailRow}>
                 <span>Product</span>
@@ -527,7 +569,7 @@ export function CheckoutView() {
         />
       )}
 
-      {/* Modal Upload Bukti Transfer Manual */}
+      {/* Modal QRIS & Upload Bukti Transfer Manual */}
       <Modal
         opened={Boolean(manualInvoice)}
         onClose={() => {
