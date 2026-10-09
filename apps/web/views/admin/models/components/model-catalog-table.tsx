@@ -213,8 +213,12 @@ export function ModelCatalogTable({
                 </Text>
               </Table.Td>
               <Table.Td>
-                <Badge color={isVideo ? "grape" : "blue"} variant="light" size="sm">
-                  {isVideo ? `Video (${model.mode})` : `Image (${model.mode})`}
+                <Badge
+                  color={isVideo ? "grape" : model.mode === "inpaint" ? "cyan" : "blue"}
+                  variant="light"
+                  size="sm"
+                >
+                  {isVideo ? `Video (${model.mode})` : model.mode === "inpaint" ? "Inpaint" : `Image (${model.mode})`}
                 </Badge>
               </Table.Td>
               <Table.Td>
@@ -285,8 +289,12 @@ export function ModelCatalogTable({
                   </Text>
                 </div>
                 <Group gap={6}>
-                  <Badge color={isVideo ? "grape" : "blue"} variant="light" size="xs">
-                    {isVideo ? `Video (${model.mode})` : `Image (${model.mode})`}
+                  <Badge
+                    color={isVideo ? "grape" : model.mode === "inpaint" ? "cyan" : "blue"}
+                    variant="light"
+                    size="xs"
+                  >
+                    {isVideo ? `Video (${model.mode})` : model.mode === "inpaint" ? "Inpaint" : `Image (${model.mode})`}
                   </Badge>
                   {model.isSpicy && (
                     <Badge color="red" variant="filled" size="xs">

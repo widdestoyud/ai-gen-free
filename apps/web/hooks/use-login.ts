@@ -6,7 +6,7 @@ import { requestJson } from "@/lib/api";
 
 import { hashPasswordClient } from "@/lib/crypto";
 
-export function useLogin() {
+export function useLogin(defaultRedirect: string = "/app/generate") {
   const router = useRouter();
   const [loginOpened, setLoginOpened] = useState(false);
   const [email, setEmail] = useState("");
@@ -79,7 +79,7 @@ export function useLogin() {
     }
 
     setLoginOpened(false);
-    router.push("/app/generate");
+    router.push(defaultRedirect);
     router.refresh();
   }
 
@@ -128,7 +128,7 @@ export function useLogin() {
 
     setOtpModalOpened(false);
     setPassword("");
-    router.push("/app/generate");
+    router.push(defaultRedirect);
     router.refresh();
   }
 
@@ -151,7 +151,9 @@ export function useLogin() {
     otpModalOpened,
     closeOtpModal,
     error,
+    setError,
     errorCode,
+    setErrorCode,
     transactionId,
     pending,
     submitLogin,

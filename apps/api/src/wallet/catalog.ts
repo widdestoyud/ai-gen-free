@@ -178,11 +178,12 @@ export function listStaticPackages(): TopupPackage[] {
 }
 
 /**
- * Find package by ID (checks database first, then static fallback)
+ * Find package by ID, name, or slug (checks database first, then static fallback)
  */
 export async function findPackage(id: unknown): Promise<TopupPackage | undefined> {
   if (typeof id !== "string" || !id.trim()) return undefined;
   const cleanId = id.trim();
+  const lower = cleanId.toLowerCase();
 
   try {
     const row = await prisma.topupPackage.findUnique({
@@ -191,11 +192,35 @@ export async function findPackage(id: unknown): Promise<TopupPackage | undefined
     if (row) {
       return serializePackage(row);
     }
+
+    // Try finding by name or badgeText case-insensitively
+    const byName = await prisma.topupPackage.findFirst({
+      where: {
+        active: true,
+        OR: [
+          { name: { contains: cleanId, mode: "insensitive" } },
+          { badgeText: { contains: cleanId, mode: "insensitive" } },
+        ],
+      },
+    });
+    if (byName) {
+      return serializePackage(byName);
+    }
   } catch {
     // Fallback
   }
 
-  return TOPUP_PACKAGES.find((p) => p.id === cleanId);
+  // Static fallback
+  const staticFound = TOPUP_PACKAGES.find(
+    (p) =>
+      p.id === cleanId ||
+      p.name.toLowerCase().includes(lower) ||
+      (lower.includes("starter") && p.name.toLowerCase().includes("starter")) ||
+      (lower.includes("pro") && p.name.toLowerCase().includes("pro")) ||
+      (lower.includes("power") && p.name.toLowerCase().includes("power")),
+  );
+
+  return staticFound;
 }
 
 /**

@@ -31,11 +31,17 @@ export function LandingFooter() {
           </div>
 
           <Group gap="xl">
+            <Anchor component={Link} href="/#pricing" size="xs" c="dimmed" underline="hover">
+              Harga & Paket
+            </Anchor>
             <Anchor component={Link} href="/terms" size="xs" c="dimmed" underline="hover">
               Ketentuan Layanan
             </Anchor>
             <Anchor component={Link} href="/privacy" size="xs" c="dimmed" underline="hover">
               Kebijakan Privasi
+            </Anchor>
+            <Anchor href="https://discord.gg/AgRajbj2b" target="_blank" rel="noopener noreferrer" size="xs" c="dimmed" underline="hover">
+              Support
             </Anchor>
             <Text size="xs" c="dimmed">
               &copy; {new Date().getFullYear()} satulabs.id

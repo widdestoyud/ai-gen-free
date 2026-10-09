@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Badge,
   Button,
@@ -144,6 +144,40 @@ export function AdminInbox({
 
   // Loading state per invoice untuk Cek Status Midtrans
   const [checkingInvoiceId, setCheckingInvoiceId] = useState<string | null>(null);
+
+  // Realtime EventSource listener for incoming orders and proofs
+  useEffect(() => {
+    let eventSource: EventSource | null = null;
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+
+    function connect() {
+      try {
+        eventSource = new EventSource("/api/admin/invoices/events");
+
+        eventSource.onmessage = (event) => {
+          try {
+            const parsed = JSON.parse(event.data);
+            if (parsed?.type === "invoice_updated") {
+              router.refresh();
+            }
+          } catch {}
+        };
+
+        eventSource.onerror = () => {
+          eventSource?.close();
+          eventSource = null;
+          reconnectTimer = setTimeout(connect, 5000);
+        };
+      } catch {}
+    }
+
+    connect();
+
+    return () => {
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+      eventSource?.close();
+    };
+  }, [router]);
 
   function navigateQuery(overrides: {
     status?: string;

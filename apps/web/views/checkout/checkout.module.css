@@ -1,0 +1,221 @@
+.pageWrapper {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  background: var(--mantine-color-dark-8, #141517);
+  position: relative;
+  overflow-x: hidden;
+}
+
+.checkoutContainer {
+  width: 100%;
+  max-width: 920px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  position: relative;
+  z-index: 1;
+}
+
+.topBar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+.backButton {
+  font-weight: 600;
+  color: var(--mantine-color-dimmed, #94a3b8);
+  transition: all 0.2s ease;
+  padding: 6px 12px;
+  border-radius: 8px;
+}
+
+.backButton:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.checkoutCard {
+  width: 100%;
+  background: var(--mantine-color-dark-7, #1a1b1e);
+  border: 1px solid var(--mantine-color-default-border, rgba(255, 255, 255, 0.08));
+  border-radius: 20px;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.6), 0 0 30px rgba(255, 255, 255, 0.02);
+  display: grid;
+  grid-template-columns: 1fr 1.15fr;
+  overflow: hidden;
+}
+
+@media (max-width: 768px) {
+  .checkoutCard {
+    grid-template-columns: 1fr;
+    max-width: 500px;
+    margin: 0 auto;
+  }
+}
+
+/* LEFT PANEL */
+.leftPanel {
+  background: var(--mantine-color-dark-8, #141517);
+  border-right: 1px solid var(--mantine-color-default-border, rgba(255, 255, 255, 0.08));
+  padding: 28px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+@media (max-width: 768px) {
+  .leftPanel {
+    border-right: none;
+    border-bottom: 1px solid var(--mantine-color-default-border, rgba(255, 255, 255, 0.08));
+    padding: 20px 16px;
+  }
+}
+
+.panelHeader {
+  font-size: 16px;
+  font-weight: 700;
+  color: #f8fafc;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  letter-spacing: -0.2px;
+}
+
+.paymentMethodsGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+@media (max-width: 480px) {
+  .paymentMethodsGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.paymentCard {
+  position: relative;
+  background: var(--mantine-color-dark-6, #25262b);
+  border: 1px solid var(--mantine-color-default-border, rgba(255, 255, 255, 0.08));
+  border-radius: 12px;
+  padding: 16px;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 56px;
+  user-select: none;
+}
+
+.paymentCard:hover {
+  background: var(--mantine-color-dark-5, #2c2e33);
+  border-color: rgba(59, 130, 246, 0.4);
+  transform: translateY(-2px);
+}
+
+.paymentCardActive {
+  background: #0284c7 !important;
+  border: 2px solid #38bdf8 !important;
+  box-shadow: 0 4px 20px rgba(2, 132, 199, 0.4);
+  transform: translateY(-2px);
+}
+
+.cardLogoRow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 34px;
+  width: 100%;
+}
+
+/* RIGHT PANEL */
+.rightPanel {
+  background: var(--mantine-color-dark-7, #1a1b1e);
+  padding: 28px 26px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+@media (max-width: 768px) {
+  .rightPanel {
+    padding: 20px 16px;
+  }
+}
+
+.orderDetailsList {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin: 4px 0;
+}
+
+.orderDetailRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 14px;
+  color: var(--mantine-color-dimmed, #94a3b8);
+}
+
+.orderDetailValue {
+  color: #f8fafc;
+  font-weight: 500;
+  text-align: right;
+}
+
+.divider {
+  border-top: 1px solid var(--mantine-color-default-border, rgba(255, 255, 255, 0.08));
+  margin: 8px 0;
+}
+
+.totalRow {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-top: 4px;
+}
+
+.totalLabel {
+  font-size: 15px;
+  font-weight: 600;
+  color: #f8fafc;
+}
+
+.totalAmountBox {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.totalMethod {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--mantine-color-dimmed, #94a3b8);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 2px;
+}
+
+.totalPrice {
+  font-size: 26px;
+  font-weight: 800;
+  color: #f59e0b;
+  line-height: 1.1;
+  letter-spacing: -0.5px;
+}
+
+.manualInfoBox {
+  background: var(--mantine-color-dark-6, rgba(255, 255, 255, 0.03));
+  border: 1px solid var(--mantine-color-default-border, rgba(255, 255, 255, 0.08));
+  border-radius: 10px;
+  padding: 12px;
+  font-size: 12px;
+  color: var(--mantine-color-dimmed, #94a3b8);
+}

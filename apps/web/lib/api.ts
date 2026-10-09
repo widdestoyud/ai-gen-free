@@ -1,4 +1,5 @@
 import { formatDurationId } from "./format";
+import { createDPoPProof } from "./crypto-dpop";
 
 export type ApiErrorBody = {
   transaction_id?: string;
@@ -23,10 +24,6 @@ export function parseApiError(body: ApiErrorBody, fallback: string): string {
   return `${body.error?.message ?? fallback}${wait}`;
 }
 
-export async function readJson<T>(res: Response): Promise<T> {
-  return (await res.json()) as T;
-}
-
 export async function requestJson<T>(
   url: string,
   init: RequestInit = {},
@@ -36,9 +33,18 @@ export async function requestJson<T>(
     if (!headers.has("Content-Type") && init.body && !(init.body instanceof FormData)) {
       headers.set("Content-Type", "application/json");
     }
+    const method = (init.method || "GET").toUpperCase();
+    const dpopProof = await createDPoPProof(method, url);
+    if (dpopProof) {
+      headers.set("x-dpop-proof", dpopProof);
+    }
     const res = await fetch(url, { credentials: "include", ...init, headers });
+
     const data = (await res.json()) as T & ApiErrorBody;
     if (!res.ok) {
+      if (res.status === 401 && typeof window !== "undefined" && window.location.pathname.startsWith("/app")) {
+        window.location.href = "/";
+      }
       return {
         ok: false,
         status: res.status,

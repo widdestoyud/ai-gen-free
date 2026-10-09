@@ -55,7 +55,7 @@ export type FalQueueResponse = {
 
 export class FalProvider implements GenerationProvider {
   readonly id = "falai";
-  readonly capabilities: Capability[] = ["t2i", "i2i", "t2v", "i2v"];
+  readonly capabilities: Capability[] = ["t2i", "i2i", "t2v", "i2v", "inpaint"];
 
   private readonly token: string;
   private readonly apiBase: string;
@@ -326,8 +326,73 @@ export function normalizeFalModelId(modelId: string): string {
   return modelId.trim().replace(/^\/+/, "");
 }
 
+export type FalImageSizeObject = { width: number; height: number };
+export type FalImageSize =
+  | "square_hd"
+  | "square"
+  | "portrait_4_3"
+  | "portrait_16_9"
+  | "landscape_4_3"
+  | "landscape_16_9"
+  | FalImageSizeObject;
+
+export function mapToFalImageSize(aspectRatio?: string, explicitSize?: unknown): FalImageSize | undefined {
+  if (aspectRatio) {
+    const norm = aspectRatio.trim().toLowerCase();
+    switch (norm) {
+      case "1:1":
+        return "square_hd";
+      case "9:16":
+        return "portrait_16_9";
+      case "16:9":
+        return "landscape_16_9";
+      case "3:4":
+      case "4:5":
+        return "portrait_4_3";
+      case "4:3":
+      case "5:4":
+        return "landscape_4_3";
+      case "2:3":
+        return { width: 832, height: 1216 };
+      case "3:2":
+        return { width: 1216, height: 832 };
+    }
+  }
+
+  if (explicitSize) {
+    if (typeof explicitSize === "object" && explicitSize !== null && "width" in explicitSize && "height" in explicitSize) {
+      return explicitSize as FalImageSizeObject;
+    }
+    if (typeof explicitSize === "string" && explicitSize.trim()) {
+      const s = explicitSize.trim().toLowerCase();
+      if (
+        s === "square_hd" ||
+        s === "square" ||
+        s === "portrait_4_3" ||
+        s === "portrait_16_9" ||
+        s === "landscape_4_3" ||
+        s === "landscape_16_9"
+      ) {
+        return s as FalImageSize;
+      }
+      if (s.includes("x")) {
+        const [w, h] = s.split("x").map(Number);
+        if (w && h && !isNaN(w) && !isNaN(h)) {
+          return { width: w, height: h };
+        }
+      }
+    }
+  }
+
+  return undefined;
+}
+
 export function buildFalSubmitPayload(input: CanonicalGenerateInput): Record<string, unknown> {
   const aspectRatio = typeof input.params.aspectRatio === "string" ? input.params.aspectRatio : undefined;
+  const imageSize = mapToFalImageSize(
+    aspectRatio,
+    input.params.image_size ?? input.params.imageSize ?? input.params.size,
+  );
   const seed = typeof input.params.seed === "number" ? input.params.seed : undefined;
   const numImages = typeof input.params.n === "number" ? input.params.n : 1;
   const image =
@@ -355,6 +420,10 @@ export function buildFalSubmitPayload(input: CanonicalGenerateInput): Record<str
     payload.aspect_ratio = aspectRatio;
   }
 
+  if (imageSize) {
+    payload.image_size = imageSize;
+  }
+
   if (seed !== undefined && seed >= 0) {
     payload.seed = seed;
   }
@@ -364,8 +433,39 @@ export function buildFalSubmitPayload(input: CanonicalGenerateInput): Record<str
     payload.image = image;
   }
 
+  const mask =
+    typeof input.params.mask === "string"
+      ? input.params.mask
+      : typeof input.params.mask_url === "string"
+        ? input.params.mask_url
+        : typeof input.params.mask_image === "string"
+          ? input.params.mask_image
+          : typeof input.params.maskDataUrl === "string"
+            ? input.params.maskDataUrl
+            : undefined;
+
+  if (mask) {
+    payload.mask_url = mask;
+    payload.mask = mask;
+  }
+
   if (Array.isArray(input.params.images) && input.params.images.length > 0) {
     payload.images = input.params.images;
+  }
+
+  // Inpaint & editing specific parameters
+  if (typeof input.params.strength === "number") {
+    payload.strength = input.params.strength;
+  }
+  if (typeof input.params.guidance_scale === "number") {
+    payload.guidance_scale = input.params.guidance_scale;
+  } else if (typeof input.params.guidanceScale === "number") {
+    payload.guidance_scale = input.params.guidanceScale;
+  }
+  if (typeof input.params.num_inference_steps === "number") {
+    payload.num_inference_steps = input.params.num_inference_steps;
+  } else if (typeof input.params.steps === "number") {
+    payload.num_inference_steps = input.params.steps;
   }
 
   // Upscale specific parameters (SeedVR, etc.)
@@ -380,9 +480,10 @@ export function buildFalSubmitPayload(input: CanonicalGenerateInput): Record<str
   }
 
   if (input.params.upscale_factor !== undefined || input.params.upscaleFactor !== undefined) {
-    payload.upscale_factor = input.params.upscale_factor ?? input.params.upscaleFactor;
+    const rawFactor = Number(input.params.upscale_factor ?? input.params.upscaleFactor);
+    payload.upscale_factor = Number.isFinite(rawFactor) ? Math.min(Math.max(rawFactor, 1.0), 4.0) : 4.0;
   } else if (normalizeFalModelId(input.modelId).includes("upscale") && !payload.target_resolution) {
-    payload.upscale_factor = 8.0;
+    payload.upscale_factor = 4.0;
   }
 
   if (input.params.noise_scale !== undefined || input.params.noiseScale !== undefined) {
@@ -404,6 +505,23 @@ export function buildFalSubmitPayload(input: CanonicalGenerateInput): Record<str
   }
   if (input.params.resolution !== undefined) {
     payload.resolution = input.params.resolution;
+  }
+
+  // Fast Video (Fast SVD & Fast AnimateDiff) parameter enhancements
+  const normalizedModel = normalizeFalModelId(input.modelId);
+  if (normalizedModel.includes("svd") || normalizedModel.includes("animatediff")) {
+    const isSvd = normalizedModel.includes("svd");
+    payload.duration = typeof input.params.duration === "number" ? Math.min(input.params.duration, 1) : 1;
+    payload.num_frames = typeof input.params.num_frames === "number" ? input.params.num_frames : (isSvd ? 14 : 16);
+    payload.fps = typeof input.params.fps === "number" ? input.params.fps : (isSvd ? 14 : 16);
+    if (isSvd) {
+      payload.motion_bucket_id = typeof input.params.motion_bucket_id === "number" ? input.params.motion_bucket_id : 127;
+    }
+  }
+
+  // Flux Schnell 4-step parameter default
+  if (normalizedModel.includes("schnell")) {
+    payload.num_inference_steps = typeof input.params.num_inference_steps === "number" ? input.params.num_inference_steps : 4;
   }
 
   // Support LoRA configurations

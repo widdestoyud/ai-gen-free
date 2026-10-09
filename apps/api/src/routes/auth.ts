@@ -6,6 +6,7 @@ import {
   confirmPasswordReset,
   getUserProfile,
   loginUser,
+  loginWithGoogle,
   logout,
   registerUser,
   requestPasswordReset,
@@ -17,6 +18,7 @@ import {
   validatePasswordResetToken,
 } from "../auth/service.js";
 import type { EmailPort } from "@ai-gen-free/core";
+import { requestIp, sendError } from "../http.js";
 import type IORedis from "ioredis";
 
 const cookieSecure = process.env.COOKIE_SECURE === "true";
@@ -27,22 +29,6 @@ const cookieOpts = {
   secure: cookieSecure,
   maxAge: 7 * 24 * 60 * 60,
 };
-
-function clientIp(req: { ip: string; headers: Record<string, unknown> }): string {
-  const cfConnecting = req.headers["cf-connecting-ip"];
-  if (typeof cfConnecting === "string" && cfConnecting.trim().length > 0) {
-    return cfConnecting.trim();
-  }
-  const forwarded = req.headers["x-forwarded-for"];
-  if (typeof forwarded === "string" && forwarded.length > 0) {
-    return forwarded.split(",")[0]!.trim();
-  }
-  const realIp = req.headers["x-real-ip"];
-  if (typeof realIp === "string" && realIp.trim().length > 0) {
-    return realIp.trim();
-  }
-  return req.ip;
-}
 
 function sessionTokenFromReq(req: {
   body?: unknown;
@@ -61,20 +47,6 @@ function sessionTokenFromReq(req: {
   );
 }
 
-function sendAuthError(
-  reply: { status: (n: number) => { send: (b: unknown) => unknown } },
-  err: unknown,
-  req?: { id?: string },
-) {
-  if (err instanceof AuthError) {
-    const txid = req?.id;
-    return reply.status(err.status).send({
-      ...(txid ? { transaction_id: txid } : {}),
-      error: { code: err.code, message: err.message },
-    });
-  }
-  throw err;
-}
 
 export async function registerAuthRoutes(
   app: FastifyInstance,
@@ -90,7 +62,7 @@ export async function registerAuthRoutes(
       const result = await registerUser({
         emailRaw: body.email,
         passwordRaw: body.password,
-        ip: clientIp(req),
+        ip: requestIp(req),
         redis: deps.redis,
         mailer: deps.mailer,
       });
@@ -100,10 +72,89 @@ export async function registerAuthRoutes(
         email: result.email,
       });
     } catch (err) {
-      return sendAuthError(reply, err, req);
+      return sendError(reply, err, req);
     }
   };
-  app.post("/customer/register", handleRegister);
+  app.post(
+    "/customer/register",
+    {
+      schema: {
+        body: {
+          type: "object",
+          required: ["email", "password"],
+          properties: {
+            email: { type: "string", minLength: 1 },
+            password: { type: "string", minLength: 1 },
+          },
+          additionalProperties: true,
+        },
+      },
+    },
+    handleRegister,
+  );
+
+  // -------------------------------------------------------------
+  // 1b. LOGIN / REGISTER VIA GOOGLE OAUTH2 (POST /auth/google)
+  // Input: idToken, deviceId?
+  // -------------------------------------------------------------
+  app.post(
+    "/auth/google",
+    {
+      schema: {
+        body: {
+          type: "object",
+          required: ["idToken"],
+          properties: {
+            idToken: { type: "string", minLength: 1 },
+            deviceId: { type: "string" },
+          },
+          additionalProperties: true,
+        },
+      },
+    },
+    async (req: any, reply: any) => {
+      try {
+        const internalSecret = process.env.INTERNAL_API_SECRET;
+        if (internalSecret) {
+          const headerSecret = req.headers["x-internal-secret"];
+          if (headerSecret !== internalSecret) {
+            return reply.status(403).send({
+              error: {
+                code: "A007",
+                message: "Akses ditolak (invalid internal secret).",
+              },
+            });
+          }
+        }
+
+        const body = (req.body ?? {}) as { idToken?: unknown; deviceId?: unknown };
+        const ip = requestIp(req);
+        const userAgent = typeof req.headers["user-agent"] === "string" ? req.headers["user-agent"] : undefined;
+
+        const result = await loginWithGoogle({
+          idTokenRaw: body.idToken,
+          deviceIdRaw: body.deviceId,
+          ip,
+          userAgent,
+          headers: req.headers,
+          redis: deps.redis,
+        });
+
+        reply.setCookie("sid", result.token, cookieOpts);
+
+        return reply.status(200).send({
+          ok: true,
+          token: result.token,
+          sid: result.sid,
+          user: result.user,
+          isNewUser: result.isNewUser,
+          message: result.message,
+        });
+      } catch (err) {
+        return sendError(reply, err, req);
+      }
+    },
+  );
 
   // -------------------------------------------------------------
   // 2. VALIDASI EMAIL TOKEN (POST /auth/email-validation)
@@ -115,10 +166,25 @@ export async function registerAuthRoutes(
       const result = await validateEmailToken(body.token);
       return { ok: true, message: result.message };
     } catch (err) {
-      return sendAuthError(reply, err, req);
+      return sendError(reply, err, req);
     }
   };
-  app.post("/auth/email-validation", handleEmailValidation);
+  app.post(
+    "/auth/email-validation",
+    {
+      schema: {
+        body: {
+          type: "object",
+          required: ["token"],
+          properties: {
+            token: { type: "string", minLength: 1 },
+          },
+          additionalProperties: true,
+        },
+      },
+    },
+    handleEmailValidation,
+  );
 
   // -------------------------------------------------------------
   // 3. LOGIN PELANGGAN (POST /customer/login)
@@ -146,7 +212,7 @@ export async function registerAuthRoutes(
         passwordRaw: body.password,
         deviceIdRaw: deviceId,
         sessionTokenRaw: sessionToken,
-        ip: clientIp(req),
+        ip: requestIp(req),
         userAgent: typeof req.headers["user-agent"] === "string" ? req.headers["user-agent"] : undefined,
         redis: deps.redis,
         mailer: deps.mailer,
@@ -170,10 +236,29 @@ export async function registerAuthRoutes(
         message: result.message,
       });
     } catch (err) {
-      return sendAuthError(reply, err, req);
+      return sendError(reply, err, req);
     }
   };
-  app.post("/customer/login", handleLogin);
+  app.post(
+    "/customer/login",
+    {
+      schema: {
+        body: {
+          type: "object",
+          required: ["email", "password"],
+          properties: {
+            email: { type: "string", minLength: 1 },
+            password: { type: "string", minLength: 1 },
+            deviceId: { type: "string" },
+            token: { type: "string" },
+            sessionToken: { type: "string" },
+          },
+          additionalProperties: true,
+        },
+      },
+    },
+    handleLogin,
+  );
 
   // -------------------------------------------------------------
   // 4. REQUEST / RESEND OTP (POST /auth/otp)
@@ -187,16 +272,31 @@ export async function registerAuthRoutes(
       const result = await resendOtp({
         emailRaw: body.email,
         sessionTokenRaw: sessionToken,
-        ip: clientIp(req),
+        ip: requestIp(req),
         redis: deps.redis,
         mailer: deps.mailer,
       });
       return { ok: true, message: result.message };
     } catch (err) {
-      return sendAuthError(reply, err, req);
+      return sendError(reply, err, req);
     }
   };
-  app.post("/auth/otp", handleResendOtp);
+  app.post(
+    "/auth/otp",
+    {
+      schema: {
+        body: {
+          type: "object",
+          required: ["email"],
+          properties: {
+            email: { type: "string", minLength: 1 },
+          },
+          additionalProperties: true,
+        },
+      },
+    },
+    handleResendOtp,
+  );
 
   // -------------------------------------------------------------
   // 5. VALIDASI OTP (POST /auth/otp-validation)
@@ -215,7 +315,7 @@ export async function registerAuthRoutes(
         codeRaw: body.code,
         deviceIdRaw: deviceId,
         sessionTokenRaw: sessionToken,
-        ip: clientIp(req),
+        ip: requestIp(req),
         userAgent: typeof req.headers["user-agent"] === "string" ? req.headers["user-agent"] : undefined,
         kind: "user",
       });
@@ -228,10 +328,27 @@ export async function registerAuthRoutes(
         message: result.message,
       });
     } catch (err) {
-      return sendAuthError(reply, err, req);
+      return sendError(reply, err, req);
     }
   };
-  app.post("/auth/otp-validation", handleOtpValidation);
+  app.post(
+    "/auth/otp-validation",
+    {
+      schema: {
+        body: {
+          type: "object",
+          required: ["email", "code"],
+          properties: {
+            email: { type: "string", minLength: 1 },
+            code: { type: "string", minLength: 1 },
+            deviceId: { type: "string" },
+          },
+          additionalProperties: true,
+        },
+      },
+    },
+    handleOtpValidation,
+  );
 
   // -------------------------------------------------------------
   // 6. PROFIL PELANGGAN (GET/PATCH /customer/profile)
@@ -239,7 +356,11 @@ export async function registerAuthRoutes(
   // Input update: displayName, phoneNumber, ktp, address, gender
   // -------------------------------------------------------------
   const handleGetProfile = async (req: any, reply: any) => {
-    const session = await userFromCookie(sessionTokenFromReq(req), "user");
+    const context = {
+      ip: requestIp(req),
+      userAgent: typeof req.headers["user-agent"] === "string" ? req.headers["user-agent"] : undefined,
+    };
+    const session = await userFromCookie(sessionTokenFromReq(req), "user", context);
     if (!session) {
       return reply.status(401).send({
         error: { code: ErrorCodes.UNAUTHENTICATED, message: AuthResponses.errors.UNAUTHENTICATED.message },
@@ -251,7 +372,11 @@ export async function registerAuthRoutes(
 
   const handlePatchProfile = async (req: any, reply: any) => {
     try {
-      const session = await userFromCookie(sessionTokenFromReq(req), "user");
+      const context = {
+        ip: requestIp(req),
+        userAgent: typeof req.headers["user-agent"] === "string" ? req.headers["user-agent"] : undefined,
+      };
+      const session = await userFromCookie(sessionTokenFromReq(req), "user", context);
       if (!session) {
         return reply.status(401).send({
           error: { code: ErrorCodes.UNAUTHENTICATED, message: AuthResponses.errors.UNAUTHENTICATED.message },
@@ -273,17 +398,37 @@ export async function registerAuthRoutes(
 
       const result = await updateUserProfile(session.user.id, {
         ...body,
-        req: { ip: clientIp(req), headers: req.headers },
+        req: { ip: requestIp(req), headers: req.headers },
       } as any);
       return { ok: true, user: result.user, message: result.message };
     } catch (err) {
-      return sendAuthError(reply, err, req);
+      return sendError(reply, err, req);
     }
   };
 
+  const profileUpdateSchema = {
+    schema: {
+      body: {
+        type: "object",
+        properties: {
+          displayName: { type: "string" },
+          phoneNumber: { type: "string" },
+          ktp: { type: "string" },
+          address: { type: "string" },
+          gender: { type: "string" },
+          email: { type: "string" },
+          acceptUploadPolicy: { type: "boolean" },
+          dateOfBirth: { type: "string" },
+          spicyModeEnabled: { type: "boolean" },
+        },
+        additionalProperties: true,
+      },
+    },
+  };
+
   app.get("/customer/profile", handleGetProfile);
-  app.patch("/customer/profile", handlePatchProfile);
-  app.put("/customer/profile", handlePatchProfile);
+  app.patch("/customer/profile", profileUpdateSchema, handlePatchProfile);
+  app.put("/customer/profile", profileUpdateSchema, handlePatchProfile);
 
   // -------------------------------------------------------------
   // 7. LOGOUT PELANGGAN (POST /customer/logout)
@@ -312,11 +457,26 @@ export async function registerAuthRoutes(
         message: AuthResponses.success.LOGOUT_SUCCESS.message,
       });
     } catch (err) {
-      return sendAuthError(reply, err, req);
+      return sendError(reply, err, req);
     }
   };
 
-  app.post("/customer/logout", handleLogout);
+  app.post(
+    "/customer/logout",
+    {
+      schema: {
+        body: {
+          type: "object",
+          properties: {
+            token: { type: "string" },
+            sessionToken: { type: "string" },
+          },
+          additionalProperties: true,
+        },
+      },
+    },
+    handleLogout,
+  );
 
   // -------------------------------------------------------------
   // 7b. GANTI KATA SANDI (POST /customer/password-change)
@@ -324,7 +484,11 @@ export async function registerAuthRoutes(
   // -------------------------------------------------------------
   const handleChangePassword = async (req: any, reply: any) => {
     try {
-      const session = await userFromCookie(sessionTokenFromReq(req), "user");
+      const context = {
+        ip: requestIp(req),
+        userAgent: typeof req.headers["user-agent"] === "string" ? req.headers["user-agent"] : undefined,
+      };
+      const session = await userFromCookie(sessionTokenFromReq(req), "user", context);
       if (!session) {
         return reply.status(401).send({
           error: { code: ErrorCodes.UNAUTHENTICATED, message: AuthResponses.errors.UNAUTHENTICATED.message },
@@ -340,7 +504,7 @@ export async function registerAuthRoutes(
         userId: session.user.id,
         currentPasswordRaw: body.currentPassword,
         newPasswordRaw: body.newPassword,
-        req: { ip: clientIp(req), headers: req.headers },
+        req: { ip: requestIp(req), headers: req.headers },
       });
 
       return reply.status(200).send({
@@ -348,12 +512,26 @@ export async function registerAuthRoutes(
         message: result.message,
       });
     } catch (err) {
-      return sendAuthError(reply, err, req);
+      return sendError(reply, err, req);
     }
   };
 
-  app.post("/customer/password-change", handleChangePassword);
-  app.post("/customer/change-password", handleChangePassword);
+  const passwordChangeSchema = {
+    schema: {
+      body: {
+        type: "object",
+        required: ["currentPassword", "newPassword"],
+        properties: {
+          currentPassword: { type: "string", minLength: 1 },
+          newPassword: { type: "string", minLength: 1 },
+        },
+        additionalProperties: true,
+      },
+    },
+  };
+
+  app.post("/customer/password-change", passwordChangeSchema, handleChangePassword);
+  app.post("/customer/change-password", passwordChangeSchema, handleChangePassword);
 
   // -------------------------------------------------------------
   // 7c. RESET KATA SANDI
@@ -366,7 +544,7 @@ export async function registerAuthRoutes(
       const body = (req.body ?? {}) as { email?: unknown };
       const result = await requestPasswordReset({
         emailRaw: body.email,
-        ip: clientIp(req),
+        ip: requestIp(req),
         redis: deps.redis,
         mailer: deps.mailer,
       });
@@ -376,10 +554,25 @@ export async function registerAuthRoutes(
         email: result.email,
       });
     } catch (err) {
-      return sendAuthError(reply, err, req);
+      return sendError(reply, err, req);
     }
   };
-  app.post("/auth/password-reset", handlePasswordReset);
+  app.post(
+    "/auth/password-reset",
+    {
+      schema: {
+        body: {
+          type: "object",
+          required: ["email"],
+          properties: {
+            email: { type: "string", minLength: 1 },
+          },
+          additionalProperties: true,
+        },
+      },
+    },
+    handlePasswordReset,
+  );
 
   const handlePasswordResetValidation = async (req: any, reply: any) => {
     try {
@@ -387,10 +580,25 @@ export async function registerAuthRoutes(
       const result = await validatePasswordResetToken(body.token);
       return { ok: true, message: result.message };
     } catch (err) {
-      return sendAuthError(reply, err, req);
+      return sendError(reply, err, req);
     }
   };
-  app.post("/auth/password-reset-validation", handlePasswordResetValidation);
+  app.post(
+    "/auth/password-reset-validation",
+    {
+      schema: {
+        body: {
+          type: "object",
+          required: ["token"],
+          properties: {
+            token: { type: "string", minLength: 1 },
+          },
+          additionalProperties: true,
+        },
+      },
+    },
+    handlePasswordResetValidation,
+  );
 
   const handlePasswordResetConfirm = async (req: any, reply: any) => {
     try {
@@ -398,15 +606,31 @@ export async function registerAuthRoutes(
       const result = await confirmPasswordReset({
         tokenRaw: body.token,
         passwordRaw: body.password,
-        req: { ip: clientIp(req), headers: req.headers },
+        req: { ip: requestIp(req), headers: req.headers },
       });
       return reply.status(200).send({
         ok: true,
         message: result.message,
       });
     } catch (err) {
-      return sendAuthError(reply, err, req);
+      return sendError(reply, err, req);
     }
   };
-  app.post("/auth/password-reset-confirm", handlePasswordResetConfirm);
+  app.post(
+    "/auth/password-reset-confirm",
+    {
+      schema: {
+        body: {
+          type: "object",
+          required: ["token", "password"],
+          properties: {
+            token: { type: "string", minLength: 1 },
+            password: { type: "string", minLength: 1 },
+          },
+          additionalProperties: true,
+        },
+      },
+    },
+    handlePasswordResetConfirm,
+  );
 }

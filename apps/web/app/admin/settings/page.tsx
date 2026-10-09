@@ -3,6 +3,7 @@ import { AdminSettingsPageView } from "@/views/admin/settings";
 import { GENERATE_COOLDOWN_DEFAULT } from "@/lib/admin";
 import { fetchAdminApi, loadAdminMe } from "@/lib/server-api";
 import type { PaymentSettingsData } from "@/views/admin/settings/components/payment-settings-form";
+import type { TesterAccountSettingsData } from "@/views/admin/settings/components/tester-account-form";
 
 export const metadata: Metadata = {
   title: "Pengaturan Sistem",
@@ -35,10 +36,28 @@ async function loadPaymentSettings(): Promise<PaymentSettingsData> {
   };
 }
 
+async function loadTesterAccountSettings(): Promise<TesterAccountSettingsData> {
+  const defaultSettings: TesterAccountSettingsData = {
+    enabled: true,
+    email: "reviewer-pg@satulabs.id",
+    otp: "201026",
+    expiresAt: "2026-10-20T23:59:59.999Z",
+  };
+  const res = await fetchAdminApi("/api/admin/settings/tester-account");
+  if (!res || !res.ok) return defaultSettings;
+  const body = (await res.json()) as TesterAccountSettingsData;
+  return {
+    enabled: body.enabled ?? true,
+    email: body.email || "reviewer-pg@satulabs.id",
+    otp: body.otp || "201026",
+    expiresAt: body.expiresAt || "2026-10-20T23:59:59.999Z",
+  };
+}
+
 export default async function AdminSettingsPage() {
   const me = await loadAdminMe();
-  const [value, paymentSettings] = me
-    ? await Promise.all([loadSetting(), loadPaymentSettings()])
+  const [value, paymentSettings, testerAccountSettings] = me
+    ? await Promise.all([loadSetting(), loadPaymentSettings(), loadTesterAccountSettings()])
     : [
         GENERATE_COOLDOWN_DEFAULT,
         {
@@ -47,6 +66,19 @@ export default async function AdminSettingsPage() {
           manualExpiryMinutes: 60,
           onlineExpiryMinutes: 10,
         },
+        {
+          enabled: true,
+          email: "reviewer-pg@satulabs.id",
+          otp: "201026",
+          expiresAt: "2026-10-20T23:59:59.999Z",
+        },
       ];
-  return <AdminSettingsPageView me={me} value={value} paymentSettings={paymentSettings} />;
+  return (
+    <AdminSettingsPageView
+      me={me}
+      value={value}
+      paymentSettings={paymentSettings}
+      testerAccountSettings={testerAccountSettings}
+    />
+  );
 }

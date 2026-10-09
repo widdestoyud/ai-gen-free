@@ -1,4 +1,4 @@
-import type { SessionKind } from "@prisma/client";
+import type { Session, SessionKind } from "@prisma/client";
 import {
   AuthResponses,
   ErrorCodes,
@@ -19,12 +19,25 @@ import {
   evaluatePasswordResetRequest,
   type PasswordResetDenial,
   validateIndonesianPhoneNumber,
+  verifySessionBinding,
+  type SessionBindingContext,
 } from "@ai-gen-free/core";
 import { prisma } from "@ai-gen-free/db";
 import type IORedis from "ioredis";
-import type { IncomingHttpHeaders } from "node:http";
-import { enforceRateLimit, hitLimit } from "./rate-limit.js";
+import { OAuth2Client } from "google-auth-library";
+import { enforceRateLimit } from "./rate-limit.js";
 import { recordUserActivity } from "../activity/service.js";
+import {
+  DEFAULT_TESTER_ACCOUNT_CONFIG,
+  TESTER_ACCOUNT_KEY,
+  type TesterAccountConfig,
+} from "../admin/parse.js";
+import {
+  getCachedSession,
+  setCachedSession,
+  invalidateSession,
+  invalidateUserSessions,
+} from "../lib/cache.js";
 
 export class AuthError extends Error {
   constructor(
@@ -46,6 +59,69 @@ function appSecret(): string {
     throw new Error("SESSION_SECRET must be set (min 16 chars)");
   }
   return s;
+}
+
+/**
+ * Atomic single-session creation & invalidation.
+ * Enforces strictly ONE active session per user for the given kind:
+ * 1. Acquires a pessimistic lock on the User row via SELECT ... FOR UPDATE.
+ * 2. Revokes/deletes all prior sessions for that (userId, kind).
+ * 3. Creates the new session record with tokenHash and TTL.
+ * 4. Updates User metadata (lastLoginAt, lastDeviceId, emailVerifiedAt).
+ */
+export async function createSingleSession(opts: {
+  userId: string;
+  kind: SessionKind;
+  tokenHash: string;
+  ip: string;
+  userAgent?: string;
+  deviceId?: string;
+  markEmailVerified?: boolean;
+}): Promise<Session> {
+  return await prisma.$transaction(async (tx) => {
+    // Pessimistic row-lock ensures concurrent logins serialize strictly
+    await tx.$queryRaw`SELECT "id" FROM "User" WHERE "id" = ${opts.userId} FOR UPDATE`;
+
+    // Atomically purge any existing sessions of this kind
+    await tx.session.deleteMany({
+      where: {
+        userId: opts.userId,
+        kind: opts.kind,
+      },
+    });
+
+    // Create the single active session
+    const session = await tx.session.create({
+      data: {
+        userId: opts.userId,
+        kind: opts.kind,
+        tokenHash: opts.tokenHash,
+        expiresAt: new Date(Date.now() + SESSION_TTL_MS),
+        ip: opts.ip,
+        userAgent: opts.userAgent,
+      },
+    });
+
+    const updateData: Record<string, unknown> = {
+      lastLoginAt: new Date(),
+    };
+    if (opts.deviceId) {
+      updateData.lastDeviceId = opts.deviceId;
+    }
+    if (opts.markEmailVerified) {
+      updateData.emailVerifiedAt = new Date();
+    }
+
+    await tx.user.update({
+      where: { id: opts.userId },
+      data: updateData,
+    });
+
+    return session;
+  });
+
+  void invalidateUserSessions(opts.userId);
+  return session;
 }
 
 export function parseEmailOrThrow(raw: unknown): string {
@@ -159,12 +235,21 @@ export async function registerUser(opts: {
   }
 
   const existing = await prisma.user.findUnique({ where: { email } });
-  if (existing && existing.emailVerifiedAt) {
-    throw new AuthError(
-      AuthResponses.errors.EMAIL_ALREADY_REGISTERED.code,
-      AuthResponses.errors.EMAIL_ALREADY_REGISTERED.message,
-      AuthResponses.errors.EMAIL_ALREADY_REGISTERED.status,
-    );
+  if (existing) {
+    if (existing.authProvider === "google") {
+      throw new AuthError(
+        AuthResponses.errors.AUTH_METHOD_MISMATCH.code,
+        AuthResponses.errors.AUTH_METHOD_MISMATCH.message,
+        AuthResponses.errors.AUTH_METHOD_MISMATCH.status,
+      );
+    }
+    if (existing.emailVerifiedAt) {
+      throw new AuthError(
+        AuthResponses.errors.EMAIL_ALREADY_REGISTERED.code,
+        AuthResponses.errors.EMAIL_ALREADY_REGISTERED.message,
+        AuthResponses.errors.EMAIL_ALREADY_REGISTERED.status,
+      );
+    }
   }
 
   const passwordHash = await hashPassword(opts.passwordRaw as string);
@@ -272,6 +357,29 @@ export async function validateEmailToken(tokenRaw: unknown): Promise<{ message: 
   return { message: AuthResponses.success.EMAIL_VERIFIED.message };
 }
 
+export async function getActiveTesterConfig(email: string): Promise<TesterAccountConfig | null> {
+  try {
+    const row = await prisma.appSetting.findUnique({ where: { key: TESTER_ACCOUNT_KEY } });
+    const raw = row?.value as Partial<TesterAccountConfig> | null | undefined;
+    const config: TesterAccountConfig = {
+      enabled: typeof raw?.enabled === "boolean" ? raw.enabled : DEFAULT_TESTER_ACCOUNT_CONFIG.enabled,
+      email: typeof raw?.email === "string" && raw.email.trim() ? raw.email.trim().toLowerCase() : DEFAULT_TESTER_ACCOUNT_CONFIG.email,
+      otp: typeof raw?.otp === "string" && /^\d{6}$/.test(raw.otp.trim()) ? raw.otp.trim() : DEFAULT_TESTER_ACCOUNT_CONFIG.otp,
+      expiresAt: typeof raw?.expiresAt === "string" && !isNaN(new Date(raw.expiresAt).getTime()) ? raw.expiresAt : DEFAULT_TESTER_ACCOUNT_CONFIG.expiresAt,
+    };
+
+    if (!config.enabled) return null;
+    if (config.email.toLowerCase() !== email.trim().toLowerCase()) return null;
+
+    const expiresTime = new Date(config.expiresAt).getTime();
+    if (Date.now() > expiresTime) return null;
+
+    return config;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Login user menggunakan email dan password:
  * - Menolak bila belum verifikasi email
@@ -300,7 +408,74 @@ export async function loginUser(opts: {
   // Mencegah login jika request membawa session token aktif
   await ensureNotLoggedIn({ currentSessionToken: opts.sessionTokenRaw, kind: "user" });
 
+  const testerConfig = await getActiveTesterConfig(email);
+  if (testerConfig) {
+    const rl = await enforceRateLimit(opts.redis, `ratelimit:login:${email}:${opts.ip}`, RateLimitConfig.login);
+    if (!rl.allowed) {
+      throw new AuthError(AuthResponses.errors.RATE_LIMITED.code, RateLimitConfig.login.message, 429);
+    }
+
+    let user = await prisma.user.findUnique({ where: { email } });
+    if (!user) {
+      user = await prisma.user.create({
+        data: {
+          email,
+          displayName: "Reviewer Tester (Payment Gateway)",
+          role: "user",
+          emailVerifiedAt: new Date(),
+        },
+      });
+      await prisma.wallet.create({
+        data: {
+          userId: user.id,
+          availableCached: 1000,
+        },
+      });
+    }
+
+    if (user.bannedAt) {
+      throw new AuthError(AuthResponses.errors.FORBIDDEN.code, AuthResponses.errors.FORBIDDEN.message, 403);
+    }
+
+    const deviceId =
+      typeof opts.deviceIdRaw === "string" && opts.deviceIdRaw.trim().length > 0
+        ? opts.deviceIdRaw.trim()
+        : hashSecret(appSecret(), `${opts.userAgent ?? "default-agent"}:${opts.ip}`);
+
+    const codeHash = hashSecret(appSecret(), `${email}:${testerConfig.otp}`);
+
+    await prisma.otpChallenge.updateMany({
+      where: { email, consumedAt: null },
+      data: { consumedAt: new Date() },
+    });
+
+    await prisma.otpChallenge.create({
+      data: {
+        email,
+        codeHash,
+        expiresAt: new Date(Date.now() + getOtpTtlMs()),
+        ip: opts.ip,
+        attempts: 0,
+      },
+    });
+
+    return {
+      requiresOtp: true,
+      deviceId,
+      email,
+      message: "Akun pengujian terdeteksi. Silakan masukkan kode OTP verifikasi.",
+    };
+  }
+
   const user = await findUserOrThrow(email);
+
+  if (user.authProvider === "google") {
+    throw new AuthError(
+      AuthResponses.errors.AUTH_METHOD_MISMATCH.code,
+      AuthResponses.errors.AUTH_METHOD_MISMATCH.message,
+      AuthResponses.errors.AUTH_METHOD_MISMATCH.status,
+    );
+  }
 
   // Rate limit login attempt per email + IP
   const rl = await enforceRateLimit(opts.redis, `ratelimit:login:${email}:${opts.ip}`, RateLimitConfig.login);
@@ -419,23 +594,13 @@ export async function loginUser(opts: {
   const token = randomToken();
   const tokenHash = hashSecret(appSecret(), token);
 
-  await prisma.$transaction([
-    prisma.session.deleteMany({ where: { userId: user.id, kind: "user" } }),
-    prisma.session.create({
-      data: {
-        userId: user.id,
-        kind: "user",
-        tokenHash,
-        expiresAt: new Date(Date.now() + SESSION_TTL_MS),
-        ip: opts.ip,
-        userAgent: opts.userAgent,
-      },
-    }),
-    prisma.user.update({
-      where: { id: user.id },
-      data: { lastLoginAt: new Date() },
-    }),
-  ]);
+  await createSingleSession({
+    userId: user.id,
+    kind: "user",
+    tokenHash,
+    ip: opts.ip,
+    userAgent: opts.userAgent,
+  });
 
   void recordUserActivity({
     userId: user.id,
@@ -466,7 +631,52 @@ export async function resendOtp(opts: {
 }): Promise<{ message: string }> {
   const email = parseEmailOrThrow(opts.emailRaw);
 
+  const testerConfig = await getActiveTesterConfig(email);
+  if (testerConfig) {
+    let user = await prisma.user.findUnique({ where: { email } });
+    if (!user) {
+      user = await prisma.user.create({
+        data: {
+          email,
+          displayName: "Reviewer Tester (Payment Gateway)",
+          role: "user",
+          emailVerifiedAt: new Date(),
+        },
+      });
+    }
+
+    if (user.bannedAt) {
+      throw new AuthError(AuthResponses.errors.FORBIDDEN.code, AuthResponses.errors.FORBIDDEN.message, 403);
+    }
+
+    const codeHash = hashSecret(appSecret(), `${email}:${testerConfig.otp}`);
+
+    await prisma.otpChallenge.updateMany({
+      where: { email, consumedAt: null },
+      data: { consumedAt: new Date() },
+    });
+
+    await prisma.otpChallenge.create({
+      data: {
+        email,
+        codeHash,
+        expiresAt: new Date(Date.now() + getOtpTtlMs()),
+        ip: opts.ip,
+        attempts: 0,
+      },
+    });
+
+    return { message: "Kode OTP akun pengujian telah disiapkan." };
+  }
+
   const user = await findUserOrThrow(email);
+  if (user.authProvider === "google") {
+    throw new AuthError(
+      AuthResponses.errors.AUTH_METHOD_MISMATCH.code,
+      AuthResponses.errors.AUTH_METHOD_MISMATCH.message,
+      AuthResponses.errors.AUTH_METHOD_MISMATCH.status,
+    );
+  }
   if (user.bannedAt) {
     throw new AuthError(AuthResponses.errors.FORBIDDEN.code, AuthResponses.errors.FORBIDDEN.message, 403);
   }
@@ -626,27 +836,15 @@ export async function validateOtp(opts: {
   const token = randomToken();
   const tokenHash = hashSecret(appSecret(), token);
 
-  await prisma.$transaction([
-    prisma.session.deleteMany({ where: { userId: user.id, kind } }),
-    prisma.session.create({
-      data: {
-        userId: user.id,
-        kind,
-        tokenHash,
-        expiresAt: new Date(Date.now() + SESSION_TTL_MS),
-        ip: opts.ip,
-        userAgent: opts.userAgent,
-      },
-    }),
-    prisma.user.update({
-      where: { id: user.id },
-      data: {
-        lastDeviceId: deviceId,
-        lastLoginAt: new Date(),
-        emailVerifiedAt: user.emailVerifiedAt ?? new Date(),
-      },
-    }),
-  ]);
+  await createSingleSession({
+    userId: user.id,
+    kind,
+    tokenHash,
+    ip: opts.ip,
+    userAgent: opts.userAgent,
+    deviceId,
+    markEmailVerified: !user.emailVerifiedAt,
+  });
 
   void recordUserActivity({
     userId: user.id,
@@ -663,6 +861,191 @@ export async function validateOtp(opts: {
   };
 }
 
+let googleOAuthClient: OAuth2Client | null = null;
+function getGoogleOAuthClient(): OAuth2Client {
+  if (!googleOAuthClient) {
+    const clientId = process.env.AUTH_GOOGLE_ID || process.env.GOOGLE_CLIENT_ID;
+    googleOAuthClient = new OAuth2Client(clientId);
+  }
+  return googleOAuthClient;
+}
+
+/**
+ * Login atau Registrasi menggunakan Google OAuth2 ID Token:
+ * - Memverifikasi tanda tangan kriptografi token ke Google JWKS
+ * - Memeriksa status bannedAt
+ * - Mencegah login jika email sudah terdaftar via password (METHOD_MISMATCH)
+ * - Registrasi otomatis + inisialisasi wallet untuk user baru
+ * - Single session: mencabut sesi lama dan menerbitkan sesi baru
+ */
+export async function loginWithGoogle(opts: {
+  idTokenRaw: unknown;
+  deviceIdRaw?: unknown;
+  ip: string;
+  userAgent?: string;
+  headers?: IncomingHttpHeaders;
+  redis: IORedis;
+}): Promise<{
+  token: string;
+  sid: string;
+  user: { id: string; email: string; role: "user" | "admin"; displayName?: string | null; avatarUrl?: string | null };
+  isNewUser: boolean;
+  message: string;
+}> {
+  if (typeof opts.idTokenRaw !== "string" || !opts.idTokenRaw.trim()) {
+    throw new AuthError(AuthResponses.errors.UNAUTHENTICATED.code, "Google ID token wajib disertakan.", 400);
+  }
+
+  const idToken = opts.idTokenRaw.trim();
+  const clientId = process.env.AUTH_GOOGLE_ID || process.env.GOOGLE_CLIENT_ID;
+  if (!clientId) {
+    throw new Error("AUTH_GOOGLE_ID or GOOGLE_CLIENT_ID must be set in environment variables");
+  }
+
+  // Rate limit Google login per IP
+  const rl = await enforceRateLimit(opts.redis, `ratelimit:google-login:ip:${opts.ip}`, RateLimitConfig.login);
+  if (!rl.allowed) {
+    throw new AuthError(AuthResponses.errors.RATE_LIMITED.code, RateLimitConfig.login.message, 429);
+  }
+
+  let ticket;
+  try {
+    const client = getGoogleOAuthClient();
+    ticket = await client.verifyIdToken({
+      idToken,
+      audience: clientId,
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Verifikasi Google ID token gagal.";
+    throw new AuthError(AuthResponses.errors.UNAUTHENTICATED.code, `Google OAuth gagal: ${msg}`, 401);
+  }
+
+  const payload = ticket.getPayload();
+  if (!payload || !payload.sub || !payload.email) {
+    throw new AuthError(AuthResponses.errors.UNAUTHENTICATED.code, "Payload Google token tidak valid.", 401);
+  }
+
+  if (!payload.email_verified) {
+    throw new AuthError(AuthResponses.errors.FORBIDDEN.code, "Email Google belum diverifikasi oleh Google.", 403);
+  }
+
+  const googleSub = payload.sub;
+  const email = normalizeEmail(payload.email);
+  const displayName = payload.name || payload.given_name || null;
+  const avatarUrl = payload.picture || null;
+
+  const deviceId =
+    typeof opts.deviceIdRaw === "string" && opts.deviceIdRaw.trim().length > 0
+      ? opts.deviceIdRaw.trim()
+      : hashSecret(appSecret(), `${opts.userAgent ?? "default-agent"}:${opts.ip}`);
+
+  // Cari user berdasarkan googleSub terlebih dahulu, jika tidak ada cari by email
+  let user = await prisma.user.findFirst({
+    where: {
+      OR: [{ googleSub }, { email }],
+    },
+  });
+
+  let isNewUser = false;
+
+  if (!user) {
+    // User baru -> registrasi otomatis via Google
+    isNewUser = true;
+    user = await prisma.user.create({
+      data: {
+        email,
+        authProvider: "google",
+        googleSub,
+        displayName,
+        avatarUrl,
+        role: "user",
+        emailVerifiedAt: new Date(),
+        lastLoginAt: new Date(),
+        lastDeviceId: deviceId,
+        wallet: { create: {} },
+      },
+    });
+  } else {
+    // User sudah ada
+    if (user.bannedAt) {
+      throw new AuthError(AuthResponses.errors.FORBIDDEN.code, AuthResponses.errors.FORBIDDEN.message, 403);
+    }
+
+    // Jika user terdaftar via password dan sudah verifikasi -> Method Mismatch
+    if (user.authProvider === "password" && user.emailVerifiedAt) {
+      throw new AuthError(
+        AuthResponses.errors.AUTH_METHOD_MISMATCH.code,
+        AuthResponses.errors.AUTH_METHOD_MISMATCH.message,
+        AuthResponses.errors.AUTH_METHOD_MISMATCH.status,
+      );
+    }
+
+    // Jika user terdaftar via password tapi belum verifikasi email -> Transisi ambil alih ke Google
+    if (user.authProvider === "password" && !user.emailVerifiedAt) {
+      user = await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          authProvider: "google",
+          googleSub,
+          passwordHash: null,
+          emailVerifiedAt: new Date(),
+          displayName: user.displayName || displayName,
+          avatarUrl: user.avatarUrl || avatarUrl,
+          lastLoginAt: new Date(),
+          lastDeviceId: deviceId,
+        },
+      });
+    } else {
+      // User Google yang sudah ada -> update last login info & avatar
+      user = await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          googleSub,
+          lastLoginAt: new Date(),
+          lastDeviceId: deviceId,
+          displayName: user.displayName || displayName,
+          avatarUrl: avatarUrl || user.avatarUrl,
+        },
+      });
+    }
+  }
+
+  // Sesi tunggal: cabut semua sesi lama user dengan kind "user"
+  const token = randomToken();
+  const tokenHash = hashSecret(appSecret(), token);
+
+  const session = await createSingleSession({
+    userId: user.id,
+    kind: "user",
+    tokenHash,
+    ip: opts.ip,
+    userAgent: opts.userAgent,
+    deviceId,
+  });
+
+  void recordUserActivity({
+    userId: user.id,
+    action: isNewUser ? "auth.google.register" : "auth.google.login",
+    req: { ip: opts.ip, headers: opts.headers },
+    clientInfo: { ip: opts.ip, os: opts.userAgent },
+    metadata: { email: user.email, googleSub, deviceId, isNewUser },
+  });
+
+  return {
+    token,
+    sid: session.id,
+    user: {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      displayName: user.displayName,
+      avatarUrl: user.avatarUrl,
+    },
+    isNewUser,
+    message: isNewUser ? "Pendaftaran via Google berhasil." : "Berhasil masuk dengan Google.",
+  };
+}
+
 /**
  * Ambil data profil user saat ini (IDOR SAFE: identitas dari session.userId).
  */
@@ -674,6 +1057,8 @@ export async function getUserProfile(userId: string) {
         id: true,
         email: true,
         displayName: true,
+        avatarUrl: true,
+        authProvider: true,
         phoneNumber: true,
         ktp: true,
         address: true,
@@ -933,198 +1318,57 @@ export async function updateUserProfile(
   };
 }
 
-/**
- * Legacy requestOtp (kompatibilitas admin & flow lama)
- */
-export async function requestOtp(opts: {
-  emailRaw: unknown;
-  ip: string;
-  redis: IORedis;
-  mailer: import("@ai-gen-free/core").EmailPort;
-  adminOnly: boolean;
-}): Promise<void> {
-  const email = parseEmailOrThrow(opts.emailRaw);
-  const overEmail = await hitLimit(opts.redis, `otp:email:${email}`, 3, 15 * 60);
-  const overIp = await hitLimit(opts.redis, `otp:ip:${opts.ip}`, 10, 60 * 60);
-  if (overEmail || overIp) {
-    throw new AuthError(AuthResponses.errors.RATE_LIMITED.code, AuthResponses.errors.RATE_LIMITED.message, 429);
-  }
 
-  if (opts.adminOnly) {
-    const user = await prisma.user.findUnique({ where: { email } });
-    if (!user || user.role !== "admin" || user.bannedAt) {
-      return;
-    }
-  }
 
-  const activeChallenge = await prisma.otpChallenge.findFirst({
-    where: {
-      email,
-      consumedAt: null,
-      expiresAt: { gt: new Date() },
-    },
-    orderBy: { createdAt: "desc" },
-  });
-
-  if (activeChallenge) {
-    throw new AuthError(
-      AuthResponses.errors.OTP_ACTIVE_EXISTING.code,
-      AuthResponses.errors.OTP_ACTIVE_EXISTING.message,
-      AuthResponses.errors.OTP_ACTIVE_EXISTING.status,
-    );
-  }
-
-  const code = randomOtp();
-  const codeHash = hashSecret(appSecret(), `${email}:${code}`);
-  await prisma.otpChallenge.updateMany({
-    where: { email, consumedAt: null },
-    data: { consumedAt: new Date() },
-  });
-  await prisma.otpChallenge.create({
-    data: {
-      email,
-      codeHash,
-      expiresAt: new Date(Date.now() + getOtpTtlMs()),
-      ip: opts.ip,
-      attempts: 0,
-    },
-  });
-  try {
-    await opts.mailer.sendOtp(email, code);
-  } catch (err) {
-    const raw = err instanceof Error ? err.message : "";
-    console.error("otp mail failed", raw);
-    const credits = /insufficient credits/i.test(raw);
-    throw new AuthError(
-      AuthResponses.errors.EMAIL_UNAVAILABLE.code,
-      credits
-        ? "Kuota email SMTP habis. Isi kredit penyedia email, lalu coba lagi."
-        : AuthResponses.errors.EMAIL_UNAVAILABLE.message,
-      503,
-    );
-  }
-}
-
-/**
- * Legacy verifyOtp (kompatibilitas admin & flow lama)
- */
-export async function verifyOtp(opts: {
-  emailRaw: unknown;
-  codeRaw: unknown;
-  ip: string;
-  userAgent: string | undefined;
-  kind: SessionKind;
-}): Promise<{ token: string; user: { id: string; email: string; role: "user" | "admin" } }> {
-  const email = parseEmailOrThrow(opts.emailRaw);
-  if (typeof opts.codeRaw !== "string" || !/^\d{6}$/.test(opts.codeRaw)) {
-    throw new AuthError(AuthResponses.errors.OTP_INVALID.code, AuthResponses.errors.OTP_INVALID.message);
-  }
-
-  const challenge = await prisma.otpChallenge.findFirst({
-    where: { email, consumedAt: null },
-    orderBy: { createdAt: "desc" },
-  });
-  if (!challenge) {
-    throw new AuthError(AuthResponses.errors.OTP_INVALID.code, AuthResponses.errors.OTP_INVALID.message);
-  }
-  if (challenge.expiresAt.getTime() < Date.now()) {
-    throw new AuthError(AuthResponses.errors.OTP_EXPIRED.code, AuthResponses.errors.OTP_EXPIRED.message);
-  }
-  if (challenge.attempts >= RateLimitConfig.otpValidation.maxAttempts) {
-    throw new AuthError(AuthResponses.errors.OTP_LOCKED.code, RateLimitConfig.otpValidation.message, 429);
-  }
-
-  const expected = hashSecret(appSecret(), `${email}:${opts.codeRaw}`);
-  if (!safeEqualHex(expected, challenge.codeHash)) {
-    const newAttempts = challenge.attempts + 1;
-    await prisma.otpChallenge.update({
-      where: { id: challenge.id },
-      data: { attempts: newAttempts },
-    });
-    if (newAttempts >= RateLimitConfig.otpValidation.maxAttempts) {
-      throw new AuthError(AuthResponses.errors.OTP_LOCKED.code, RateLimitConfig.otpValidation.message, 429);
-    }
-    throw new AuthError(AuthResponses.errors.OTP_INVALID.code, AuthResponses.errors.OTP_INVALID.message);
-  }
-
-  await prisma.otpChallenge.update({
-    where: { id: challenge.id },
-    data: { consumedAt: new Date() },
-  });
-  await prisma.otpChallenge.updateMany({
-    where: { email, consumedAt: null },
-    data: { consumedAt: new Date() },
-  });
-
-  let user = await prisma.user.findUnique({ where: { email } });
-  if (opts.kind === "admin") {
-    if (!user || user.role !== "admin" || user.bannedAt) {
-      throw new AuthError(AuthResponses.errors.FORBIDDEN.code, AuthResponses.errors.FORBIDDEN.message, 403);
-    }
-  } else if (!user) {
-    user = await prisma.user.create({
-      data: {
-        email,
-        role: "user",
-        emailVerifiedAt: new Date(),
-        wallet: { create: {} },
-      },
-    });
-  } else if (user.bannedAt) {
-    throw new AuthError(AuthResponses.errors.FORBIDDEN.code, AuthResponses.errors.FORBIDDEN.message, 403);
-  } else if (!user.emailVerifiedAt) {
-    user = await prisma.user.update({
-      where: { id: user.id },
-      data: { emailVerifiedAt: new Date() },
-    });
-  }
-
-  await prisma.wallet.upsert({
-    where: { userId: user.id },
-    update: {},
-    create: { userId: user.id },
-  });
-
-  const token = randomToken();
-  const tokenHash = hashSecret(appSecret(), token);
-  await prisma.$transaction([
-    prisma.session.deleteMany({ where: { userId: user.id, kind: opts.kind } }),
-    prisma.session.create({
-      data: {
-        userId: user.id,
-        kind: opts.kind,
-        tokenHash,
-        expiresAt: new Date(Date.now() + SESSION_TTL_MS),
-        ip: opts.ip,
-        userAgent: opts.userAgent,
-      },
-    }),
-  ]);
-
-  return {
-    token,
-    user: { id: user.id, email: user.email, role: user.role },
-  };
-}
-
-export async function userFromCookie(token: string | undefined, kind: SessionKind) {
+export async function userFromCookie(
+  token: string | undefined,
+  kind: SessionKind,
+  context?: SessionBindingContext,
+) {
   if (!token) return null;
   const tokenHash = hashSecret(appSecret(), token);
-  const session = await prisma.session.findUnique({
-    where: { tokenHash },
-    include: { user: true },
-  });
+
+  // 1. Try Redis cache
+  let session = await getCachedSession(tokenHash);
+
+  // 2. Fall back to PostgreSQL if cache miss
+  if (!session) {
+    session = await prisma.session.findUnique({
+      where: { tokenHash },
+      include: { user: true },
+    });
+    if (session && session.kind === kind && session.expiresAt.getTime() >= Date.now()) {
+      void setCachedSession(tokenHash, session);
+    }
+  }
+
   if (!session || session.kind !== kind || session.expiresAt.getTime() < Date.now()) {
+    if (session && session.expiresAt.getTime() < Date.now()) {
+      // Lazy cleanup of expired session
+      void prisma.session.delete({ where: { id: session.id } }).catch(() => {});
+      void invalidateSession(tokenHash);
+    }
     return null;
   }
   if (session.user.bannedAt) return null;
+  if (kind === "admin" && session.user.role !== "admin") return null;
+
+  if (context) {
+    const check = verifySessionBinding(session, context);
+    if (!check.valid) {
+      return null;
+    }
+  }
+
   return session;
 }
+
 
 export async function logout(token: string | undefined, kind: SessionKind) {
   if (!token) return;
   const tokenHash = hashSecret(appSecret(), token);
   await prisma.session.deleteMany({ where: { tokenHash, kind } });
+  void invalidateSession(tokenHash);
 }
 
 export function parseAdminIdentifier(raw: unknown): { identifier: string; internalEmail: string } {
@@ -1225,23 +1469,14 @@ export async function loginAdmin(opts: {
   const token = randomToken();
   const tokenHash = hashSecret(appSecret(), token);
 
-  await prisma.$transaction([
-    prisma.session.deleteMany({ where: { userId: user.id, kind: "admin" } }),
-    prisma.session.create({
-      data: {
-        userId: user.id,
-        kind: "admin",
-        tokenHash,
-        expiresAt: new Date(Date.now() + SESSION_TTL_MS),
-        ip: opts.ip,
-        userAgent: opts.userAgent,
-      },
-    }),
-    prisma.user.update({
-      where: { id: user.id },
-      data: { lastLoginAt: new Date(), lastDeviceId: deviceId },
-    }),
-  ]);
+  await createSingleSession({
+    userId: user.id,
+    kind: "admin",
+    tokenHash,
+    ip: opts.ip,
+    userAgent: opts.userAgent,
+    deviceId,
+  });
 
   return {
     token,
@@ -1568,11 +1803,19 @@ export async function changeUserPassword(opts: {
   }
 
   const user = await prisma.user.findUnique({ where: { id: opts.userId } });
-  if (!user || !user.passwordHash) {
+  if (!user) {
     throw new AuthError(
       AuthResponses.errors.UNAUTHENTICATED.code,
       AuthResponses.errors.UNAUTHENTICATED.message,
       401,
+    );
+  }
+
+  if (user.authProvider === "google" || !user.passwordHash) {
+    throw new AuthError(
+      AuthResponses.errors.FORBIDDEN.code,
+      "Akun Google tidak menggunakan kata sandi lokal.",
+      400,
     );
   }
 
@@ -1597,13 +1840,20 @@ export async function changeUserPassword(opts: {
   const newPasswordHash = await hashPassword(opts.newPasswordRaw as string);
   const now = new Date();
 
-  await prisma.user.update({
-    where: { id: user.id },
-    data: {
-      passwordHash: newPasswordHash,
-      passwordChangedAt: now,
-    },
-  });
+  await prisma.$transaction([
+    prisma.user.update({
+      where: { id: user.id },
+      data: {
+        passwordHash: newPasswordHash,
+        passwordChangedAt: now,
+      },
+    }),
+    prisma.session.deleteMany({
+      where: { userId: user.id },
+    }),
+  ]);
+
+  void invalidateUserSessions(user.id);
 
   void recordUserActivity({
     userId: user.id,
@@ -1613,5 +1863,45 @@ export async function changeUserPassword(opts: {
 
   return { message: AuthResponses.success.PASSWORD_CHANGED.message };
 }
+
+/**
+ * Maintenance routine to purge expired sessions, challenges, and tokens.
+ * Can be run periodically via BullMQ worker or scheduled cron job.
+ */
+export async function purgeExpiredAuthRecords(now: Date = new Date()): Promise<{
+  sessionsPurged: number;
+  otpChallengesPurged: number;
+  passwordResetTokensPurged: number;
+  emailTokensPurged: number;
+}> {
+  const [sessions, otps, passwordTokens, emailTokens] = await prisma.$transaction([
+    prisma.session.deleteMany({
+      where: { expiresAt: { lt: now } },
+    }),
+    prisma.otpChallenge.deleteMany({
+      where: {
+        OR: [{ expiresAt: { lt: now } }, { consumedAt: { not: null } }],
+      },
+    }),
+    prisma.passwordResetToken.deleteMany({
+      where: {
+        OR: [{ expiresAt: { lt: now } }, { consumedAt: { not: null } }],
+      },
+    }),
+    prisma.emailVerificationToken.deleteMany({
+      where: {
+        OR: [{ expiresAt: { lt: now } }, { consumedAt: { not: null } }],
+      },
+    }),
+  ]);
+
+  return {
+    sessionsPurged: sessions.count,
+    otpChallengesPurged: otps.count,
+    passwordResetTokensPurged: passwordTokens.count,
+    emailTokensPurged: emailTokens.count,
+  };
+}
+
 
 

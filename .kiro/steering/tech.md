@@ -14,5 +14,7 @@ Kanonik: `#[[file:AGENTS.md]]` `#[[file:docs/architecture.md]]` `#[[file:docs/ad
 - Email: `EmailPort` + SMTP env. Mailpit/MinIO hanya `compose --profile`, bukan default.
 - Provider generate: port + adapter. Adapter v1 Siray, hanya di `packages/providers-siray`.
 - Ganti provider = adapter + env. Jangan ubah halaman, layout, job, atau wallet (ADR 0012).
+- Tiap model/provider baru wajib menyesuaikan payload aspect ratio mengacu pada kamus kanonik `apps/web/lib/aspect-ratio.ts` (jangan biarkan fallback ke default/1024x1024 saat rasio non-square dipilih).
+- Request pengujian/probing langsung ke upstream provider WAJIB menggunakan prefix prompt standar `[TEST:DEV]` / `[TEST:QA]`.
 
 Jangan usulkan Firebase Auth, Prisma di Next.js, Tailwind sebagai sistem utama, hardcode MinIO/Mailpit di Compose, atau `import "next-auth"` di komponen UI.

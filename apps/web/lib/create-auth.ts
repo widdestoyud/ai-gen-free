@@ -1,6 +1,7 @@
 import { headers as getNextHeaders } from "next/headers";
 import NextAuth, { CredentialsSignin } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
+import Google from "next-auth/providers/google";
 
 export type AppKind = "user" | "admin";
 
@@ -183,15 +184,64 @@ export function createAuth(kind: AppKind) {
           };
         },
       }),
+      ...(!isAdmin && (process.env.AUTH_GOOGLE_ID || process.env.GOOGLE_CLIENT_ID)
+        ? [
+            Google({
+              clientId: process.env.AUTH_GOOGLE_ID || process.env.GOOGLE_CLIENT_ID!,
+              clientSecret: process.env.AUTH_GOOGLE_SECRET || process.env.GOOGLE_CLIENT_SECRET!,
+            }),
+          ]
+        : []),
     ],
     callbacks: {
+      async signIn({ user, account }) {
+        if (account?.provider === "google") {
+          const idToken = account.id_token;
+          if (!idToken) return false;
+          try {
+            const forwardHeaders = await getForwardHeaders();
+            const res = await fetch(`${apiBase()}/auth/google`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                ...(process.env.INTERNAL_API_SECRET ? { "x-internal-secret": process.env.INTERNAL_API_SECRET } : {}),
+                ...forwardHeaders,
+              },
+              body: JSON.stringify({ idToken }),
+            });
+            const body = (await res.json()) as {
+              ok?: boolean;
+              token?: string;
+              sid?: string;
+              user?: { id: string; email: string; role: "user" | "admin" };
+              error?: { code?: string; message: string };
+            };
+            if (!res.ok || !body.user) {
+              const errMsg = body.error?.message ?? "Gagal masuk dengan Google.";
+              const errCode = body.error?.code ?? "A007";
+              return `/?error=${encodeURIComponent(errMsg)}&code=${encodeURIComponent(errCode)}`;
+            }
+            const sid = body.token ?? body.sid;
+            if (!sid) return false;
+            (user as any).id = body.user.id;
+            (user as any).email = body.user.email;
+            (user as any).role = body.user.role;
+            (user as any).sid = sid;
+            return true;
+          } catch (err) {
+            console.error("Google sign-in exchange error:", err);
+            return false;
+          }
+        }
+        return true;
+      },
       async jwt({ token, user }) {
         if (user) {
-          const u = user as { id: string; email?: string | null; role: "user" | "admin"; sid: string };
-          token.sid = u.sid;
-          token.role = u.role;
-          token.email = u.email ?? "";
-          token.sub = u.id;
+          const u = user as { id: string; email?: string | null; role: "user" | "admin"; sid?: string };
+          if (u.sid) token.sid = u.sid;
+          if (u.role) token.role = u.role;
+          if (u.email) token.email = u.email;
+          if (u.id) token.sub = u.id;
         }
         return token;
       },

@@ -1,6 +1,5 @@
 import type { JobView } from "./job-status";
 
-export const ADMIN_PAGE_SIZE = 20;
 export const GENERATE_COOLDOWN_DEFAULT = 43200;
 export const GENERATE_COOLDOWN_MAX = 2_592_000;
 
@@ -97,20 +96,4 @@ const ACTIVITY_LABELS: Record<string, string> = {
 
 export function activityActionLabel(action: string): string {
   return ACTIVITY_LABELS[action] ?? action;
-}
-
-export function adminHref(path: string, params: Record<string, string | number | undefined | null>): string {
-  const search = new URLSearchParams();
-  for (const [key, value] of Object.entries(params)) {
-    if (value === undefined || value === null || value === "") continue;
-    search.set(key, String(value));
-  }
-  const qs = search.toString();
-  return qs ? `${path}?${qs}` : path;
-}
-
-export function parseOffset(raw: string | undefined): number {
-  const n = raw ? Number(raw) : 0;
-  if (!Number.isInteger(n) || n < 0) return 0;
-  return n;
 }

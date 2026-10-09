@@ -37,11 +37,15 @@ async function appendProviderJobNote(providerId: string, note: string): Promise<
 const RETENTION_MS = 14 * 24 * 60 * 60 * 1000;
 export const DEFAULT_IMAGE_TIMEOUT_MS = Number(process.env.IMAGE_JOB_TIMEOUT_MS ?? 90_000);
 export const DEFAULT_VIDEO_TIMEOUT_MS = Number(process.env.VIDEO_JOB_TIMEOUT_MS ?? 240_000);
+export const DEFAULT_UPSCALE_TIMEOUT_MS = Number(process.env.UPSCALE_JOB_TIMEOUT_MS ?? 300_000);
 const POLL_INTERVAL_MS = 4_000;
 
-export function resolveJobTimeoutMs(mode: string, explicitTimeoutMs?: number): number {
+export function resolveJobTimeoutMs(mode: string, explicitTimeoutMs?: number, modelId?: string): number {
   if (typeof explicitTimeoutMs === "number" && explicitTimeoutMs > 0) {
     return explicitTimeoutMs;
+  }
+  if (modelId && modelId.toLowerCase().includes("upscale")) {
+    return DEFAULT_UPSCALE_TIMEOUT_MS;
   }
   const isVideo = mode === "i2v" || mode === "t2v";
   return isVideo ? DEFAULT_VIDEO_TIMEOUT_MS : DEFAULT_IMAGE_TIMEOUT_MS;
@@ -122,7 +126,7 @@ export async function processGenerateJob(opts: ProcessGenerateJobOpts): Promise<
   const job = await opts.store.get(opts.jobId);
   if (!job || TERMINAL.has(job.status)) return;
 
-  const timeoutMs = resolveJobTimeoutMs(job.mode, opts.timeoutMs);
+  const timeoutMs = resolveJobTimeoutMs(job.mode, opts.timeoutMs, job.modelId);
 
   const provider = opts.providers.get(job.providerId);
   if (!provider) {
@@ -147,6 +151,19 @@ export async function processGenerateJob(opts: ProcessGenerateJobOpts): Promise<
 
   let providerJobId = running.providerJobId;
   if (providerJobId) rememberProviderTaskId(running.providerId, providerJobId);
+  const tempStorageKeys: string[] = [];
+  const cleanupTempStorage = async () => {
+    if (tempStorageKeys.length === 0) return;
+    for (const key of tempStorageKeys) {
+      try {
+        await opts.storage.delete(key);
+      } catch (err) {
+        console.warn(`[cleanupTempStorage] Failed to delete temp key "${key}":`, err);
+      }
+    }
+    tempStorageKeys.length = 0;
+  };
+
   try {
     if (!providerJobId) {
       if (opts.circuitBreaker) {
@@ -172,14 +189,20 @@ export async function processGenerateJob(opts: ProcessGenerateJobOpts): Promise<
 
       const resolvedInputs = await resolveInputImages({
         userId: running.userId,
+        jobId: running.id,
         params: running.params,
         storage: opts.storage,
         fetchBytes,
       });
+      if (resolvedInputs.tempStorageKeys && resolvedInputs.tempStorageKeys.length > 0) {
+        tempStorageKeys.push(...resolvedInputs.tempStorageKeys);
+      }
+
       const submitParams: Record<string, unknown> = {
         ...running.params,
-        ...(resolvedInputs.image ? { image: resolvedInputs.image } : {}),
+        ...(resolvedInputs.image ? { image: resolvedInputs.image, image_url: resolvedInputs.image } : {}),
         ...(resolvedInputs.images ? { images: resolvedInputs.images } : {}),
+        ...(resolvedInputs.mask ? { mask: resolvedInputs.mask, mask_url: resolvedInputs.mask } : {}),
       };
 
       const handle = await provider.submit({
@@ -198,6 +221,7 @@ export async function processGenerateJob(opts: ProcessGenerateJobOpts): Promise<
 
     const cachedUrls = cachedOutputUrls(running.params);
     if (cachedUrls.length > 0) {
+      await cleanupTempStorage();
       await completeSuccess(running, cachedUrls, opts, wallet, now, fetchBytes, optimizeImage);
       return;
     }
@@ -205,6 +229,7 @@ export async function processGenerateJob(opts: ProcessGenerateJobOpts): Promise<
     const handle: ProviderHandle = { providerId: provider.id, providerJobId };
     while (true) {
       if (now().getTime() - startedAt.getTime() > timeoutMs) {
+        await cleanupTempStorage();
         await failJob(running, JobErrorCodes.PROVIDER_TIMEOUT, opts, wallet, now, { sourceHint: "siray" });
         return;
       }
@@ -225,6 +250,7 @@ export async function processGenerateJob(opts: ProcessGenerateJobOpts): Promise<
         }
       }
       if (status.state === "failed") {
+        await cleanupTempStorage();
         await failJob(running, status.errorCode ?? JobErrorCodes.PROVIDER_ERROR, opts, wallet, now, {
           sourceHint: "siray",
           err: new Error(status.errorCode ?? JobErrorCodes.PROVIDER_ERROR),
@@ -249,12 +275,14 @@ export async function processGenerateJob(opts: ProcessGenerateJobOpts): Promise<
           );
           await sleep(chaosPauseAfterSuccessMs);
         }
+        await cleanupTempStorage();
         await completeSuccess(running, urls, opts, wallet, now, fetchBytes, optimizeImage);
         return;
       }
       await sleep(pollIntervalMs);
     }
   } catch (err) {
+    await cleanupTempStorage();
     if (isTerminalProviderError(err)) {
       await failJob(running, err.errorCode, opts, wallet, now, { err });
       return;

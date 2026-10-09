@@ -37,14 +37,26 @@ export function OtpModal({
   resendSuccessMessage?: string | null;
 }) {
   const [shake, setShake] = useState(false);
+  const [submittedCode, setSubmittedCode] = useState("");
 
   useEffect(() => {
     if (error || errorCode) {
       setShake(true);
+      setSubmittedCode("");
       const timer = setTimeout(() => setShake(false), 500);
       return () => clearTimeout(timer);
     }
   }, [error, errorCode]);
+
+  useEffect(() => {
+    const clean = code.trim();
+    if (clean.length < 6) {
+      setSubmittedCode("");
+    } else if (clean.length === 6 && !pending && clean !== submittedCode) {
+      setSubmittedCode(clean);
+      onSubmit({ preventDefault: () => {} } as FormEvent);
+    }
+  }, [code, pending, submittedCode, onSubmit]);
 
   const handleSubmit = (e: FormEvent) => {
     if (pending) {
@@ -69,7 +81,9 @@ export function OtpModal({
       withCloseButton={!pending}
       title="Verifikasi Masuk"
       centered
-      size="sm"
+      size="md"
+      radius="md"
+      padding="lg"
       classNames={{ content: shake ? "modal-shake" : "" }}
     >
       <Stack gap="xs" mb="md">
@@ -111,6 +125,7 @@ export function OtpModal({
             variant="gradient"
             gradient={{ from: "#3b82f6", to: "#8b5cf6", deg: 135 }}
             fullWidth
+            size="md"
           >
             {pending ? "Memeriksa…" : "Masuk"}
           </Button>

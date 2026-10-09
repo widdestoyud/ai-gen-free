@@ -149,6 +149,11 @@ export const AuthResponses = {
       status: 400,
       message: "Silakan isi tanggal lahir pada profil terlebih dahulu sebelum mengaktifkan Spicy Mode.",
     },
+    AUTH_METHOD_MISMATCH: {
+      code: "A034",
+      status: 409,
+      message: "Akun kamu sudah terdaftar, silakan masuk menggunakan metode lain.",
+    },
   } satisfies Record<string, ErrorDefinition>,
 
   // === RESPON SUKSES ===

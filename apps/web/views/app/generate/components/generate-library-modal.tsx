@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Alert,
+  Badge,
   Button,
   Group,
   Modal,
@@ -49,6 +50,8 @@ export function GenerateLibraryModal({
   uploadTotal = 0,
   onUploadPageChange,
   isSelected,
+  selectedCount = 0,
+  maxSelected = 5,
   onToggleGeneration,
   onToggleUpload,
   onUploadClick,
@@ -66,6 +69,8 @@ export function GenerateLibraryModal({
   uploadTotal?: number;
   onUploadPageChange?: (page: number) => void;
   isSelected: (id: string) => boolean;
+  selectedCount?: number;
+  maxSelected?: number;
   onToggleGeneration: (job: JobView) => void;
   onToggleUpload: (item: StudioUpload) => void;
   onUploadClick: () => void;
@@ -73,6 +78,7 @@ export function GenerateLibraryModal({
   onUpdateAlias?: (id: string, alias: string, kind?: "generation" | "upload") => Promise<boolean>;
   uploadPolicyAccepted?: boolean;
 }) {
+  const [modalError, setModalError] = useState<string | null>(null);
   const [zoomedItem, setZoomedItem] = useState<ZoomableItem | null>(null);
   const [editingItem, setEditingItem] = useState<EditableItem | null>(null);
   const [aliasInput, setAliasInput] = useState("");
@@ -80,12 +86,47 @@ export function GenerateLibraryModal({
   const [deletingItem, setDeletingItem] = useState<StudioUpload | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  useEffect(() => {
+    if (!opened) {
+      setModalError(null);
+    }
+  }, [opened]);
+
   const effectiveTotal = Math.max(uploadTotal, uploads.length);
   const totalUploadPages = Math.max(1, Math.ceil(effectiveTotal / UPLOADS_PER_PAGE));
   const currentPage = Math.min(uploadPage, totalUploadPages);
 
   const imageGenerations = generations.filter((job) => isJobImage(job));
   const items = tab === "generations" ? imageGenerations : uploads;
+
+  function handleToggleGeneration(job: JobView) {
+    const selected = isSelected(job.id);
+    if (!selected && selectedCount >= maxSelected) {
+      setModalError(`Maksimal hanya ${maxSelected} gambar referensi yang dapat dipilih.`);
+      return;
+    }
+    setModalError(null);
+    onToggleGeneration(job);
+  }
+
+  function handleToggleUpload(item: StudioUpload) {
+    const selected = isSelected(item.id);
+    if (!selected && selectedCount >= maxSelected) {
+      setModalError(`Maksimal hanya ${maxSelected} gambar referensi yang dapat dipilih.`);
+      return;
+    }
+    setModalError(null);
+    onToggleUpload(item);
+  }
+
+  function handleUploadClick() {
+    if (selectedCount >= maxSelected) {
+      setModalError(`Maksimal hanya ${maxSelected} gambar referensi yang dapat dipilih.`);
+      return;
+    }
+    setModalError(null);
+    onUploadClick();
+  }
 
   async function handleSaveAlias() {
     if (!editingItem || !onUpdateAlias) return;
@@ -108,7 +149,16 @@ export function GenerateLibraryModal({
       <Modal
         opened={opened}
         onClose={onClose}
-        title="Pilih gambar"
+        title={
+          <Group gap="xs" align="center">
+            <Text fw={700} size="md">
+              Pilih gambar
+            </Text>
+            <Badge size="sm" variant="light" color={selectedCount >= maxSelected ? "yellow" : "blue"}>
+              {selectedCount}/{maxSelected} terpilih
+            </Badge>
+          </Group>
+        }
         size="lg"
         centered
         radius="lg"
@@ -143,7 +193,7 @@ export function GenerateLibraryModal({
                 size="xs"
                 variant="light"
                 color="blue"
-                onClick={onUploadClick}
+                onClick={handleUploadClick}
                 className={classes.libraryUploadActionBtn}
               >
                 + Upload
@@ -151,13 +201,25 @@ export function GenerateLibraryModal({
             ) : null}
           </div>
 
+          {modalError ? (
+            <Alert
+              color="red"
+              variant="light"
+              radius="sm"
+              withCloseButton
+              onClose={() => setModalError(null)}
+            >
+              {modalError}
+            </Alert>
+          ) : null}
+
           {tab === "uploads" && !uploadPolicyAccepted ? (
             <Alert color="yellow" variant="light" radius="sm">
               <Group justify="space-between" align="center">
                 <Text size="xs">
                   Anda harus menyetujui kebijakan unggah media sebelum dapat memilih berkas referensi.
                 </Text>
-                <Button size="compact-xs" color="yellow" variant="filled" onClick={onUploadClick}>
+                <Button size="compact-xs" color="yellow" variant="filled" onClick={handleUploadClick}>
                   Setujui Sekarang
                 </Button>
               </Group>
@@ -178,7 +240,7 @@ export function GenerateLibraryModal({
                   return (
                     <div key={job.id} className={classes.tileWrapper}>
                       <UnstyledButton
-                        onClick={() => onToggleGeneration(job)}
+                        onClick={() => handleToggleGeneration(job)}
                         className={classes.tileButton}
                         aria-label={job.prompt}
                       >
@@ -256,7 +318,7 @@ export function GenerateLibraryModal({
                     return (
                       <div key={item.id} className={classes.tileWrapper}>
                         <UnstyledButton
-                          onClick={() => !item.uploading && onToggleUpload(item)}
+                          onClick={() => !item.uploading && handleToggleUpload(item)}
                           className={classes.tileButton}
                           aria-label={item.name}
                         >

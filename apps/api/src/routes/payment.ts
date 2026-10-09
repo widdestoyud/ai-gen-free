@@ -7,6 +7,7 @@ import type { FastifyInstance } from "fastify";
 import { ErrorCodes, type PaymentGatewayPort, type PaymentGatewayRegistry, type GatewayFrontendConfig, type PaymentGatewayDriver } from "@ai-gen-free/core";
 import { AuthError, userFromCookie } from "../auth/service.js";
 import { getPaymentSettings } from "../admin/service.js";
+import { requestIp, sendError } from "../http.js";
 import {
   initiatePayment,
   processPaymentNotification,
@@ -14,13 +15,6 @@ import {
   getInvoiceWithPaymentInfo,
   type PaymentServiceDeps,
 } from "../wallet/payment.js";
-
-function sendError(reply: { status: (n: number) => { send: (b: unknown) => unknown } }, err: unknown) {
-  if (err instanceof AuthError) {
-    return reply.status(err.status).send({ error: { code: err.code, message: err.message } });
-  }
-  throw err;
-}
 
 async function requireUser(
   req: { cookies: Record<string, string | undefined>; headers: Record<string, unknown> },
@@ -36,9 +30,14 @@ async function requireUser(
       ? (req.headers["authorization"] as string).slice(7).trim()
       : undefined);
 
-  let session = await userFromCookie(token, "user");
+  const context = {
+    ip: requestIp(req),
+    userAgent: typeof req.headers["user-agent"] === "string" ? req.headers["user-agent"] : undefined,
+  };
+
+  let session = await userFromCookie(token, "user", context);
   if (!session) {
-    session = await userFromCookie(token, "admin");
+    session = await userFromCookie(token, "admin", context);
   }
   if (!session) {
     reply.status(401).send({ error: { code: ErrorCodes.UNAUTHENTICATED, message: "Silakan masuk" } });
@@ -53,7 +52,6 @@ async function requireAdmin(
 ) {
   const token =
     (typeof req.cookies?.sid_admin === "string" && req.cookies.sid_admin.trim().length > 0 ? req.cookies.sid_admin.trim() : undefined) ??
-    (typeof req.cookies?.sid === "string" && req.cookies.sid.trim().length > 0 ? req.cookies.sid.trim() : undefined) ??
     (typeof req.headers["x-admin-token"] === "string" && (req.headers["x-admin-token"] as string).trim().length > 0
       ? (req.headers["x-admin-token"] as string).trim()
       : undefined) ??
@@ -64,10 +62,12 @@ async function requireAdmin(
       ? (req.headers["authorization"] as string).slice(7).trim()
       : undefined);
 
-  let session = await userFromCookie(token, "admin");
-  if (!session) {
-    session = await userFromCookie(token, "user");
-  }
+  const context = {
+    ip: requestIp(req),
+    userAgent: typeof req.headers["user-agent"] === "string" ? req.headers["user-agent"] : undefined,
+  };
+
+  const session = await userFromCookie(token, "admin", context);
 
   if (!session || session.user.role !== "admin") {
     reply.status(401).send({
@@ -108,7 +108,29 @@ export async function registerPaymentRoutes(app: FastifyInstance, deps: PaymentR
    * Initiate payment via Payment Gateway (Midtrans / DANA / Xendit) untuk invoice tertentu
    * Returns: { paymentUrl, tokenId, expiredAt }
    */
-  app.post("/invoices/:id/pay", async (req, reply) => {
+  app.post(
+    "/invoices/:id/pay",
+    {
+      schema: {
+        params: {
+          type: "object",
+          required: ["id"],
+          properties: { id: { type: "string", minLength: 1 } },
+        },
+        body: {
+          type: "object",
+          properties: {
+            driver: { type: "string" },
+            provider: { type: "string" },
+            customerEmail: { type: "string" },
+            customerName: { type: "string" },
+            customerPhone: { type: "string" },
+          },
+          additionalProperties: true,
+        },
+      },
+    },
+    async (req, reply) => {
     const session = await requireUser(req, reply);
     if (!session) return;
 
@@ -408,12 +430,9 @@ export async function registerPaymentRoutes(app: FastifyInstance, deps: PaymentR
 
   /**
    * GET /payment/methods
-   * Get available payment methods
+   * Get available payment methods (public for checkout & pricing)
    */
   app.get("/payment/methods", async (req, reply) => {
-    const session = await requireUser(req, reply);
-    if (!session) return;
-
     const paymentSettings = await getPaymentSettings();
     const methods: Array<Record<string, unknown>> = [];
 
@@ -470,6 +489,23 @@ export async function registerPaymentRoutes(app: FastifyInstance, deps: PaymentR
             { id: "qris", name: "QRIS", providers: ["Semua Pembayaran QRIS"] },
             { id: "ewallet", name: "E-Wallet", providers: ["OVO", "DANA", "ShopeePay", "LinkAja", "AstraPay", "JeniusPay"] },
             { id: "va", name: "Virtual Account", banks: ["BCA", "Mandiri", "BNI", "BRI", "Permata", "BSI", "CIMB Niaga"] },
+          ],
+        });
+      }
+    } else if (activeGateway === "dana") {
+      // Add DANA if registered and active
+      const danaConfig = deps.registry.getFrontendConfig("dana");
+      if (danaConfig) {
+        methods.push({
+          id: "dana",
+          name: "Pembayaran DANA",
+          description: "DANA E-Wallet & QRIS Instan",
+          enabled: true,
+          isDefault: true,
+          expiryMinutes: paymentSettings.onlineExpiryMinutes,
+          flowType: "redirect",
+          channels: [
+            { id: "dana", name: "DANA E-Wallet & QRIS" },
           ],
         });
       }

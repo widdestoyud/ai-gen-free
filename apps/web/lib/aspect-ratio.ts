@@ -42,19 +42,19 @@ export const ASPECT_RATIO_CONFIGS: Record<AspectRatioId, AspectRatioOption> = {
     value: "9:16",
     label: "9:16 Vertical",
     preview: "tall",
-    dimension: "768x1024",
+    dimension: "576x1024",
     tierSize: "1k",
-    width: 768,
+    width: 576,
     height: 1024,
   },
   "16:9": {
     value: "16:9",
     label: "16:9 Widescreen",
     preview: "wide",
-    dimension: "1024x768",
+    dimension: "1024x576",
     tierSize: "1k",
     width: 1024,
-    height: 768,
+    height: 576,
   },
 };
 
@@ -70,8 +70,8 @@ export const ASPECT_RATIO_SIZE_MAP: Record<string, string> = {
   "2:3": "1024x1536",
   "3:2": "1536x1024",
   "1:1": "1024x1024",
-  "9:16": "768x1024",
-  "16:9": "1024x768",
+  "9:16": "576x1024",
+  "16:9": "1024x576",
 };
 
 export function getAspectMetadata(ratio: string): AspectRatioOption {

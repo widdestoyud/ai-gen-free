@@ -41,7 +41,7 @@ services:
       dockerfile: Dockerfile.migrate
     env_file: .env
     environment:
-      DATABASE_URL: ${DIRECT_URL:-${DATABASE_URL}}
+      DATABASE_URL: ${DATABASE_URL}
     depends_on:
       redis:
         condition: service_healthy
@@ -61,8 +61,6 @@ services:
     depends_on:
       redis:
         condition: service_healthy
-      migrate:
-        condition: service_completed_successfully
     healthcheck:
       test:
         [
@@ -98,8 +96,6 @@ services:
     depends_on:
       redis:
         condition: service_healthy
-      migrate:
-        condition: service_completed_successfully
     healthcheck:
       test:
         [
@@ -119,13 +115,19 @@ services:
       args:
         API_INTERNAL_URL: http://api:4000
     restart: unless-stopped
+    env_file: .env
     environment:
       API_INTERNAL_URL: http://api:4000
-      AUTH_SECRET: ${AUTH_SECRET:-change-me-to-32-bytes-min}
+      AUTH_URL: ${AUTH_URL:-${APP_PUBLIC_URL:-https://satulabs.id}}
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-${APP_PUBLIC_URL:-https://satulabs.id}}
+      AUTH_SECRET: ${AUTH_SECRET:-${SESSION_SECRET:-change-me-to-32-bytes-min}}
       AUTH_TRUST_HOST: "true"
       SESSION_SECRET: ${SESSION_SECRET:-change-me-to-32-bytes-min}
       ADMIN_BASIC_USER: ${ADMIN_BASIC_USER:-admin}
       ADMIN_BASIC_PASSWORD: ${ADMIN_BASIC_PASSWORD:-change-me}
+      AUTH_GOOGLE_ID: ${AUTH_GOOGLE_ID}
+      AUTH_GOOGLE_SECRET: ${AUTH_GOOGLE_SECRET}
+      INTERNAL_API_SECRET: ${INTERNAL_API_SECRET}
     ports:
       - "127.0.0.1:3000:3000"
     depends_on:

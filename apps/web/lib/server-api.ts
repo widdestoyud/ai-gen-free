@@ -103,6 +103,8 @@ export async function loadLibrary() {
         size_bytes?: number | null;
         created_at: string;
         expires_at?: string | null;
+        params?: Record<string, unknown> | null;
+        is_spicy?: boolean;
       }>;
     };
   } catch {

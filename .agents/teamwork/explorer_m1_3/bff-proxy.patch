@@ -1,0 +1,82 @@
+--- /home/ubuntu/projects/ai-gen-free/apps/web/lib/bff-proxy.ts	2026-09-24 20:29:51.721087012 +0800
++++ /home/ubuntu/projects/ai-gen-free/.agents/teamwork/explorer_m1_3/proposed_bff-proxy.ts	2026-10-08 16:38:41.995501416 +0800
+@@ -1,7 +1,7 @@
+ import { NextRequest } from "next/server";
+ import { adminAuth } from "@/auth-admin";
+ import { auth } from "@/auth";
+-import { mergeCookie } from "./cookie-header";
++import { mergeCookie, sanitizeCookie } from "./cookie-header";
+ import { adminBasicHeaders, apiBase } from "./server-api";
+ 
+ const HOP = new Set([
+@@ -31,13 +31,21 @@
+   const forwarded = req.headers.get("x-forwarded-for") ?? req.headers.get("x-real-ip");
+   if (forwarded) headers.set("x-forwarded-for", forwarded);
+ 
++  // Sanitize incoming cookies: strip untrusted client-supplied sid or sid_admin
++  const rawCookie = headers.get("cookie");
++  if (rawCookie) {
++    const sanitized = sanitizeCookie(rawCookie);
++    if (sanitized) headers.set("cookie", sanitized);
++    else headers.delete("cookie");
++  }
++
+   if (kind === "admin") {
+     const session = await adminAuth();
+     if (session?.sid) {
+       headers.set("cookie", mergeCookie(headers.get("cookie"), `sid_admin=${session.sid}`));
+-    }
+-    for (const [key, value] of Object.entries(adminBasicHeaders())) {
+-      headers.set(key, value);
++      for (const [key, value] of Object.entries(adminBasicHeaders())) {
++        headers.set(key, value);
++      }
+     }
+   } else if (kind === "user") {
+     const session = await auth();
+@@ -48,9 +56,43 @@
+ 
+   const init: RequestInit = { method: req.method, headers, redirect: "manual" };
+   if (req.method !== "GET" && req.method !== "HEAD") {
+-    init.body = Buffer.from(await req.arrayBuffer());
++    try {
++      init.body = Buffer.from(await req.arrayBuffer());
++    } catch {
++      return new Response(
++        JSON.stringify({
++          error: {
++            code: "E001",
++            message: "Gagal membaca body request.",
++          },
++        }),
++        {
++          status: 400,
++          headers: { "content-type": "application/json", "cache-control": "no-store" },
++        },
++      );
++    }
+   }
+-  const upstream = await fetch(target, init);
++
++  let upstream: Response;
++  try {
++    upstream = await fetch(target, init);
++  } catch (error) {
++    console.error(`[BFF Proxy Fastify Error] Upstream connection failure to ${target}:`, error);
++    return new Response(
++      JSON.stringify({
++        error: {
++          code: "E001",
++          message: "Gagal terhubung ke layanan backend.",
++        },
++      }),
++      {
++        status: 502,
++        headers: { "content-type": "application/json", "cache-control": "no-store" },
++      },
++    );
++  }
++
+   const out = new Headers();
+   upstream.headers.forEach((value, key) => {
+     if (key.toLowerCase() === "transfer-encoding") return;

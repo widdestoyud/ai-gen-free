@@ -22,6 +22,7 @@ export function ModelDefaultsForm({
     spicyI2iModelId: "alibaba/qwen-image-3-edit-spicy",
     normalVideoModelId: "bytedance/seedance-2.5-i2v",
     spicyVideoModelId: "bytedance/seedance-2.0-i2v-spicy",
+    inpaintModelId: "fal-ai/flux-lora/inpainting",
   });
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
@@ -68,6 +69,11 @@ export function ModelDefaultsForm({
     models.filter((m) => m.mode === "i2i" && m.isSpicy && m.enabled)
   );
 
+  // Filter inpaint models
+  const inpaintOptions = getUniqueOptions(
+    models.filter((m) => m.mode === "inpaint" && m.enabled)
+  );
+
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setError("");
@@ -89,6 +95,12 @@ export function ModelDefaultsForm({
     const selectedT2i = models.find((m) => m.modelId === config.normalT2iModelId);
     if (selectedT2i && (selectedT2i.mode === "i2v" || selectedT2i.mode === "t2v")) {
       setError("Model gambar tidak boleh menggunakan model video.");
+      return;
+    }
+
+    const selectedInpaint = models.find((m) => m.modelId === config.inpaintModelId);
+    if (selectedInpaint && selectedInpaint.mode !== "inpaint") {
+      setError("Model Inpainting harus merupakan model berjenis inpaint.");
       return;
     }
 
@@ -213,6 +225,35 @@ export function ModelDefaultsForm({
               value={config.spicyI2iModelId}
               onChange={(val) => {
                 if (val) setConfig((prev) => ({ ...prev, spicyI2iModelId: val }));
+              }}
+              required
+              searchable
+            />
+          </SimpleGrid>
+        </Card>
+
+        {/* Section 3: Pengaturan Model Inpainting / Image Edit */}
+        <Card withBorder radius="md" p="md">
+          <Group justify="space-between" mb="xs">
+            <Group gap="xs">
+              <Title order={4}>Model Inpainting / Image Edit (/api/generate/image-edit)</Title>
+              <Badge color="cyan" variant="light">
+                Inpaint & Edit
+              </Badge>
+            </Group>
+          </Group>
+          <Text size="sm" c="dimmed" mb="md">
+            Atur model AI yang digunakan saat pelanggan melakukan inpaint / brush edit pada library modal atau endpoint /api/generate/image-edit.
+          </Text>
+
+          <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
+            <Select
+              label="Model Inpainting / Image Edit"
+              description="Model default untuk inpainting mask & image edit (contoh: fal-ai/flux-lora/inpainting)"
+              data={inpaintOptions}
+              value={config.inpaintModelId || "fal-ai/flux-lora/inpainting"}
+              onChange={(val) => {
+                if (val) setConfig((prev) => ({ ...prev, inpaintModelId: val }));
               }}
               required
               searchable

@@ -13,4 +13,5 @@ Kanonik: `#[[file:apps/web/AGENTS.md]]` `#[[file:docs/adr/0010-nextauth-session.
 - Login: `signIn` NextAuth Credentials → API OTP verify. Request OTP tetap `POST /api/auth/otp/request` (proxy Fastify).
 - NextAuth user `basePath`: `/api/session`. Admin: `/api/admin/session`.
 - Polling job: `GET /api/jobs/:id`. Refresh tidak membatalkan job.
+- **Larangan Refetch Interval**: Frontend DILARANG memakai `refetchInterval` (TanStack Query) atau polling periodik ke API via `setInterval`. Sinkronisasi data realtime (saldo wallet, status invoice, dll.) WAJIB murni event-driven via Server-Sent Events (SSE `/api/invoices/events`) dan invalidasi cache on-demand (`queryClient.invalidateQueries(...)`).
 - Copy Indonesia. Cooldown dan `409`/`429` ditampilkan ke user.

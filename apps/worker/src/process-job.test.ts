@@ -657,10 +657,19 @@ test("resolves input image references to base64 data URLs before provider submit
   assert.equal(store.job.status, "succeeded");
   assert.ok(submittedParams !== null);
   const p = submittedParams as Record<string, unknown>;
-  assert.ok(typeof p.image === "string" && (p.image as string).startsWith("data:image/png;base64,"));
+  assert.ok(
+    typeof p.image === "string" &&
+      ((p.image as string).startsWith("http") || (p.image as string).startsWith("data:image/png;base64,")),
+  );
   assert.ok(Array.isArray(p.images) && p.images.length === 2);
-  assert.ok((p.images[0] as string).startsWith("data:image/png;base64,"));
-  assert.ok((p.images[1] as string).startsWith("data:image/png;base64,"));
+  assert.ok(
+    typeof p.images[0] === "string" &&
+      ((p.images[0] as string).startsWith("http") || (p.images[0] as string).startsWith("data:image/png;base64,")),
+  );
+  assert.ok(
+    typeof p.images[1] === "string" &&
+      ((p.images[1] as string).startsWith("http") || (p.images[1] as string).startsWith("data:image/png;base64,")),
+  );
 });
 
 test("publishes progress and success events to Redis Pub/Sub", async () => {

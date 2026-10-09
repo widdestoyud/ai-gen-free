@@ -2,11 +2,13 @@
 
 import { AppShell, Burger, Group, NavLink, Stack, Title } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
+import { useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, type ReactNode } from "react";
 import { LogoutConfirmModal } from "./logout-confirm-modal";
 import { useLogoutConfirm } from "@/hooks/use-logout-confirm";
+import { queryKeys } from "@/lib/query-keys";
 import classes from "./app-workspace.module.css";
 
 function SparklesIcon({ size = 18 }: { size?: number }) {
@@ -142,11 +144,49 @@ export function AppWorkspace({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [opened, { toggle, close }] = useDisclosure();
   const logout = useLogoutConfirm();
+  const queryClient = useQueryClient();
 
   // Close mobile navbar on route changes
   useEffect(() => {
     close();
   }, [pathname, close]);
+
+  // Global Realtime SSE listener for user invoice & balance events
+  useEffect(() => {
+    let eventSource: EventSource | null = null;
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+
+    function connect() {
+      try {
+        eventSource = new EventSource("/api/invoices/events");
+
+        eventSource.onmessage = (event) => {
+          try {
+            const parsed = JSON.parse(event.data);
+            if (parsed?.type === "invoice_updated") {
+              void queryClient.invalidateQueries({ queryKey: queryKeys.wallet() });
+              void queryClient.invalidateQueries({ queryKey: queryKeys.billingLedger() });
+              void queryClient.invalidateQueries({ queryKey: queryKeys.orderInvoices() });
+              void queryClient.invalidateQueries({ queryKey: queryKeys.customerProfile() });
+            }
+          } catch {}
+        };
+
+        eventSource.onerror = () => {
+          eventSource?.close();
+          eventSource = null;
+          reconnectTimer = setTimeout(connect, 5000);
+        };
+      } catch {}
+    }
+
+    connect();
+
+    return () => {
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+      eventSource?.close();
+    };
+  }, [queryClient]);
 
   return (
     <>
@@ -192,7 +232,6 @@ export function AppWorkspace({ children }: { children: ReactNode }) {
                     key={item.href}
                     component={Link}
                     href={item.href}
-                    prefetch={false}
                     label={item.label}
                     leftSection={<Icon size={18} />}
                     active={pathname === item.href}

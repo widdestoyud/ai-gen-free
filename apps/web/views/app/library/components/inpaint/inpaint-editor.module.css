@@ -1,0 +1,316 @@
+.modalRoot {
+  width: 100vw !important;
+  max-width: 100vw !important;
+  overflow-x: hidden !important;
+}
+
+.modalInner {
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+  width: 100vw !important;
+  min-width: 100% !important;
+  max-width: 100vw !important;
+  height: 100% !important;
+  padding: 16px !important;
+  box-sizing: border-box !important;
+}
+
+.modalContent {
+  flex: 0 1 1100px !important;
+  width: 100% !important;
+  max-width: min(1100px, 100%) !important;
+  box-sizing: border-box !important;
+  overflow: hidden;
+  background: #121316 !important;
+  border-radius: 16px !important;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  max-height: calc(100dvh - 32px);
+  display: flex;
+  flex-direction: column;
+  margin-inline: auto !important;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.7);
+}
+
+.modalHeader {
+  background: #17181c !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 12px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.modalTitle {
+  font-size: 16px;
+  font-weight: 600;
+  color: #f1f3f5;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.modalBody {
+  padding: 0 !important;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.editorLayout {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+}
+
+@media (min-width: 62em) {
+  .editorLayout {
+    flex-direction: row;
+  }
+}
+
+/* Canvas Area */
+.canvasContainer {
+  flex: 1;
+  min-height: 380px;
+  background: #090a0c;
+  background-image: 
+    radial-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+  background-size: 20px 20px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  user-select: none;
+  touch-action: none;
+}
+
+.canvasWrapper {
+  position: relative;
+  max-width: 100%;
+  max-height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.baseImage {
+  display: block;
+  max-width: 100%;
+  max-height: calc(100dvh - 220px);
+  object-fit: contain;
+  pointer-events: none;
+  user-select: none;
+}
+
+.maskCanvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  cursor: none;
+  touch-action: none;
+}
+
+/* Floating Circular Cursor Indicator */
+.cursorIndicator {
+  position: absolute;
+  pointer-events: none;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  border: 1.5px solid #fa8072;
+  background: rgba(250, 128, 114, 0.25);
+  box-shadow: 0 0 8px rgba(250, 128, 114, 0.6), inset 0 0 4px rgba(250, 128, 114, 0.4);
+  z-index: 10;
+  transition: width 0.05s ease, height 0.05s ease;
+}
+
+.cursorEraserIndicator {
+  position: absolute;
+  pointer-events: none;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  border: 1.5px solid #ffffff;
+  background: rgba(255, 255, 255, 0.25);
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.6);
+  z-index: 10;
+}
+
+/* Sidebar & Controls */
+.controlSidebar {
+  width: 100%;
+  background: #17181c;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  flex-direction: column;
+}
+
+@media (min-width: 62em) {
+  .controlSidebar {
+    width: 360px;
+    min-width: 360px;
+    max-width: 360px;
+    border-top: none;
+    border-left: 1px solid rgba(255, 255, 255, 0.08);
+  }
+}
+
+.sidebarContent {
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  flex: 1;
+  overflow-y: auto;
+}
+
+.sectionHeading {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #868e96;
+  margin-bottom: 6px;
+}
+
+.toolGroup {
+  display: flex;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  padding: 4px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.toolBtn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  color: #adb5bd;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.toolBtn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.06);
+  color: #f1f3f5;
+}
+
+.toolBtnActive {
+  background: #fa8072 !important;
+  color: #121316 !important;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(250, 128, 114, 0.4);
+}
+
+.toolBtnEraserActive {
+  background: #495057 !important;
+  color: #ffffff !important;
+  font-weight: 600;
+}
+
+.sliderRow {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sliderHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+  color: #ced4da;
+}
+
+.sliderValue {
+  font-size: 12px;
+  font-weight: 600;
+  color: #fa8072;
+  font-family: monospace;
+}
+
+.quickActionsRow {
+  display: flex;
+  gap: 8px;
+}
+
+.actionBtn {
+  flex: 1;
+  font-size: 12px;
+}
+
+.promptTextarea {
+  width: 100%;
+}
+
+.promptTextarea textarea {
+  background: rgba(0, 0, 0, 0.3) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  color: #f1f3f5 !important;
+  border-radius: 10px !important;
+  font-size: 13px;
+}
+
+.promptTextarea textarea:focus {
+  border-color: #fa8072 !important;
+}
+
+.sidebarFooter {
+  padding: 16px 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  background: #15161a;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.submitBtn {
+  background: linear-gradient(135deg, #fa8072 0%, #ff5252 100%) !important;
+  color: #ffffff !important;
+  font-weight: 600 !important;
+  border: none !important;
+  box-shadow: 0 4px 14px rgba(250, 128, 114, 0.4) !important;
+  transition: transform 0.15s ease, box-shadow 0.15s ease !important;
+}
+
+.submitBtn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(250, 128, 114, 0.5) !important;
+}
+
+.salmonTag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  background: rgba(250, 128, 114, 0.15);
+  border: 1px solid rgba(250, 128, 114, 0.3);
+  border-radius: 6px;
+  font-size: 11px;
+  color: #fa8072;
+}
+
+.salmonDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: #fa8072;
+}

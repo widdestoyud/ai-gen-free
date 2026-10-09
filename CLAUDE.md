@@ -12,6 +12,9 @@ Kunci:
 - Postman = tepat 1 koleksi (`ai-gen-free.postman_collection.json`) & 1 environment (`local.postman_environment.json`).
 - Endpoint browser publik DILARANG mengekspos nama model upstream / provider (hanya ID abstrak seperti `t2i-standard`, `video-standard`, dsb.).
 - Seluruh query daftar data WAJIB server-side pagination, sorting, & filtering (ADR 0018).
+- Frontend Next.js DILARANG refetch/polling API menggunakan interval (`refetchInterval` / `setInterval`); wajib event-driven via SSE (`/api/invoices/events`) & invalidasi cache on-demand.
+- Setiap integrasi model/provider baru di `packages/providers-*` WAJIB mengonversi payload aspect ratio mengacu pada referensi kanonik `apps/web/lib/aspect-ratio.ts` (tidak boleh fallback ke 1024x1024 saat rasio non-square dipilih).
+- Request probing/testing langsung ke upstream provider WAJIB memakai prefix prompt standar `[TEST:DEV]` / `[TEST:QA]`.
 - ADR di `docs/adr/` terkunci; perubahan = ADR baru.
 - SDLC: `aidlc/README.md`. Orchestrator tidak menulis kode produk.
 

@@ -1,7 +1,7 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { ActionIcon, Alert, Badge, Button, Group, Modal, Paper, Progress, Stack, Text, Textarea, UnstyledButton } from "@mantine/core";
+import { useEffect, useRef, useState } from "react";
+import { ActionIcon, Alert, Badge, Button, Group, HoverCard, Modal, Paper, Progress, Stack, Text, Textarea, UnstyledButton } from "@mantine/core";
 import { AppLink } from "@/components/app-link";
 import { CooldownText } from "@/components/cooldown-text";
 import { EmptyState } from "@/components/empty-state";
@@ -16,7 +16,7 @@ import { GenerateLibraryModal } from "./generate-library-modal";
 import { GenerateResultModal } from "./generate-result-modal";
 import { GenerateSettingsModal } from "./generate-settings-modal";
 import { GenerateSkeleton } from "./generate-skeleton";
-import { CloseIcon, GearIcon, ImageIcon, SparkleIcon, VideoIcon } from "./generate-icons";
+import { CloseIcon, GearIcon, ImageIcon, MagicWandIcon, SparkleIcon, VideoIcon } from "./generate-icons";
 import { GenerateDurationMenu, GenerateResolutionMenu } from "./generate-video-menu";
 import classes from "./generate-studio.module.css";
 
@@ -65,13 +65,13 @@ function renderHighlightedPrompt(promptText: string, activeRefs: StudioRef[]) {
   return elements;
 }
 
-export function GenerateStudio(props: {
-  available: number;
-  held: number;
-  models: Model[];
+export function GenerateStudio(props?: {
+  available?: number;
+  held?: number;
+  models?: Model[];
   defaults?: Partial<DefaultGenerationModelsConfig>;
-  jobs: JobView[];
-  nextGenerateAt: string | null;
+  jobs?: JobView[];
+  nextGenerateAt?: string | null;
   initialUploads?: StudioUpload[];
   initialUploadsTotal?: number;
   initialSpicyModeEnabled?: boolean;
@@ -81,7 +81,63 @@ export function GenerateStudio(props: {
   const lastJob = ctrl.lastGeneratedJob;
   const [previewRef, setPreviewRef] = useState<StudioRef | null>(null);
   const [settingsModalOpened, setSettingsModalOpened] = useState(false);
+  const [isPromptFocused, setIsPromptFocused] = useState(false);
+  const [contentHeight, setContentHeight] = useState(25);
+  const [isMagicPromptLoading, setIsMagicPromptLoading] = useState(false);
   const backdropRef = useRef<HTMLDivElement>(null);
+  const measureRef = useRef<HTMLDivElement>(null);
+
+  const hasText = Boolean(ctrl.prompt && ctrl.prompt.trim().length > 0);
+  const singleLineHeight = 26;
+  const maxBlurredHeight = 75;
+  const maxAllowedHeight = 200;
+
+  const measureHeight = () => {
+    if (measureRef.current) {
+      const scrollH = measureRef.current.scrollHeight || measureRef.current.offsetHeight;
+      setContentHeight(scrollH);
+    }
+  };
+
+  const handleMagicPrompt = async () => {
+    const rawPrompt = ctrl.prompt.trim();
+    if (!rawPrompt || isMagicPromptLoading) return;
+
+    try {
+      setIsMagicPromptLoading(true);
+      const res = await fetch("/api/generate/magic-prompt", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: rawPrompt }),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData?.error?.message || "Gagal memperjelas prompt");
+      }
+
+      const data = await res.json();
+      if (data.enhancedPrompt) {
+        ctrl.setPrompt(data.enhancedPrompt);
+      }
+    } catch (err) {
+      console.error("Magic prompt error:", err);
+    } finally {
+      setIsMagicPromptLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    measureHeight();
+  }, [ctrl.prompt]);
+
+  const targetWrapperHeight = isPromptFocused || isMagicPromptLoading
+    ? Math.min(Math.max(contentHeight || singleLineHeight, singleLineHeight), maxAllowedHeight)
+    : hasText
+    ? Math.min(Math.max(contentHeight || singleLineHeight, singleLineHeight), maxBlurredHeight)
+    : singleLineHeight;
+
+  const isComposerActive = hasText || ctrl.selectedRefs.length > 0;
 
   return (
     <div className={classes.page}>
@@ -145,9 +201,54 @@ export function GenerateStudio(props: {
 
       <div className={classes.dock}>
         <form onSubmit={(e) => void ctrl.submit(e)}>
+          {/* Mobile Configs Row (Hanya muncul di mobile/tab ketika aktif mengetik / memilih gambar) */}
+          {isComposerActive ? (
+            <div className={classes.mobileConfigsRow}>
+              {ctrl.spicyModeEnabled ? (
+                <div className={classes.pillSegment}>
+                  <button
+                    type="button"
+                    className={`${classes.pillBtn} ${ctrl.spicyFilter === "normal" ? classes.pillBtnActive : ""}`}
+                    onClick={() => ctrl.setSpicyFilter("normal")}
+                    aria-label="Filter Standard Models"
+                  >
+                    <span>Standard</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={`${classes.pillBtn} ${ctrl.spicyFilter === "spicy" ? classes.pillBtnSpicyActive : ""}`}
+                    onClick={() => ctrl.setSpicyFilter("spicy")}
+                    aria-label="Filter Spicy Models"
+                  >
+                    <span>Spicy</span>
+                  </button>
+                </div>
+              ) : null}
+
+              {ctrl.mediaType === "video" ? (
+                <>
+                  <GenerateResolutionMenu
+                    value={ctrl.videoResolution}
+                    onChange={ctrl.setVideoResolution}
+                  />
+                  <GenerateDurationMenu
+                    value={ctrl.videoDuration}
+                    onChange={ctrl.setVideoDuration}
+                  />
+                </>
+              ) : null}
+
+              <GenerateAspectMenu
+                value={ctrl.aspectRatio}
+                preview={ctrl.aspectMeta.preview}
+                onChange={ctrl.setAspectRatio}
+              />
+            </div>
+          ) : null}
+
           <Paper className={classes.composer} radius="xl" p="md" withBorder>
             {ctrl.selectedRefs.length > 0 ? (
-              <Group gap="xs" mb="sm">
+              <div className={classes.refThumbGallery}>
                 {ctrl.selectedRefs.map((item, idx) => {
                   const tagLabel = getRefTag(item, idx);
                   return (
@@ -192,7 +293,18 @@ export function GenerateStudio(props: {
                     </div>
                   );
                 })}
-              </Group>
+
+                {ctrl.selectedRefs.length < 5 ? (
+                  <button
+                    type="button"
+                    className={classes.addRefCardMobile}
+                    onClick={ctrl.openLibrary}
+                    aria-label="Tambah gambar referensi"
+                  >
+                    +
+                  </button>
+                ) : null}
+              </div>
             ) : null}
             {ctrl.mentionOpen && ctrl.selectedRefs.length > 0 ? (
               <div className={classes.mentionDropdown}>
@@ -215,27 +327,112 @@ export function GenerateStudio(props: {
                 })}
               </div>
             ) : null}
-            <div className={classes.textareaWrapper}>
-              <div ref={backdropRef} className={classes.highlightBackdrop} aria-hidden="true">
+            <div
+              className={classes.textareaWrapper}
+              style={{ height: `${targetWrapperHeight}px` }}
+            >
+              {hasText ? (
+                <HoverCard
+                  width={280}
+                  shadow="md"
+                  withArrow
+                  position="top-end"
+                  openDelay={150}
+                  closeDelay={100}
+                  radius="md"
+                >
+                  <HoverCard.Target>
+                    <button
+                      type="button"
+                      className={`${classes.magicPromptBtn} ${isMagicPromptLoading ? classes.magicPromptBtnLoading : ""}`}
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                      }}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        void handleMagicPrompt();
+                      }}
+                      aria-label="Magic Prompt"
+                      disabled={isMagicPromptLoading}
+                    >
+                      <MagicWandIcon size={16} />
+                    </button>
+                  </HoverCard.Target>
+                  <HoverCard.Dropdown p="xs">
+                    <Group gap={6} mb={4} align="center">
+                      <MagicWandIcon size={14} />
+                      <Text size="xs" fw={700} c="violet.4">
+                        Magic Prompt
+                      </Text>
+                    </Group>
+                    <Text size="xs" c="dimmed" lh={1.4}>
+                      Perjelas dan tingkatkan kualitas prompt secara otomatis menggunakan AI agar hasil render lebih detail, estetik, dan sinematik.
+                    </Text>
+                  </HoverCard.Dropdown>
+                </HoverCard>
+              ) : null}
+              <div
+                ref={measureRef}
+                className={`${classes.measureMirror} ${hasText ? classes.hasMagicBtnPadding : ""}`}
+                aria-hidden="true"
+              >
+                {ctrl.prompt || "A"}
+              </div>
+              <div
+                ref={backdropRef}
+                className={`${classes.highlightBackdrop} ${hasText ? classes.hasMagicBtnPadding : ""}`}
+                aria-hidden="true"
+              >
                 {renderHighlightedPrompt(ctrl.prompt, ctrl.selectedRefs)}
               </div>
               <Textarea
                 ref={ctrl.textareaRef}
                 placeholder="Type to imagine"
                 value={ctrl.prompt}
-                onChange={(e) => ctrl.handlePromptChange(e.currentTarget.value, e.currentTarget.selectionStart)}
+                disabled={isMagicPromptLoading}
+                onChange={(e) => {
+                  ctrl.handlePromptChange(e.currentTarget.value, e.currentTarget.selectionStart);
+                  measureHeight();
+                }}
+                onFocus={() => {
+                  setIsPromptFocused(true);
+                  measureHeight();
+                }}
+                onBlur={() => {
+                  setIsPromptFocused(false);
+                  if (ctrl.textareaRef.current) {
+                    ctrl.textareaRef.current.scrollTop = 0;
+                  }
+                  if (backdropRef.current) {
+                    backdropRef.current.scrollTop = 0;
+                  }
+                }}
                 onKeyDown={ctrl.handlePromptKeyDown}
+                onKeyUp={(e) => {
+                  if (backdropRef.current) {
+                    backdropRef.current.scrollTop = e.currentTarget.scrollTop;
+                  }
+                }}
+                onSelect={(e) => {
+                  if (backdropRef.current) {
+                    backdropRef.current.scrollTop = e.currentTarget.scrollTop;
+                  }
+                }}
                 onScroll={(e) => {
                   if (backdropRef.current) {
                     backdropRef.current.scrollTop = e.currentTarget.scrollTop;
                   }
                 }}
-                autosize
-                minRows={ctrl.prompt.trim() ? 3 : 1}
-                maxRows={8}
                 maxLength={4000}
                 variant="unstyled"
-                classNames={{ input: classes.textarea }}
+                classNames={{
+                  root: classes.textareaRoot,
+                  wrapper: classes.textareaInnerWrapper,
+                  input: `${classes.textarea} ${
+                    isPromptFocused ? classes.textareaFocused : classes.textareaBlurred
+                  } ${hasText ? classes.hasMagicBtnPadding : ""}`,
+                }}
               />
             </div>
             {/* Desktop Controls Row */}
@@ -309,13 +506,13 @@ export function GenerateStudio(props: {
                   />
 
                   <Text size="sm" c="dimmed" fw={500}>
-                    {props.available} sparks
+                    {ctrl.available} sparks
                   </Text>
 
                   <button
                     type="submit"
                     className={classes.fancyGenerateBtn}
-                    disabled={!ctrl.canSend}
+                    disabled={!ctrl.canSend || isMagicPromptLoading}
                     aria-label="Generate"
                   >
                     <span>Generate</span>
@@ -331,41 +528,64 @@ export function GenerateStudio(props: {
             {/* Mobile / Tablet Controls Row (Sesuai Referensi) */}
             <div className={classes.mobileControlsRow}>
               <div className={classes.mobileTopRow}>
-                <div className={classes.pillSegment}>
-                  <button
-                    type="button"
-                    className={`${classes.pillBtn} ${ctrl.mediaType === "image" ? classes.pillBtnActive : classes.pillBtnIconOnly}`}
-                    onClick={() => ctrl.setMediaType("image")}
-                    aria-label="Mode Image"
-                  >
-                    <ImageIcon size={15} />
-                    {ctrl.mediaType === "image" ? <span>Image</span> : null}
-                  </button>
-                  <button
-                    type="button"
-                    className={`${classes.pillBtn} ${ctrl.mediaType === "video" ? classes.pillBtnActive : classes.pillBtnIconOnly}`}
-                    onClick={() => ctrl.setMediaType("video")}
-                    aria-label="Mode Video"
-                  >
-                    <VideoIcon size={15} />
-                    {ctrl.mediaType === "video" ? <span>Video</span> : null}
-                  </button>
-                </div>
+                <Group gap="xs" align="center">
+                  {ctrl.selectedRefs.length === 0 ? (
+                    <ActionIcon
+                      type="button"
+                      variant="subtle"
+                      size="lg"
+                      onClick={ctrl.openLibrary}
+                      aria-label="Tambah gambar referensi"
+                      className={classes.mobileAddRefBtn}
+                    >
+                      +
+                    </ActionIcon>
+                  ) : null}
+                  <div className={classes.pillSegment}>
+                    <button
+                      type="button"
+                      className={`${classes.pillBtn} ${classes.pillBtnIconOnly} ${ctrl.mediaType === "image" ? classes.pillBtnActive : ""}`}
+                      onClick={() => ctrl.setMediaType("image")}
+                      aria-label="Mode Image"
+                    >
+                      <ImageIcon size={15} />
+                    </button>
+                    <button
+                      type="button"
+                      className={`${classes.pillBtn} ${classes.pillBtnIconOnly} ${ctrl.mediaType === "video" ? classes.pillBtnActive : ""}`}
+                      onClick={() => ctrl.setMediaType("video")}
+                      aria-label="Mode Video"
+                    >
+                      <VideoIcon size={15} />
+                    </button>
+                  </div>
+                </Group>
 
-                <button
-                  type="button"
-                  className={classes.mobileGearBtn}
-                  onClick={() => setSettingsModalOpened(true)}
-                  aria-label="Pengaturan Studio"
-                >
-                  <GearIcon size={18} />
-                </button>
+                {/* Magic prompt button pada mobile / tablet (menggantikan gear icon) */}
+                {isComposerActive ? (
+                  <button
+                    type="button"
+                    className={`${classes.mobileMagicPromptBtn} ${isMagicPromptLoading ? classes.mobileMagicPromptBtnLoading : ""}`}
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                    }}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      void handleMagicPrompt();
+                    }}
+                    aria-label="Magic Prompt"
+                    disabled={isMagicPromptLoading || !hasText}
+                  >
+                    <MagicWandIcon size={18} />
+                  </button>
+                ) : null}
               </div>
 
               <button
                 type="submit"
                 className={classes.mobileGenerateBtn}
-                disabled={!ctrl.canSend}
+                disabled={!ctrl.canSend || isMagicPromptLoading}
                 aria-label="Generate"
               >
                 <span>Generate</span>
@@ -376,7 +596,7 @@ export function GenerateStudio(props: {
               </button>
 
               <Text size="xs" c="dimmed" ta="center" mt={4} fw={500}>
-                {props.available} sparks
+                {ctrl.available} sparks
               </Text>
             </div>
           </Paper>
@@ -421,6 +641,8 @@ export function GenerateStudio(props: {
         uploadTotal={ctrl.uploadTotal}
         onUploadPageChange={ctrl.onUploadPageChange}
         isSelected={ctrl.isSelected}
+        selectedCount={ctrl.selectedRefs.length}
+        maxSelected={5}
         onToggleGeneration={ctrl.toggleGeneration}
         onToggleUpload={ctrl.toggleUpload}
         onUploadClick={ctrl.openFilePicker}
@@ -515,22 +737,13 @@ export function GenerateStudio(props: {
                   </Group>
                 </Paper>
 
-                <Group justify="space-between" align="center">
-                  <Text size="xs" c="dimmed">
-                    Gunakan tag{" "}
-                    <Text component="span" fw={600} c="green">
-                      {getRefTag(activePreviewRef)}
-                    </Text>{" "}
-                    pada prompt untuk mereferensikan gambar ini.
-                  </Text>
-                  <Button
-                    variant="default"
-                    size="xs"
-                    onClick={() => setPreviewRef(null)}
-                  >
-                    Tutup
-                  </Button>
-                </Group>
+                <Text size="xs" c="dimmed">
+                  Gunakan tag{" "}
+                  <Text component="span" fw={600} c="green">
+                    {getRefTag(activePreviewRef)}
+                  </Text>{" "}
+                  pada prompt untuk mereferensikan gambar ini.
+                </Text>
               </Stack>
             ) : null}
           </Modal>

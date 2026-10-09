@@ -168,3 +168,21 @@ test("listCustomerLibrary: supports sorting by name, size, date with order asc/d
   });
   assert.equal(resVideoDesc.limit, 20);
 });
+
+test("listCustomerLibrary: respects isSpicy filter and excludes spicy items when spicy is false", async () => {
+  const { listCustomerLibrary } = await import("./service.js");
+  const storage = new MemoryObjectStorage();
+
+  const res = await listCustomerLibrary({
+    userId: "usr_mock_123",
+    storage: storage as any,
+    isSpicy: false,
+  });
+  assert.equal(res.limit, 20);
+  assert.equal(res.offset, 0);
+  assert.ok(Array.isArray(res.items));
+  // Every returned item must NOT be spicy
+  for (const item of res.items) {
+    assert.notEqual(item.is_spicy, true);
+  }
+});

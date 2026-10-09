@@ -1,8 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
+import { useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { requestJson } from "@/lib/api";
 import { resolveUploadUrl } from "@/lib/format";
+import { uploadFileWithProgress, type UploadItemProgress } from "@/lib/upload";
+import { queryKeys } from "@/lib/query-keys";
 
 export type LibraryTab = "all" | "generations" | "uploads";
 export type LibraryViewMode = "grid" | "list";
@@ -27,6 +30,7 @@ export type LibraryItem = {
   created_at: string;
   expires_at?: string | null;
   params?: Record<string, unknown> | null;
+  is_spicy?: boolean;
 };
 
 export type CustomerLibraryResponse = {
@@ -36,17 +40,29 @@ export type CustomerLibraryResponse = {
   items: LibraryItem[];
 };
 
-export function useLibrary(props: {
+export function isUpscaledImage(item?: LibraryItem | null): boolean {
+  if (!item) return false;
+  if (item.type === "upload") return false;
+  const model = (item.model_id || "").toLowerCase();
+  if (model === "image-upscale" || model.includes("upscale")) return true;
+  if (
+    item.params &&
+    (item.params.upscale_mode !== undefined ||
+      item.params.upscale_factor !== undefined ||
+      item.params.upscaleMode !== undefined ||
+      item.params.upscaleFactor !== undefined)
+  ) {
+    return true;
+  }
+  return false;
+}
+
+export function useLibrary(props?: {
   initialItems?: LibraryItem[];
   initialTotal?: number;
 }) {
-  const [items, setItems] = useState<LibraryItem[]>(() =>
-    (props.initialItems ?? []).map((item) => ({
-      ...item,
-      url: resolveUploadUrl(item.url, item.id),
-    }))
-  );
-  const [total, setTotal] = useState(props.initialTotal ?? props.initialItems?.length ?? 0);
+  const queryClient = useQueryClient();
+
   const [tab, setTab] = useState<LibraryTab>("all");
   const [search, setSearch] = useState("");
   const [viewMode, setViewMode] = useState<LibraryViewMode>("grid");
@@ -55,15 +71,84 @@ export function useLibrary(props: {
   const [showOnly, setShowOnly] = useState<LibraryShowOnly>("all");
   const [selectedItem, setSelectedItem] = useState<LibraryItem | null>(null);
   const [previewOpened, setPreviewOpened] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [inFlightUploads, setInFlightUploads] = useState<UploadItemProgress[]>([]);
   const [uploadPolicyAccepted, setUploadPolicyAccepted] = useState(false);
   const [uploadPolicyModalOpened, setUploadPolicyModalOpened] = useState(false);
   const [policySaving, setPolicySaving] = useState(false);
   const [policyError, setPolicyError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  useEffect(() => {
+    return () => {
+      for (const item of inFlightUploads) {
+        URL.revokeObjectURL(item.url);
+      }
+    };
+  }, [inFlightUploads]);
+
   const userCheckedRef = useRef(false);
+
+  const typeParam = showOnly !== "all" ? showOnly : tab;
+  const sortParam = sortBy;
+  const orderParam = sortOrder === "newest" ? "desc" : "asc";
+  const qParam = search.trim();
+
+  const queryKey = useMemo(
+    () => queryKeys.library({ type: typeParam, sort: sortParam, order: orderParam, q: qParam }),
+    [typeParam, sortParam, orderParam, qParam]
+  );
+
+  const {
+    data,
+    isLoading: isQueryLoading,
+    isFetching,
+    refetch,
+  } = useQuery<CustomerLibraryResponse>({
+    queryKey,
+    queryFn: async () => {
+      const query = new URLSearchParams();
+      query.set("type", typeParam);
+      query.set("sort", sortParam);
+      query.set("order", orderParam);
+      if (qParam) query.set("q", qParam);
+      query.set("limit", "50");
+      query.set("offset", "0");
+
+      const res = await requestJson<CustomerLibraryResponse>(`/api/library?${query.toString()}`);
+      if (!res.ok) {
+        throw new Error(res.message || "Gagal memuat library");
+      }
+      return {
+        ...res.data,
+        items: (res.data.items || []).map((item) => ({
+          ...item,
+          url: resolveUploadUrl(item.url, item.id),
+        })),
+      };
+    },
+    initialData:
+      props?.initialItems && props.initialItems.length > 0 && tab === "all" && sortBy === "date" && sortOrder === "newest" && showOnly === "all" && !qParam
+        ? {
+            total: props.initialTotal ?? props.initialItems.length,
+            limit: 50,
+            offset: 0,
+            items: props.initialItems.map((item) => ({
+              ...item,
+              url: resolveUploadUrl(item.url, item.id),
+            })),
+          }
+        : undefined,
+    placeholderData: keepPreviousData,
+    staleTime: 1000 * 10, // 10 detik fresh cache
+    gcTime: 1000 * 60 * 60 * 24, // 24 jam retention di storage
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+  });
+
+  const items = data?.items ?? [];
+  const total = data?.total ?? 0;
+  const isLoading = isQueryLoading && items.length === 0;
 
   async function checkUserStatus() {
     if (userCheckedRef.current) return { accepted: uploadPolicyAccepted };
@@ -83,71 +168,12 @@ export function useLibrary(props: {
     };
   }
 
-  useEffect(() => {
-    if (props.initialItems && props.initialItems.length > 0) {
-      setItems(
-        props.initialItems.map((item) => ({
-          ...item,
-          url: resolveUploadUrl(item.url, item.id),
-        }))
-      );
-    }
-    if (typeof props.initialTotal === "number") {
-      setTotal(props.initialTotal);
-    }
-    // Always trigger background fresh fetch on client mount so newly generated items appear immediately
-    void fetchLibrary();
-  }, [props.initialItems, props.initialTotal]);
-
-  async function fetchLibrary(params?: {
-    tab?: LibraryTab;
-    search?: string;
-    sortBy?: LibrarySortBy;
-    sortOrder?: LibrarySortOrder;
-    showOnly?: LibraryShowOnly;
-  }) {
-    const currentTab = params?.tab ?? tab;
-    const currentSearch = params?.search ?? search;
-    const currentSort = params?.sortBy ?? sortBy;
-    const currentOrder = params?.sortOrder ?? sortOrder;
-    const currentShowOnly = params?.showOnly ?? showOnly;
-
-    const typeParam = currentShowOnly !== "all" ? currentShowOnly : currentTab;
-    const sortParam = currentSort;
-    const orderParam = currentOrder === "newest" ? "desc" : "asc";
-    const qParam = currentSearch.trim();
-
-    const query = new URLSearchParams();
-    query.set("type", typeParam);
-    query.set("sort", sortParam);
-    query.set("order", orderParam);
-    if (qParam) query.set("q", qParam);
-    query.set("limit", "50");
-    query.set("offset", "0");
-
-    setIsLoading(true);
-    const res = await requestJson<CustomerLibraryResponse>(`/api/library?${query.toString()}`);
-    setIsLoading(false);
-
-    if (res.ok && res.data.items) {
-      setTotal(res.data.total);
-      setItems(
-        res.data.items.map((item) => ({
-          ...item,
-          url: resolveUploadUrl(item.url, item.id),
-        }))
-      );
-    }
-  }
-
   function handleTabChange(newTab: LibraryTab) {
     setTab(newTab);
-    void fetchLibrary({ tab: newTab });
   }
 
   function handleSearchChange(newSearch: string) {
     setSearch(newSearch);
-    void fetchLibrary({ search: newSearch });
   }
 
   function handleViewModeChange(newViewMode: LibraryViewMode) {
@@ -156,17 +182,14 @@ export function useLibrary(props: {
 
   function handleSortByChange(newSortBy: LibrarySortBy) {
     setSortBy(newSortBy);
-    void fetchLibrary({ sortBy: newSortBy });
   }
 
   function handleSortOrderChange(newSortOrder: LibrarySortOrder) {
     setSortOrder(newSortOrder);
-    void fetchLibrary({ sortOrder: newSortOrder });
   }
 
   function handleShowOnlyChange(newShowOnly: LibraryShowOnly) {
     setShowOnly(newShowOnly);
-    void fetchLibrary({ showOnly: newShowOnly });
   }
 
   const groupedItems = useMemo(() => {
@@ -237,18 +260,83 @@ export function useLibrary(props: {
     }
 
     setIsUploading(true);
-    for (const file of files) {
-      const formData = new FormData();
-      formData.append("file", file);
-      try {
-        await fetch("/api/customer-uploads", {
-          method: "POST",
-          body: formData,
+
+    const newUploads: UploadItemProgress[] = files.map((file) => {
+      const cleanName = file.name.replace(/\.[^/.]+$/, "");
+      return {
+        id: `upl-${crypto.randomUUID()}`,
+        file,
+        name: cleanName,
+        alias: cleanName,
+        url: URL.createObjectURL(file),
+        progress: 0,
+        uploading: true,
+        error: null,
+      };
+    });
+
+    setInFlightUploads((prev) => [...newUploads, ...prev]);
+
+    const uploadPromises = newUploads.map((item) => {
+      return new Promise<void>((resolve) => {
+        uploadFileWithProgress(item.file, {
+          onProgress: (pct) => {
+            setInFlightUploads((prev) =>
+              prev.map((u) => (u.id === item.id ? { ...u, progress: pct } : u))
+            );
+          },
+          onSuccess: (res) => {
+            setInFlightUploads((prev) =>
+              prev.map((u) => (u.id === item.id ? { ...u, progress: 100, uploading: false } : u))
+            );
+
+            const newItem: LibraryItem = {
+              id: res.id,
+              type: "upload",
+              kind: item.file.type.startsWith("video/") ? "video" : "image",
+              alias: (res.alias || item.name).replace(/\.[^/.]+$/, ""),
+              status: "completed",
+              url: res.url,
+              mime_type: item.file.type || "image/png",
+              width: res.width ?? null,
+              height: res.height ?? null,
+              size_bytes: item.file.size,
+              created_at: new Date().toISOString(),
+            };
+
+            queryClient.setQueriesData<CustomerLibraryResponse>(
+              { queryKey: queryKeys.library() },
+              (old) => {
+                if (!old) return old;
+                return {
+                  ...old,
+                  total: old.total + 1,
+                  items: [newItem, ...old.items.filter((i) => i.id !== res.id)],
+                };
+              }
+            );
+
+            setTimeout(() => {
+              URL.revokeObjectURL(item.url);
+              setInFlightUploads((prev) => prev.filter((u) => u.id !== item.id));
+            }, 500);
+            resolve();
+          },
+          onError: (errMsg) => {
+            setInFlightUploads((prev) =>
+              prev.map((u) =>
+                u.id === item.id ? { ...u, uploading: false, error: errMsg } : u
+              )
+            );
+            resolve();
+          },
         });
-      } catch {}
-    }
+      });
+    });
+
+    await Promise.all(uploadPromises);
     setIsUploading(false);
-    void fetchLibrary();
+    void queryClient.invalidateQueries({ queryKey: queryKeys.library() });
   }
 
   async function deleteUpload(id: string): Promise<boolean> {
@@ -256,11 +344,21 @@ export function useLibrary(props: {
       method: "DELETE",
     });
     if (res.ok) {
-      setItems((prev) => prev.filter((item) => item.id !== id));
-      setTotal((prev) => Math.max(0, prev - 1));
       if (selectedItem?.id === id) {
         closePreview();
       }
+      queryClient.setQueriesData<CustomerLibraryResponse>(
+        { queryKey: queryKeys.library() },
+        (old) => {
+          if (!old) return old;
+          return {
+            ...old,
+            total: Math.max(0, old.total - 1),
+            items: old.items.filter((item) => item.id !== id),
+          };
+        }
+      );
+      void queryClient.invalidateQueries({ queryKey: queryKeys.library() });
       return true;
     }
     return false;
@@ -300,14 +398,16 @@ export function useLibrary(props: {
     showOnly,
     setShowOnly: handleShowOnlyChange,
     isLoading,
+    isFetching,
     groupedItems,
     selectedItem,
     previewOpened,
     openPreview,
     closePreview,
-    refreshLibrary: () => fetchLibrary(),
+    refreshLibrary: () => void refetch(),
     fileInputRef,
     isUploading,
+    inFlightUploads,
     openFilePicker,
     handleFileInputChange,
     deleteUpload,

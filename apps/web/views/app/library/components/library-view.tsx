@@ -1,9 +1,12 @@
 "use client";
 
+import { useState } from "react";
 import {
   ActionIcon,
   Button,
   Menu,
+  Progress,
+  Skeleton,
   Stack,
   Text,
   TextInput,
@@ -11,8 +14,8 @@ import {
 } from "@mantine/core";
 import Link from "next/link";
 import { EmptyState } from "@/components/empty-state";
-import { useLibrary, type LibraryItem, type LibraryTab } from "@/hooks/use-library";
-import { formatBytes, formatRelativeTime } from "@/lib/format";
+import { useLibrary, type LibraryItem, type LibraryTab, isUpscaledImage } from "@/hooks/use-library";
+import { formatBytes, formatRelativeTime, resolveUploadUrl } from "@/lib/format";
 import {
   CheckIcon,
   CloseIcon,
@@ -22,6 +25,7 @@ import {
   VideoIcon,
 } from "./library-icons";
 import { MediaDetailModal } from "./media-detail-modal";
+import { InpaintEditorModal } from "./inpaint/inpaint-editor-modal";
 import { UploadPolicyModal } from "@/components/upload-policy-modal";
 import classes from "./library-view.module.css";
 
@@ -32,20 +36,22 @@ const TABS: Array<{ label: string; value: LibraryTab }> = [
 ];
 
 function getMediaTitle(item: LibraryItem): string {
-  if (item.alias) return item.alias;
+  if (item.alias) return item.alias.replace(/\.[^/.]+$/, "");
+  if (isUpscaledImage(item)) return "Upscaled Image";
   if (item.prompt) {
     return item.kind === "video"
       ? `${item.prompt.slice(0, 32)}.mp4`
       : item.prompt;
   }
-  return item.kind === "video" ? "uploaded_video.mp4" : "uploaded_image.webp";
+  return item.kind === "video" ? "uploaded_video" : "uploaded_image";
 }
 
-export function LibraryView(props: {
+export function LibraryView(props?: {
   initialItems?: LibraryItem[];
   initialTotal?: number;
 }) {
   const ctrl = useLibrary(props);
+  const [inpaintItem, setInpaintItem] = useState<LibraryItem | null>(null);
 
   return (
     <div className={classes.container}>
@@ -196,7 +202,21 @@ export function LibraryView(props: {
         </div>
       </div>
 
-      {ctrl.items.length === 0 ? (
+      {ctrl.isLoading ? (
+        <div className={classes.grid}>
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div key={i} className={classes.cardWrapper}>
+              <div className={classes.mediaThumbBox}>
+                <Skeleton height="100%" radius="sm" />
+              </div>
+              <div className={classes.cardMeta}>
+                <Skeleton height={14} width="75%" radius="xs" mt={4} />
+                <Skeleton height={11} width="45%" radius="xs" mt={6} />
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : ctrl.items.length === 0 && ctrl.inFlightUploads.length === 0 ? (
         <EmptyState minHeight={320}>
           <Stack align="center" gap="xs">
             <Text c="dimmed">
@@ -206,14 +226,56 @@ export function LibraryView(props: {
                   ? "Belum ada berkas media yang diunggah."
                   : "Belum ada media hasil generate."}
             </Text>
-            <Button component={Link} href="/app/generate" prefetch={false} variant="light" size="xs">
-              Mulai Generate
-            </Button>
+            {ctrl.tab !== "uploads" && (
+              <Button component={Link} href="/app/generate" prefetch={false} variant="light" size="xs">
+                Mulai Generate
+              </Button>
+            )}
           </Stack>
         </EmptyState>
       ) : ctrl.viewMode === "grid" ? (
-        /* Flat Grid View without date grouping */
+        /* Flat Grid View with in-flight uploads and items */
         <div className={classes.grid}>
+          {ctrl.inFlightUploads.map((upload) => (
+            <div key={upload.id} className={classes.cardWrapper} style={{ cursor: "default" }}>
+              <div className={classes.mediaThumbBox}>
+                {upload.file.type.startsWith("video/") ? (
+                  <video
+                    src={upload.url}
+                    className={`${classes.video} ${classes.tileBlur}`}
+                    muted
+                    playsInline
+                  />
+                ) : (
+                  <img
+                    src={upload.url}
+                    alt={upload.name}
+                    className={`${classes.image} ${classes.tileBlur}`}
+                  />
+                )}
+                <div className={classes.tileProgressOverlay}>
+                  <Progress
+                    value={upload.progress}
+                    size="sm"
+                    radius="xl"
+                    color="blue"
+                    animated
+                    className={classes.tileProgressBar}
+                  />
+                  <span className={classes.tileProgressText}>{upload.progress}%</span>
+                </div>
+              </div>
+              <div className={classes.cardMeta}>
+                <div className={classes.cardTitle} title={upload.name}>
+                  {upload.name}
+                </div>
+                <div className={classes.cardSub}>
+                  Mengunggah... · {formatBytes(upload.file.size)}
+                </div>
+              </div>
+            </div>
+          ))}
+
           {ctrl.items.map((item) => {
             const isVideo =
               item.kind === "video" || item.mime_type.startsWith("video/");
@@ -232,7 +294,7 @@ export function LibraryView(props: {
                 <div className={classes.mediaThumbBox}>
                   {isVideo ? (
                     <video
-                      src={item.url ?? ""}
+                      src={resolveUploadUrl(item.url)}
                       className={classes.video}
                       muted
                       playsInline
@@ -242,7 +304,7 @@ export function LibraryView(props: {
                     />
                   ) : (
                     <img
-                      src={item.url ?? ""}
+                      src={resolveUploadUrl(item.url)}
                       alt={item.prompt || item.alias || title}
                       loading="lazy"
                       className={classes.image}
@@ -267,8 +329,48 @@ export function LibraryView(props: {
           })}
         </div>
       ) : (
-        /* List View */
+        /* List View with in-flight uploads and items */
         <div className={classes.listContainer}>
+          {ctrl.inFlightUploads.map((upload) => (
+            <div key={upload.id} className={classes.listRow} style={{ cursor: "default" }}>
+              <div className={classes.listLeft}>
+                <div style={{ position: "relative", width: 48, height: 48, flexShrink: 0 }}>
+                  {upload.file.type.startsWith("video/") ? (
+                    <video
+                      src={upload.url}
+                      className={`${classes.listThumb} ${classes.tileBlur}`}
+                      muted
+                      playsInline
+                    />
+                  ) : (
+                    <img
+                      src={upload.url}
+                      alt={upload.name}
+                      className={`${classes.listThumb} ${classes.tileBlur}`}
+                    />
+                  )}
+                </div>
+                <Stack gap={2} className={classes.listTextCol} style={{ flex: 1, minWidth: 0 }}>
+                  <div className={classes.listTitle}>{upload.name}</div>
+                  <div style={{ width: "100%", maxWidth: 200, marginTop: 4 }}>
+                    <Progress
+                      value={upload.progress}
+                      size="xs"
+                      radius="xl"
+                      color="blue"
+                      animated
+                    />
+                  </div>
+                </Stack>
+              </div>
+
+              <div className={classes.listRight}>
+                <span>{upload.progress}%</span>
+                <span>{formatBytes(upload.file.size)}</span>
+              </div>
+            </div>
+          ))}
+
           {ctrl.items.map((item) => {
             const isVideo =
               item.kind === "video" || item.mime_type.startsWith("video/");
@@ -285,14 +387,14 @@ export function LibraryView(props: {
                 <div className={classes.listLeft}>
                   {isVideo ? (
                     <video
-                      src={item.url ?? ""}
+                      src={resolveUploadUrl(item.url)}
                       className={classes.listThumb}
                       muted
                       playsInline
                     />
                   ) : (
                     <img
-                      src={item.url ?? ""}
+                      src={resolveUploadUrl(item.url)}
                       alt={item.prompt || item.alias || title}
                       loading="lazy"
                       className={classes.listThumb}
@@ -322,6 +424,17 @@ export function LibraryView(props: {
         onSelectItem={ctrl.openPreview}
         onDeleteUpload={ctrl.deleteUpload}
         onUpscaleSuccess={() => void ctrl.refreshLibrary()}
+        onOpenInpaint={(item) => setInpaintItem(item)}
+      />
+
+      <InpaintEditorModal
+        opened={!!inpaintItem}
+        onClose={() => setInpaintItem(null)}
+        item={inpaintItem}
+        onSuccess={() => {
+          setInpaintItem(null);
+          void ctrl.refreshLibrary();
+        }}
       />
 
       <UploadPolicyModal

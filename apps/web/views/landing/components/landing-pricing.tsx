@@ -18,7 +18,8 @@ export function LandingPricing({ onSelectPlan, packages }: LandingPricingProps) 
       : DEFAULT_PRICING_PLANS;
 
   return (
-    <section className={classes.pricingSection} id="harga">
+    <section className={classes.pricingSection} id="pricing">
+      <div id="harga" style={{ position: "relative", top: -80 }} aria-hidden="true" />
       <Container size="xl">
         <div className={classes.sectionHeader}>
           <span className={classes.sectionTag}>

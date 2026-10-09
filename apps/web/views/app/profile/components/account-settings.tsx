@@ -10,6 +10,7 @@ import {
   Group,
   PasswordInput,
   Select,
+  Skeleton,
   Stack,
   Switch,
   Text,
@@ -17,11 +18,12 @@ import {
   Textarea,
   Tooltip,
 } from "@mantine/core";
-import type { CustomerProfile } from "./customer-home";
+import type { CustomerProfile } from "../types";
 import { useAccountSettings } from "@/hooks/use-account-settings";
 import { UploadPolicyModal } from "@/components/upload-policy-modal";
 import { TermsConditionsModal } from "@/components/terms-conditions-modal";
 import { SpicyConsentModal } from "@/components/spicy-consent-modal";
+import { GoogleGIcon } from "@/components/google-auth-button";
 import Link from "next/link";
 import classes from "./account-settings.module.css";
 
@@ -143,10 +145,29 @@ function getOperatorColor(operator?: string): string {
   return "teal";
 }
 
-export function AccountSettings({ profile: initialProfile }: { profile: CustomerProfile }) {
+export function AccountSettings({ profile: initialProfile }: { profile?: CustomerProfile | null }) {
   const ctrl = useAccountSettings(initialProfile);
   const [viewUploadPolicyOpened, setViewUploadPolicyOpened] = useState(false);
   const [viewSpicyPolicyOpened, setViewSpicyPolicyOpened] = useState(false);
+
+  if (ctrl.isLoading) {
+    return (
+      <div className={classes.container}>
+        <div className={classes.cardWrapper}>
+          <div className={classes.headerSection}>
+            <Skeleton height={24} width={200} radius="xs" mb={8} />
+            <Skeleton height={14} width="60%" radius="xs" />
+          </div>
+          {Array.from({ length: 7 }).map((_, i) => (
+            <div key={i} className={classes.rowItem}>
+              <Skeleton height={14} width={120} radius="xs" />
+              <Skeleton height={20} width="40%" radius="xs" />
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={classes.container}>
@@ -330,7 +351,7 @@ export function AccountSettings({ profile: initialProfile }: { profile: Customer
         </div>
 
         {/* 4.5 TANGGAL LAHIR */}
-        <div className={classes.rowItem}>
+        <div className={classes.rowItem} id="profile-row-dateOfBirth">
           <Text className={classes.rowLabel}>Tanggal Lahir</Text>
           {ctrl.editingField === "dateOfBirth" ? (
             <div className={classes.editFormWrapper}>
@@ -541,10 +562,31 @@ export function AccountSettings({ profile: initialProfile }: { profile: Customer
           )}
         </div>
 
-        {/* 7. PASSWORD (GANTI KATA SANDI) */}
+        {/* 7. PASSWORD (GANTI KATA SANDI / STATUS GOOGLE) */}
         <div className={classes.rowItem}>
-          <Text className={classes.rowLabel}>Password</Text>
-          {ctrl.isChangingPassword ? (
+          <Text className={classes.rowLabel}>Kata Sandi</Text>
+          {ctrl.profile.authProvider === "google" ? (
+            <div className={classes.rowValueWrapper}>
+              <Group gap="xs" align="center">
+                <Badge
+                  size="md"
+                  variant="light"
+                  color="blue"
+                  leftSection={<GoogleGIcon size={14} />}
+                  styles={{
+                    root: {
+                      textTransform: "none",
+                      fontWeight: 500,
+                      paddingLeft: 8,
+                      paddingRight: 10,
+                    },
+                  }}
+                >
+                  Akun Anda terhubung dengan Google
+                </Badge>
+              </Group>
+            </div>
+          ) : ctrl.isChangingPassword ? (
             <div className={classes.editFormWrapper}>
               <PasswordInput
                 label="Kata Sandi Lama"
@@ -729,6 +771,37 @@ export function AccountSettings({ profile: initialProfile }: { profile: Customer
               aria-label="Toggle Spicy Mode"
             />
           </Group>
+
+          {ctrl.spicyError ? (
+            <Alert
+              color="red"
+              variant="light"
+              mt="xs"
+              withCloseButton
+              onClose={() => ctrl.clearMessages()}
+              title="Perhatian"
+            >
+              <Group justify="space-between" align="center" wrap="wrap" gap="xs">
+                <Text size="xs" style={{ flex: 1 }}>{ctrl.spicyError}</Text>
+                {!ctrl.profile.dateOfBirth ? (
+                  <Button
+                    size="compact-xs"
+                    color="red"
+                    variant="filled"
+                    onClick={() => {
+                      ctrl.startEdit("dateOfBirth");
+                      const el = document.getElementById("profile-row-dateOfBirth");
+                      if (el) {
+                        el.scrollIntoView({ behavior: "smooth", block: "center" });
+                      }
+                    }}
+                  >
+                    Isi Tanggal Lahir
+                  </Button>
+                ) : null}
+              </Group>
+            </Alert>
+          ) : null}
         </div>
       </div>
 

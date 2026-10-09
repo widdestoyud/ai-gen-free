@@ -25,6 +25,7 @@ export const ErrorCodes = {
   SPICY_MODE_REQUIRED: "A031",
   UNDERAGE: "A032",
   DOB_REQUIRED: "A033",
+  AUTH_METHOD_MISMATCH: "A034",
 
   // B — Generate / Job
   JOB_IN_PROGRESS: "B001",

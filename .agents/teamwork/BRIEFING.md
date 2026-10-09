@@ -1,0 +1,1 @@
+/home/ubuntu/projects/ai-gen-free/.agents/teamwork/sentinel/BRIEFING.md

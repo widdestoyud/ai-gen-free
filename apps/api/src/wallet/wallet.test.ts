@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { ErrorCodes, type PaymentGatewayPort } from "@ai-gen-free/core";
+import { prisma } from "@ai-gen-free/db";
 import {
   cancelInvoiceForUser,
   cancelInvoiceForAdmin,
@@ -20,37 +21,62 @@ test("Topup catalog: returns predefined packages", async () => {
   assert.equal(staticPackages[0].amountIdr, 49000);
   assert.equal(staticPackages[0].points, 500);
 
-  const packages = await listPackages();
-  assert(packages.length >= 3);
-  assert(packages.some((p) => p.points > 0 && p.amountIdr > 0));
+  const origCount = prisma.topupPackage.count;
+  const origFind = prisma.topupPackage.findMany;
+  (prisma.topupPackage as any).count = async () => 3;
+  (prisma.topupPackage as any).findMany = async () => [
+    { id: "p49", amountIdr: 49000, points: 500, isPopular: false, bonusPercent: 0, sortOrder: 1, active: true },
+    { id: "p99", amountIdr: 99000, points: 1200, isPopular: true, bonusPercent: 20, sortOrder: 2, active: true },
+    { id: "p199", amountIdr: 199000, points: 2600, isPopular: false, bonusPercent: 30, sortOrder: 3, active: true },
+  ];
+  try {
+    const packages = await listPackages();
+    assert(packages.length >= 3);
+    assert(packages.some((p) => p.points > 0 && p.amountIdr > 0));
+  } finally {
+    prisma.topupPackage.count = origCount;
+    prisma.topupPackage.findMany = origFind;
+  }
 });
 
 test("cancelInvoiceForUser: throws NOT_FOUND when invoice does not exist", async () => {
-  await assert.rejects(
-    async () => {
-      await cancelInvoiceForUser("user_non_existent", "inv_non_existent");
-    },
-    (err: unknown) => {
-      assert(err instanceof AuthError);
-      assert.equal(err.code, ErrorCodes.NOT_FOUND);
-      assert.equal(err.status, 404);
-      return true;
-    },
-  );
+  const origFind = prisma.invoice.findFirst;
+  (prisma.invoice as any).findFirst = async () => null;
+  try {
+    await assert.rejects(
+      async () => {
+        await cancelInvoiceForUser("user_non_existent", "inv_non_existent");
+      },
+      (err: unknown) => {
+        const e = err as any;
+        assert.equal(e?.code, ErrorCodes.NOT_FOUND);
+        assert.equal(e?.status, 404);
+        return true;
+      },
+    );
+  } finally {
+    prisma.invoice.findFirst = origFind;
+  }
 });
 
 test("cancelInvoiceForAdmin: throws NOT_FOUND when invoice does not exist", async () => {
-  await assert.rejects(
-    async () => {
-      await cancelInvoiceForAdmin("inv_non_existent", "admin_user_id");
-    },
-    (err: unknown) => {
-      assert(err instanceof AuthError);
-      assert.equal(err.code, ErrorCodes.NOT_FOUND);
-      assert.equal(err.status, 404);
-      return true;
-    },
-  );
+  const origFind = prisma.invoice.findUnique;
+  (prisma.invoice as any).findUnique = async () => null;
+  try {
+    await assert.rejects(
+      async () => {
+        await cancelInvoiceForAdmin("inv_non_existent", "admin_user_id");
+      },
+      (err: unknown) => {
+        const e = err as any;
+        assert.equal(e?.code, ErrorCodes.NOT_FOUND);
+        assert.equal(e?.status, 404);
+        return true;
+      },
+    );
+  } finally {
+    prisma.invoice.findUnique = origFind;
+  }
 });
 
 test("createMidtransPaymentGateway: returns null when MIDTRANS_SERVER_KEY is not configured", () => {

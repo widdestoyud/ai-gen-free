@@ -1,8 +1,10 @@
 import type { FastifyInstance } from "fastify";
+import type IORedis from "ioredis";
 import "@fastify/multipart";
 import { ErrorCodes, type ObjectStorage } from "@ai-gen-free/core";
 import { AuthError, userFromCookie } from "../auth/service.js";
-import { requestIp } from "../http.js";
+import { RedisSubscriberMultiplexer } from "../lib/redis-multiplexer.js";
+import { requestIp, sendError } from "../http.js";
 import {
   approveInvoice,
   cancelInvoiceForAdmin,
@@ -22,18 +24,12 @@ import {
   proofBytesForAdmin,
   proofUrlForAdmin,
   rejectInvoice,
+  setWalletRedis,
   submitProof,
   updateAdminPackage,
   type CreatePackageInput,
   type UpdatePackageInput,
 } from "../wallet/service.js";
-
-function sendError(reply: { status: (n: number) => { send: (b: unknown) => unknown } }, err: unknown) {
-  if (err instanceof AuthError) {
-    return reply.status(err.status).send({ error: { code: err.code, message: err.message } });
-  }
-  throw err;
-}
 
 function isFileTooLarge(err: unknown): boolean {
   if (!err || typeof err !== "object") return false;
@@ -55,9 +51,14 @@ async function requireUser(
       ? (req.headers["authorization"] as string).slice(7).trim()
       : undefined);
 
-  let session = await userFromCookie(token, "user");
+  const context = {
+    ip: requestIp(req),
+    userAgent: typeof req.headers["user-agent"] === "string" ? req.headers["user-agent"] : undefined,
+  };
+
+  let session = await userFromCookie(token, "user", context);
   if (!session) {
-    session = await userFromCookie(token, "admin");
+    session = await userFromCookie(token, "admin", context);
   }
   if (!session) {
     reply.status(401).send({ error: { code: ErrorCodes.UNAUTHENTICATED, message: "Silakan masuk" } });
@@ -80,9 +81,14 @@ async function requireAdmin(
       ? (req.headers["authorization"] as string).slice(7).trim()
       : undefined);
 
-  let session = await userFromCookie(token, "admin");
+  const context = {
+    ip: requestIp(req),
+    userAgent: typeof req.headers["user-agent"] === "string" ? req.headers["user-agent"] : undefined,
+  };
+
+  let session = await userFromCookie(token, "admin", context);
   if (!session) {
-    session = await userFromCookie(token, "user");
+    session = await userFromCookie(token, "user", context);
   }
   if (!session || session.user.role !== "admin") {
     reply.status(401).send({
@@ -93,8 +99,28 @@ async function requireAdmin(
   return session;
 }
 
-export async function registerWalletRoutes(app: FastifyInstance, deps: { storage: ObjectStorage }) {
+function setNoCacheHeaders(reply: { header: (k: string, v: string) => unknown }) {
+  reply.header("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0");
+  reply.header("Pragma", "no-cache");
+  reply.header("Expires", "0");
+  reply.header("Surrogate-Control", "no-store");
+}
+
+export async function registerWalletRoutes(
+  app: FastifyInstance,
+  deps: { storage: ObjectStorage; redis?: IORedis | null },
+) {
+  if (deps.redis !== undefined) {
+    setWalletRedis(deps.redis);
+  }
+
+  const multiplexer = new RedisSubscriberMultiplexer(deps.redis);
+  app.addHook("onClose", async () => {
+    await multiplexer.close();
+  });
+
   app.get("/customer/coin", async (req, reply) => {
+    setNoCacheHeaders(reply);
     const session = await requireUser(req, reply);
     if (!session) return;
     const bal = await computeBalance(session.userId);
@@ -102,23 +128,88 @@ export async function registerWalletRoutes(app: FastifyInstance, deps: { storage
   });
 
   app.get("/customer/coin/ledger", async (req, reply) => {
+    setNoCacheHeaders(reply);
     const session = await requireUser(req, reply);
     if (!session) return;
-    return { entries: await listLedger(session.userId) };
+    const { page, limit } = (req.query ?? {}) as { page?: string; limit?: string };
+    return await listLedger(session.userId, {
+      page: page ? Number(page) : 1,
+      limit: limit ? Number(limit) : 10,
+    });
   });
 
   app.get("/customer/packages", async () => {
     return { packages: await listPackages() };
   });
 
+  app.get("/invoices/events", async (req, reply) => {
+    const session = await requireUser(req, reply);
+    if (!session) return;
+
+    reply.raw.setHeader("Content-Type", "text/event-stream");
+    reply.raw.setHeader("Cache-Control", "no-cache, no-transform");
+    reply.raw.setHeader("Connection", "keep-alive");
+    reply.raw.setHeader("X-Accel-Buffering", "no");
+    reply.raw.flushHeaders?.();
+
+    if (!deps.redis) {
+      reply.raw.write(`data: ${JSON.stringify({ type: "connected", userId: session.userId })}\n\n`);
+      reply.raw.end();
+      return;
+    }
+
+    const channel = `invoice-events:${session.userId}`;
+    let closed = false;
+    let unsubscribe: (() => void) | null = null;
+
+    const cleanup = () => {
+      if (closed) return;
+      closed = true;
+      clearInterval(heartbeat);
+      if (unsubscribe) {
+        unsubscribe();
+        unsubscribe = null;
+      }
+    };
+
+    try {
+      unsubscribe = await multiplexer.subscribe(channel, (message) => {
+        try {
+          reply.raw.write(`data: ${message}\n\n`);
+        } catch {
+          cleanup();
+        }
+      });
+    } catch {
+      cleanup();
+      reply.raw.end();
+      return;
+    }
+
+    reply.raw.write(`data: ${JSON.stringify({ type: "connected", userId: session.userId })}\n\n`);
+
+    const heartbeat = setInterval(() => {
+      try {
+        reply.raw.write(":ping\n\n");
+      } catch {
+        cleanup();
+      }
+    }, 15000);
+
+    req.raw.on("close", () => {
+      cleanup();
+    });
+  });
+
   app.post("/invoices", async (req, reply) => {
     const session = await requireUser(req, reply);
     if (!session) return;
     try {
-      const body = (req.body ?? {}) as { packageId?: unknown };
+      const body = (req.body ?? {}) as { packageId?: unknown; paymentMethod?: unknown };
       return await createInvoice(session.userId, body.packageId, {
         ip: requestIp(req as any),
         headers: req.headers,
+        paymentMethod: typeof body.paymentMethod === "string" ? body.paymentMethod : undefined,
       });
     } catch (err) {
       return sendError(reply, err);
@@ -128,7 +219,11 @@ export async function registerWalletRoutes(app: FastifyInstance, deps: { storage
   app.get("/invoices", async (req, reply) => {
     const session = await requireUser(req, reply);
     if (!session) return;
-    return { invoices: await listInvoicesForUser(session.userId) };
+    const { page, limit } = (req.query ?? {}) as { page?: string; limit?: string };
+    return await listInvoicesForUser(session.userId, {
+      page: page ? Number(page) : 1,
+      limit: limit ? Number(limit) : 10,
+    });
   });
 
   app.get("/invoices/:id", async (req, reply) => {
@@ -199,6 +294,65 @@ export async function registerWalletRoutes(app: FastifyInstance, deps: { storage
     } catch (err) {
       return sendError(reply, err);
     }
+  });
+
+  app.get("/admin/invoices/events", async (req, reply) => {
+    const session = await requireAdmin(req, reply);
+    if (!session) return;
+
+    reply.raw.setHeader("Content-Type", "text/event-stream");
+    reply.raw.setHeader("Cache-Control", "no-cache, no-transform");
+    reply.raw.setHeader("Connection", "keep-alive");
+    reply.raw.setHeader("X-Accel-Buffering", "no");
+    reply.raw.flushHeaders?.();
+
+    if (!deps.redis) {
+      reply.raw.write(`data: ${JSON.stringify({ type: "connected", role: "admin" })}\n\n`);
+      reply.raw.end();
+      return;
+    }
+
+    const channel = "invoice-events:all";
+    let closed = false;
+    let unsubscribe: (() => void) | null = null;
+
+    const cleanup = () => {
+      if (closed) return;
+      closed = true;
+      clearInterval(heartbeat);
+      if (unsubscribe) {
+        unsubscribe();
+        unsubscribe = null;
+      }
+    };
+
+    try {
+      unsubscribe = await multiplexer.subscribe(channel, (message) => {
+        try {
+          reply.raw.write(`data: ${message}\n\n`);
+        } catch {
+          cleanup();
+        }
+      });
+    } catch {
+      cleanup();
+      reply.raw.end();
+      return;
+    }
+
+    reply.raw.write(`data: ${JSON.stringify({ type: "connected", role: "admin" })}\n\n`);
+
+    const heartbeat = setInterval(() => {
+      try {
+        reply.raw.write(":ping\n\n");
+      } catch {
+        cleanup();
+      }
+    }, 15000);
+
+    req.raw.on("close", () => {
+      cleanup();
+    });
   });
 
   app.get("/admin/notifications", async (req, reply) => {

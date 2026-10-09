@@ -11,6 +11,7 @@ import {
   verifyPassword,
 } from "@ai-gen-free/core";
 import { enforceRateLimit } from "./rate-limit.js";
+import { DEFAULT_TESTER_ACCOUNT_CONFIG } from "../admin/parse.js";
 
 // Mock Redis untuk testing rate-limit di memory
 class MockRedis {
@@ -175,4 +176,22 @@ test("Upload Policy: error code and response definitions", () => {
   assert.equal(AuthResponses.errors.UPLOAD_POLICY_REQUIRED.code, "A030");
   assert.equal(AuthResponses.errors.UPLOAD_POLICY_REQUIRED.status, 403);
   assert.ok(AuthResponses.errors.UPLOAD_POLICY_REQUIRED.message.includes("kebijakan upload"));
+});
+
+test("Tester Account Config: default values and security validations", () => {
+  assert.equal(DEFAULT_TESTER_ACCOUNT_CONFIG.enabled, true);
+  assert.equal(DEFAULT_TESTER_ACCOUNT_CONFIG.otp, "201026");
+  assert.equal(DEFAULT_TESTER_ACCOUNT_CONFIG.email, "reviewer-pg@satulabs.id");
+  assert.equal(DEFAULT_TESTER_ACCOUNT_CONFIG.expiresAt, "2026-10-20T23:59:59.999Z");
+
+  // OTP must be strictly 6 digits
+  assert.equal(/^\d{6}$/.test(DEFAULT_TESTER_ACCOUNT_CONFIG.otp), true);
+  assert.equal(/^\d{6}$/.test("12345"), false);
+  assert.equal(/^\d{6}$/.test("abcdef"), false);
+  assert.equal(/^\d{6}$/.test("1234567"), false);
+
+  // Expiry date must be valid and in the future relative to 2026-10-06
+  const expiresTimestamp = new Date(DEFAULT_TESTER_ACCOUNT_CONFIG.expiresAt).getTime();
+  assert.ok(!Number.isNaN(expiresTimestamp));
+  assert.ok(expiresTimestamp > new Date("2026-10-06T00:00:00.000Z").getTime());
 });

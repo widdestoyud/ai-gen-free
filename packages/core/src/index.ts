@@ -77,3 +77,38 @@ export {
   getProgressMessage,
   type ProgressStageKey,
 } from "./progress-messages.js";
+export {
+  CANONICAL_ASPECT_RATIOS,
+  SEEDREAM_ASPECT_PAYLOAD_MAP,
+  GPT_IMAGE_ASPECT_PAYLOAD_MAP,
+  FAL_ASPECT_PAYLOAD_MAP,
+  WAN_VIDEO_ASPECT_MAP,
+  detectModelFamily,
+  normalizeCanonicalAspectRatio,
+  convertAspectRatioPayload,
+  type CanonicalAspectRatio,
+  type AspectRatioDimension,
+  type FalImageSizePreset,
+  type FalDimensionObject,
+  type FalImageSize,
+  type ModelPayloadFormat,
+} from "./aspect-ratio-converter.js";
+export {
+  isAutomatedToolUserAgent,
+  extractUaFingerprint,
+  isUserAgentMatching,
+  isSubnetMatching,
+  verifySessionBinding,
+  type SessionBindingContext,
+  type SessionVerificationResult,
+} from "./auth/session-security.js";
+export {
+  verifyDPoPProof,
+  calculateJwkThumbprint,
+  jwkToPublicKey,
+  type DPoPVerificationResult,
+  type DPoPProofHeader,
+  type DPoPProofPayload,
+} from "./auth/dpop.js";
+
+

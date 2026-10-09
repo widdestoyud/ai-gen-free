@@ -1,0 +1,35 @@
+--- a/apps/web/middleware.ts
++++ b/apps/web/middleware.ts
+@@ -1,5 +1,13 @@
+ import { NextResponse } from "next/server";
+ import type { NextRequest } from "next/server";
++import { timingSafeEqual, createHash } from "node:crypto";
++
++function safeCompare(a: string, b: string): boolean {
++  if (typeof a !== "string" || typeof b !== "string") return false;
++  const hashA = createHash("sha256").update(a).digest();
++  const hashB = createHash("sha256").update(b).digest();
++  return timingSafeEqual(hashA, hashB);
++}
+ 
+ export function middleware(req: NextRequest) {
+   const user = process.env.ADMIN_BASIC_USER ?? "";
+@@ -20,7 +28,17 @@
+   const i = decoded.indexOf(":");
+   const u = i >= 0 ? decoded.slice(0, i) : "";
+   const p = i >= 0 ? decoded.slice(i + 1) : "";
+-  if (!user || !pass || u !== user || p !== pass) {
++
++  if (!user || !pass) {
++    return new NextResponse("Autentikasi admin gagal", {
++      status: 401,
++      headers: { "WWW-Authenticate": 'Basic realm="admin"' },
++    });
++  }
++
++  const userValid = safeCompare(u, user);
++  const passValid = safeCompare(p, pass);
++  if (!userValid || !passValid) {
+     return new NextResponse("Autentikasi admin gagal", {
+       status: 401,
+       headers: { "WWW-Authenticate": 'Basic realm="admin"' },

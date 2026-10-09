@@ -13,6 +13,7 @@ export const DEFAULT_FALLBACK_MODELS = {
   spicyI2iModelId: "alibaba/qwen-image-3-edit-spicy",
   normalVideoModelId: "bytedance/seedance-2.5-i2v",
   spicyVideoModelId: "bytedance/seedance-2.0-i2v-spicy",
+  inpaintModelId: "fal-ai/flux-lora/inpainting",
 } as const;
 
 export type DefaultGenerationModelsConfig = {
@@ -22,6 +23,7 @@ export type DefaultGenerationModelsConfig = {
   spicyI2iModelId: string;
   normalVideoModelId: string;
   spicyVideoModelId: string;
+  inpaintModelId?: string;
 };
 
 export function parseLimitOffset(
@@ -129,4 +131,20 @@ export interface PaymentSettingsConfig {
   manualExpiryMinutes: number;
   onlineExpiryMinutes: number;
 }
+
+export const TESTER_ACCOUNT_KEY = "tester_account_config";
+
+export interface TesterAccountConfig {
+  enabled: boolean;
+  email: string;
+  otp: string;
+  expiresAt: string;
+}
+
+export const DEFAULT_TESTER_ACCOUNT_CONFIG: TesterAccountConfig = {
+  enabled: true,
+  email: "reviewer-pg@satulabs.id",
+  otp: "201026",
+  expiresAt: "2026-10-20T23:59:59.999Z",
+};
 

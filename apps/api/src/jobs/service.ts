@@ -152,25 +152,72 @@ export async function submitJob(opts: {
 }
 
 export async function getJobForUser(opts: { userId: string; id: string; storage: ObjectStorage }) {
-  const job = await prisma.job.findFirst({
-    where: { id: opts.id, userId: opts.userId },
-    include: { assets: { where: { kind: "output" }, orderBy: { createdAt: "desc" }, take: 1 } },
-  });
+  const [job, user] = await Promise.all([
+    prisma.job.findFirst({
+      where: { id: opts.id, userId: opts.userId },
+      include: { assets: { where: { kind: "output" }, orderBy: { createdAt: "desc" }, take: 1 } },
+    }),
+    prisma.user.findUnique({
+      where: { id: opts.userId },
+      select: { spicyModeEnabled: true },
+    }),
+  ]);
   if (!job) throw new AppError(ErrorCodes.NOT_FOUND, "Job tidak ditemukan", 404);
+
+  const isSpicy =
+    (job.modelId && (job.modelId.includes("spicy") || job.modelId.includes("uncensored"))) ||
+    (job.params &&
+      typeof job.params === "object" &&
+      !Array.isArray(job.params) &&
+      ((job.params as Record<string, unknown>).isSpicy === true ||
+        (job.params as Record<string, unknown>).is_spicy === true));
+
+  if (isSpicy && !user?.spicyModeEnabled) {
+    throw new AppError(
+      ErrorCodes.SPICY_MODE_REQUIRED,
+      AuthResponses.errors.SPICY_MODE_REQUIRED.message,
+      403,
+    );
+  }
+
   return serializeJob(job, opts.storage);
 }
 
 export async function listJobsForUser(opts: { userId: string; storage: ObjectStorage }) {
   const user = await prisma.user.findUniqueOrThrow({
     where: { id: opts.userId },
-    select: { nextGenerateAt: true },
+    select: { nextGenerateAt: true, spicyModeEnabled: true },
   });
+
+  let spicyModelIds: Set<string> | null = null;
+  if (!user.spicyModeEnabled) {
+    const spicyCatalogRows = await prisma.modelCatalog
+      .findMany({
+        where: { isSpicy: true },
+        select: { modelId: true },
+      })
+      .catch(() => []);
+    spicyModelIds = new Set(spicyCatalogRows.map((r) => r.modelId));
+  }
+
   const rows = await prisma.job.findMany({
-    where: { userId: opts.userId },
+    where: {
+      userId: opts.userId,
+      ...(!user.spicyModeEnabled && spicyModelIds
+        ? {
+            AND: [
+              { modelId: { notIn: Array.from(spicyModelIds) } },
+              { modelId: { not: { contains: "spicy" } } },
+              { modelId: { not: { contains: "uncensored" } } },
+            ],
+          }
+        : {}),
+    },
     orderBy: { createdAt: "desc" },
     take: 30,
     include: { assets: { where: { kind: "output" }, orderBy: { createdAt: "desc" }, take: 1 } },
   });
+
   return {
     nextGenerateAt: user.nextGenerateAt?.toISOString() ?? null,
     jobs: await Promise.all(rows.map((row) => serializeJob(row, opts.storage))),
@@ -186,6 +233,7 @@ export interface CustomerLibraryItem {
   kind: LibraryItemKind;
   alias: string | null;
   prompt: string | null;
+  model_id?: string | null;
   cost: number | null;
   status: string;
   url: string | null;
@@ -196,6 +244,7 @@ export interface CustomerLibraryItem {
   created_at: string;
   expires_at: string | null;
   params?: Record<string, unknown> | null;
+  is_spicy?: boolean;
 }
 
 export interface ListCustomerLibraryResult {
@@ -215,6 +264,7 @@ export async function listCustomerLibrary(opts: {
   sort?: string;
   order?: string;
   q?: string;
+  isSpicy?: boolean;
 }): Promise<ListCustomerLibraryResult> {
   const limit = typeof opts.limit === "number" && opts.limit > 0 ? Math.min(opts.limit, 100) : 20;
   const offset = typeof opts.offset === "number" && opts.offset >= 0 ? opts.offset : 0;
@@ -224,6 +274,39 @@ export async function listCustomerLibrary(opts: {
   const search = typeof opts.q === "string" ? opts.q.trim().toLowerCase() : "";
 
   const isAsc = rawOrder === "asc" || rawOrder === "oldest";
+
+  const [user, spicyCatalogRows] = await Promise.all([
+    prisma.user
+      .findUnique({
+        where: { id: opts.userId },
+        select: { spicyModeEnabled: true },
+      })
+      .catch(() => null),
+    prisma.modelCatalog
+      .findMany({
+        where: { isSpicy: true },
+        select: { modelId: true },
+      })
+      .catch(() => []),
+  ]);
+
+  const spicyModeEnabled = Boolean(user?.spicyModeEnabled);
+  const spicyModelIds = new Set(spicyCatalogRows.map((r) => r.modelId));
+
+  const isJobSpicy = (row: {
+    modelId?: string | null;
+    params?: Prisma.JsonValue | null;
+  }): boolean => {
+    if (row.modelId && spicyModelIds.has(row.modelId)) return true;
+    if (row.modelId && (row.modelId.includes("spicy") || row.modelId.includes("uncensored"))) {
+      return true;
+    }
+    if (row.params && typeof row.params === "object" && !Array.isArray(row.params)) {
+      const p = row.params as Record<string, unknown>;
+      if (p.isSpicy === true || p.is_spicy === true) return true;
+    }
+    return false;
+  };
 
   // Tentukan apakah perlu mengambil generated media dan/atau upload media
   const includeGenerated =
@@ -267,17 +350,71 @@ export async function listCustomerLibrary(opts: {
   // 1. Ambil Generated Media dari Job (hanya yang berhasil / succeeded dan memiliki live output)
   if (includeGenerated) {
     try {
+      const shouldExcludeSpicy = !spicyModeEnabled || opts.isSpicy === false;
+      const shouldOnlySpicy = spicyModeEnabled && opts.isSpicy === true;
+
+      const spicyFilterCondition: Prisma.JobWhereInput = shouldExcludeSpicy
+        ? {
+            AND: [
+              { modelId: { notIn: Array.from(spicyModelIds) } },
+              { modelId: { not: { contains: "spicy" } } },
+              { modelId: { not: { contains: "uncensored" } } },
+            ],
+          }
+        : shouldOnlySpicy
+          ? {
+              OR: [
+                { modelId: { in: Array.from(spicyModelIds) } },
+                { modelId: { contains: "spicy" } },
+                { modelId: { contains: "uncensored" } },
+              ],
+            }
+          : {};
+
       const jobWhere: Prisma.JobWhereInput = {
         userId: opts.userId,
         status: JobStatus.succeeded,
+        assets: {
+          some: {
+            kind: "output",
+            purgedAt: null,
+            expiresAt: { gt: now },
+          },
+        },
+        ...spicyFilterCondition,
       };
+
+      if (generatedKindFilter === "video") {
+        jobWhere.mode = { in: ["t2v", "i2v"] };
+      } else if (generatedKindFilter === "image") {
+        jobWhere.mode = { in: ["t2i", "i2i", "inpaint", "faceswap"] };
+      }
+
+      if (search) {
+        jobWhere.OR = [
+          { alias: { contains: search, mode: "insensitive" } },
+          { prompt: { contains: search, mode: "insensitive" } },
+          { id: { contains: search, mode: "insensitive" } },
+          { modelId: { contains: search, mode: "insensitive" } },
+        ];
+      }
+
+      let jobOrderBy: Prisma.JobOrderByWithRelationInput = { createdAt: isAsc ? "asc" : "desc" };
+      if (rawSort === "name" || rawSort === "alias") {
+        jobOrderBy = { alias: isAsc ? "asc" : "desc" };
+      } else if (rawSort === "cost") {
+        jobOrderBy = { cost: isAsc ? "asc" : "desc" };
+      }
+
+      const isJobOnly = !includeUploads;
 
       const [jobsCount, jobRows] = await Promise.all([
         prisma.job.count({ where: jobWhere }),
         prisma.job.findMany({
           where: jobWhere,
-          orderBy: { createdAt: isAsc ? "asc" : "desc" },
-          take: rawSort === "date" || rawSort === "created_at" ? fetchLimit : 100,
+          orderBy: jobOrderBy,
+          skip: isJobOnly ? offset : 0,
+          take: isJobOnly ? limit : fetchLimit,
           include: outputInclude,
         }),
       ]);
@@ -292,6 +429,14 @@ export async function listCustomerLibrary(opts: {
           continue;
         }
 
+        const spicy = isJobSpicy(row);
+        if (shouldExcludeSpicy && spicy) {
+          continue;
+        }
+        if (shouldOnlySpicy && !spicy) {
+          continue;
+        }
+
         const isVideo =
           row.mode?.includes("video") ||
           row.mode === "t2v" ||
@@ -303,7 +448,7 @@ export async function listCustomerLibrary(opts: {
           continue;
         }
 
-        const url = `/customer/generated/${row.id}/file`;
+        const url = `/api/customer/generated/${row.id}/file`;
         const mimeType = asset?.contentType || (isVideo ? "video/mp4" : "image/webp");
 
         generatedItems.push({
@@ -312,6 +457,7 @@ export async function listCustomerLibrary(opts: {
           kind: itemKind,
           alias: row.alias ?? null,
           prompt: row.prompt,
+          model_id: row.modelId ?? null,
           cost: Number(row.cost),
           status: row.status,
           url,
@@ -322,6 +468,7 @@ export async function listCustomerLibrary(opts: {
           created_at: row.createdAt.toISOString(),
           expires_at: asset?.expiresAt ? asset.expiresAt.toISOString() : null,
           params: (row.params as Record<string, unknown>) ?? null,
+          is_spicy: spicy,
         });
       }
     } catch {
@@ -340,12 +487,29 @@ export async function listCustomerLibrary(opts: {
         expiresAt: { gt: now },
       };
 
+      if (search) {
+        uploadWhere.OR = [
+          { alias: { contains: search, mode: "insensitive" } },
+          { id: { contains: search, mode: "insensitive" } },
+        ];
+      }
+
+      let uploadOrderBy: Prisma.UploadOrderByWithRelationInput = { createdAt: isAsc ? "asc" : "desc" };
+      if (rawSort === "name" || rawSort === "alias") {
+        uploadOrderBy = { alias: isAsc ? "asc" : "desc" };
+      } else if (rawSort === "size" || rawSort === "size_bytes") {
+        uploadOrderBy = { bytes: isAsc ? "asc" : "desc" };
+      }
+
+      const isUploadOnly = !includeGenerated;
+
       const [uploadsCount, uploadRows] = await Promise.all([
         prisma.upload.count({ where: uploadWhere }),
         prisma.upload.findMany({
           where: uploadWhere,
-          orderBy: { createdAt: isAsc ? "asc" : "desc" },
-          take: rawSort === "date" || rawSort === "created_at" ? fetchLimit : 100,
+          orderBy: uploadOrderBy,
+          skip: isUploadOnly ? offset : 0,
+          take: isUploadOnly ? limit : fetchLimit,
         }),
       ]);
 
@@ -358,9 +522,10 @@ export async function listCustomerLibrary(opts: {
           kind: "image",
           alias: row.alias ?? null,
           prompt: null,
+          model_id: null,
           cost: null,
           status: "ready",
-          url: `/customer/uploads/${row.id}/file`,
+          url: `/api/customer/uploads/${row.id}/file`,
           mime_type: (row.contentType as string) || "image/webp",
           width: row.width,
           height: row.height,
@@ -374,51 +539,65 @@ export async function listCustomerLibrary(opts: {
     }
   }
 
-  // 3. Gabungkan dan filter query pencarian jika ada
+  // 3. Gabungkan jika kedua jenis media diminta
   let combined = [...generatedItems, ...uploadItems];
 
-  if (search) {
-    combined = combined.filter((item) => {
-      const aliasMatch = item.alias?.toLowerCase().includes(search) ?? false;
-      const promptMatch = item.prompt?.toLowerCase().includes(search) ?? false;
-      const idMatch = item.id.toLowerCase().includes(search);
-      return aliasMatch || promptMatch || idMatch;
-    });
-  }
-
-  // 4. Urutkan berdasarkan sort dan order
-  combined.sort((a, b) => {
-    let cmp = 0;
-    if (rawSort === "name" || rawSort === "alias") {
-      const nameA = (a.alias || a.prompt || a.id).toLowerCase();
-      const nameB = (b.alias || b.prompt || b.id).toLowerCase();
-      cmp = nameA.localeCompare(nameB);
-    } else if (rawSort === "size" || rawSort === "size_bytes") {
-      const sizeA = a.size_bytes ?? 0;
-      const sizeB = b.size_bytes ?? 0;
-      cmp = sizeA - sizeB;
-    } else if (rawSort === "cost") {
-      const costA = a.cost ?? 0;
-      const costB = b.cost ?? 0;
-      cmp = costA - costB;
-    } else {
-      // Default: date / created_at
-      const timeA = new Date(a.created_at).getTime();
-      const timeB = new Date(b.created_at).getTime();
-      cmp = timeA - timeB;
+  if (includeGenerated && includeUploads) {
+    if (search) {
+      combined = combined.filter((item) => {
+        const aliasMatch = item.alias?.toLowerCase().includes(search) ?? false;
+        const promptMatch = item.prompt?.toLowerCase().includes(search) ?? false;
+        const idMatch = item.id.toLowerCase().includes(search);
+        const modelMatch = item.model_id?.toLowerCase().includes(search) ?? false;
+        const isUpscale =
+          item.model_id?.toLowerCase().includes("upscale") ||
+          Boolean(item.params && (item.params.upscale_mode !== undefined || item.params.upscale_factor !== undefined));
+        const upscaleMatch = isUpscale && (search.includes("upscale") || search === "upscaled");
+        return aliasMatch || promptMatch || idMatch || modelMatch || upscaleMatch;
+      });
     }
 
-    return isAsc ? cmp : -cmp;
-  });
+    // Jalankan sorting gabungan
+    combined.sort((a, b) => {
+      let cmp = 0;
+      if (rawSort === "name" || rawSort === "alias") {
+        const nameA = (a.alias || a.prompt || a.id).toLowerCase();
+        const nameB = (b.alias || b.prompt || b.id).toLowerCase();
+        cmp = nameA.localeCompare(nameB);
+      } else if (rawSort === "size" || rawSort === "size_bytes") {
+        const sizeA = a.size_bytes ?? 0;
+        const sizeB = b.size_bytes ?? 0;
+        cmp = sizeA - sizeB;
+      } else if (rawSort === "cost") {
+        const costA = a.cost ?? 0;
+        const costB = b.cost ?? 0;
+        cmp = costA - costB;
+      } else {
+        const timeA = new Date(a.created_at).getTime();
+        const timeB = new Date(b.created_at).getTime();
+        cmp = timeA - timeB;
+      }
 
-  const total = search || rawType !== "all" ? combined.length : totalJobs + totalUploads;
-  const items = combined.slice(offset, offset + limit);
+      return isAsc ? cmp : -cmp;
+    });
 
+    const total = search || rawType !== "all" ? combined.length : totalJobs + totalUploads;
+    const items = combined.slice(offset, offset + limit);
+
+    return {
+      total,
+      limit,
+      offset,
+      items,
+    };
+  }
+
+  // Jika single-source, pagination sudah diterapkan di tingkat database
   return {
-    total,
+    total: includeGenerated ? totalJobs : totalUploads,
     limit,
     offset,
-    items,
+    items: combined,
   };
 }
 

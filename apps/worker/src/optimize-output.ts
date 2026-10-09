@@ -58,7 +58,7 @@ export async function optimizeOutputImage(
     }
 
     const body = await pipeline
-      .webp({ quality, effort: 6 })
+      .webp({ quality, effort: 3 })
       .toBuffer();
 
     return {

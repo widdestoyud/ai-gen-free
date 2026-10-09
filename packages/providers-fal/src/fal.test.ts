@@ -176,5 +176,85 @@ test("buildFalSubmitPayload constructs correct SeedVR upscaler payload", () => {
   });
 
   assert.equal(default8k.upscale_mode, "factor");
-  assert.equal(default8k.upscale_factor, 8.0);
+  assert.equal(default8k.upscale_factor, 4.0);
+});
+
+test("buildFalSubmitPayload maps 9:16, 16:9 and other aspect ratios to fal image_size", () => {
+  const payload916 = buildFalSubmitPayload({
+    mode: "t2i",
+    modelId: "fal-ai/krea-2/turbo/lora",
+    prompt: "portrait photo",
+    params: { aspectRatio: "9:16" },
+  });
+  assert.equal(payload916.aspect_ratio, "9:16");
+  assert.equal(payload916.image_size, "portrait_16_9");
+
+  const payload169 = buildFalSubmitPayload({
+    mode: "t2i",
+    modelId: "fal-ai/krea-2/turbo/lora",
+    prompt: "landscape photo",
+    params: { aspectRatio: "16:9" },
+  });
+  assert.equal(payload169.aspect_ratio, "16:9");
+  assert.equal(payload169.image_size, "landscape_16_9");
+
+  const payload23 = buildFalSubmitPayload({
+    mode: "t2i",
+    modelId: "fal-ai/krea-2/turbo/lora",
+    prompt: "classic portrait",
+    params: { aspectRatio: "2:3" },
+  });
+  assert.equal(payload23.aspect_ratio, "2:3");
+  assert.deepEqual(payload23.image_size, { width: 832, height: 1216 });
+});
+
+test("buildFalSubmitPayload configures fast-svd video with <= 1s duration and 14 frames", () => {
+  const payload = buildFalSubmitPayload({
+    mode: "i2v",
+    modelId: "fal-ai/fast-svd",
+    prompt: "",
+    params: {
+      image_url: "https://example.com/source.png",
+      aspectRatio: "9:16",
+    },
+  });
+
+  assert.equal(payload.image_url, "https://example.com/source.png");
+  assert.equal(payload.duration, 1);
+  assert.equal(payload.num_frames, 14);
+  assert.equal(payload.fps, 14);
+  assert.equal(payload.motion_bucket_id, 127);
+  assert.equal(payload.aspect_ratio, "9:16");
+});
+
+test("buildFalSubmitPayload configures fast-animatediff with 16 frames and duration 1", () => {
+  const payload = buildFalSubmitPayload({
+    mode: "t2v",
+    modelId: "fal-ai/fast-animatediff/text-to-video",
+    prompt: "waterfall in lush jungle",
+    params: {
+      aspectRatio: "1:1",
+    },
+  });
+
+  assert.equal(payload.prompt, "waterfall in lush jungle");
+  assert.equal(payload.duration, 1);
+  assert.equal(payload.num_frames, 16);
+  assert.equal(payload.fps, 16);
+});
+
+test("buildFalSubmitPayload configures flux/schnell with num_inference_steps 4", () => {
+  const payload = buildFalSubmitPayload({
+    mode: "t2i",
+    modelId: "fal-ai/flux/schnell",
+    prompt: "sunset over ocean",
+    params: {
+      aspectRatio: "16:9",
+    },
+  });
+
+  assert.equal(payload.prompt, "sunset over ocean");
+  assert.equal(payload.aspect_ratio, "16:9");
+  assert.equal(payload.image_size, "landscape_16_9");
+  assert.equal(payload.num_inference_steps, 4);
 });

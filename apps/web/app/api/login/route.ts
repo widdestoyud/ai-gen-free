@@ -36,13 +36,23 @@ export async function POST(req: NextRequest) {
         transaction_id: parsed.transaction_id,
       });
     }
+    const status =
+      parsed.code === "E001" || parsed.code?.startsWith("E")
+        ? 500
+        : parsed.code === "A008"
+          ? 429
+          : parsed.code === "A013"
+            ? 403
+            : parsed.code === "A001"
+              ? 400
+              : 401;
     return Response.json(
       {
         transaction_id: parsed.transaction_id,
         error: { code: parsed.code || "A012", message: parsed.message },
       },
       {
-        status: parsed.code === "A008" ? 429 : parsed.code === "A013" ? 403 : 401,
+        status,
         headers: parsed.transaction_id ? { "x-transaction-id": parsed.transaction_id } : undefined,
       },
     );

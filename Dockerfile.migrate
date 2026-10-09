@@ -17,4 +17,4 @@ COPY packages/wallet/package.json packages/wallet/
 RUN pnpm install --frozen-lockfile
 COPY . .
 RUN pnpm db:generate
-CMD ["pnpm", "db:migrate-seed"]
+CMD ["pnpm", "db:seed"]

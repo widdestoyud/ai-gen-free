@@ -47,11 +47,13 @@ Baca root `AGENTS.md` dan ADR 0010, 0011, 0012, 0013, 0016, 0017.
 - Adapter sesi (boleh diganti tanpa ubah flow): `auth.ts`, `auth-admin.ts`, `lib/create-auth.ts`, `app/api/session/**`, `app/api/admin/session/**`.
 - Browser hanya `fetch('/api/...')` same-origin. BFF `app/api/[...path]` mem-proxy ke Fastify menggunakan pemetaan `resolveBackendPath`. Jangan `NEXT_PUBLIC_API_URL` ke host BE.
 - Ganti R2/SMTP/Siray **tidak** boleh mengubah komponen atau layout (ADR 0012).
+- Sinkronisasi realtime data (wallet/saldo, invoice, transaksi) **WAJIB** event-driven via Server-Sent Events (SSE `/api/invoices/events`) dan on-demand query cache invalidation (`queryClient.invalidateQueries(...)`), bukan polling interval.
 
 ## Dilarang
 
 - Menaruh komponen spesifik domain/halaman di `apps/web/components/`.
 - Memanggil endpoint `/api/*` tanpa mendaftarkannya di `apps/web/lib/api-mapping.ts`.
+- Melakukan polling atau refetch berkala ke API menggunakan interval (`refetchInterval` pada TanStack Query atau polling berkala via `setInterval`).
 - Prisma, BullMQ, SDK Siray, PrismaAdapter NextAuth
 - JWT di `localStorage`
 - Percaya `cost` / `role` / `points` dari form sebagai otoritas

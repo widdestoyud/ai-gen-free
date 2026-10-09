@@ -81,7 +81,7 @@ export function GenerateSettingsModal({
             </Text>
             {selectedRefs.length > 0 ? (
               <Badge size="sm" variant="light" color="blue">
-                {selectedRefs.length} gambar terpilih
+                {selectedRefs.length}/5 gambar terpilih
               </Badge>
             ) : null}
           </Group>

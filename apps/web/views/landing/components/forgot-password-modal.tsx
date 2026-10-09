@@ -62,7 +62,9 @@ export function ForgotPasswordModal({
       withCloseButton={!pending}
       title="Lupa Kata Sandi"
       centered
-      size="sm"
+      size="md"
+      radius="md"
+      padding="lg"
       classNames={{ content: shake ? "modal-shake" : "" }}
     >
       {success ? (
@@ -139,6 +141,7 @@ export function ForgotPasswordModal({
               variant="gradient"
               gradient={{ from: "#3b82f6", to: "#8b5cf6", deg: 135 }}
               fullWidth
+              size="md"
             >
               {pending ? "Mengirim Tautan…" : "Kirim Tautan Reset"}
             </Button>

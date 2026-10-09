@@ -1,3 +1,27 @@
-export function mergeCookie(existing: string | null, extra: string): string {
-  return existing ? `${existing}; ${extra}` : extra;
+/**
+ * Strips untrusted session tokens (`sid`, `sid_admin`) from a raw Cookie header string.
+ */
+export function sanitizeCookie(existing: string | null | undefined): string {
+  if (!existing) return "";
+  return existing
+    .split(";")
+    .map((c) => c.trim())
+    .filter((c) => {
+      if (!c) return false;
+      const eqIdx = c.indexOf("=");
+      const name = (eqIdx === -1 ? c : c.slice(0, eqIdx)).trim().toLowerCase();
+      return name !== "sid" && name !== "sid_admin";
+    })
+    .join("; ");
+}
+
+/**
+ * Merges a trusted session cookie into existing cookies after stripping
+ * any untrusted client-supplied session identifiers.
+ */
+export function mergeCookie(existing: string | null | undefined, extra?: string | null): string {
+  const sanitized = sanitizeCookie(existing);
+  const extraTrimmed = extra?.trim();
+  if (!extraTrimmed) return sanitized;
+  return sanitized ? `${sanitized}; ${extraTrimmed}` : extraTrimmed;
 }

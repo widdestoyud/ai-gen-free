@@ -20,13 +20,23 @@ export async function POST(req: NextRequest) {
     const result = await adminSignIn("password", { username, password, redirect: false });
     if (result && typeof result === "object" && "error" in result && result.error) {
       const parsed = parseAuthBridgeError(result.error);
+      const status =
+        parsed.code === "E001" || parsed.code?.startsWith("E")
+          ? 500
+          : parsed.code === "A008"
+            ? 429
+            : parsed.code === "A019"
+              ? 409
+              : parsed.code === "A001"
+                ? 400
+                : 401;
       return Response.json(
         {
           transaction_id: parsed.transaction_id,
           error: { code: parsed.code || "A012", message: parsed.message || "Kata sandi yang Anda masukkan salah." },
         },
         {
-          status: parsed.code === "A008" ? 429 : parsed.code === "A019" ? 409 : 401,
+          status,
           headers: parsed.transaction_id ? { "x-transaction-id": parsed.transaction_id } : undefined,
         },
       );
@@ -34,13 +44,23 @@ export async function POST(req: NextRequest) {
     return Response.json({ ok: true });
   } catch (err) {
     const parsed = parseAuthBridgeError(err);
+    const status =
+      parsed.code === "E001" || parsed.code?.startsWith("E")
+        ? 500
+        : parsed.code === "A008"
+          ? 429
+          : parsed.code === "A019"
+            ? 409
+            : parsed.code === "A001"
+              ? 400
+              : 401;
     return Response.json(
       {
         transaction_id: parsed.transaction_id,
         error: { code: parsed.code || "A012", message: parsed.message || "Kata sandi yang Anda masukkan salah." },
       },
       {
-        status: parsed.code === "A008" ? 429 : parsed.code === "A019" ? 409 : 401,
+        status,
         headers: parsed.transaction_id ? { "x-transaction-id": parsed.transaction_id } : undefined,
       },
     );

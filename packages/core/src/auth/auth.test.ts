@@ -26,9 +26,9 @@ test("validatePassword enforces min 8 chars, 1 uppercase, 1 digit", () => {
   assert.equal(validatePassword("MyStrongP@ss99").valid, true);
 });
 
-test("validatePassword accepts 64-character hex SHA-256 pre-hash", () => {
+test("validatePassword rejects 64-character hex SHA-256 pre-hash without uppercase/digits", () => {
   const sha256Hex = "5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8";
-  assert.equal(validatePassword(sha256Hex).valid, true);
+  assert.equal(validatePassword(sha256Hex).valid, false);
 });
 
 test("hashPassword and verifyPassword work correctly with scrypt and pre-hashed SHA-256", async () => {

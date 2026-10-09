@@ -1,10 +1,10 @@
-import { AccountSettings } from "./components/account-settings";
-import type { CustomerProfile } from "./components/customer-home";
+"use client";
 
-export function ProfilePageView({
-  profile,
-}: {
-  profile: CustomerProfile;
+import { AccountSettings } from "./components/account-settings";
+import type { CustomerProfile } from "./types";
+
+export function ProfilePageView(props?: {
+  profile?: CustomerProfile | null;
 }) {
-  return <AccountSettings profile={profile} />;
+  return <AccountSettings profile={props?.profile} />;
 }

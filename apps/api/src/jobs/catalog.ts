@@ -3,6 +3,12 @@ import { AppError, ErrorCodes } from "@ai-gen-free/core";
 import type { JobMode } from "@prisma/client";
 
 import { DEFAULT_FALLBACK_MODELS, DEFAULT_GENERATION_MODELS_KEY, type DefaultGenerationModelsConfig } from "../admin/parse.js";
+import {
+  getCachedAppSetting,
+  setCachedAppSetting,
+  getCachedCustomerCatalog,
+  setCachedCustomerCatalog,
+} from "../lib/cache.js";
 
 const DISPLAY_FALLBACK: Record<string, string> = {
   "black-forest-labs/flux-1.1-pro-t2i": "Flux 1.1 Pro",
@@ -14,10 +20,12 @@ const DISPLAY_FALLBACK: Record<string, string> = {
   "bytedance/seedance-2.0-i2v-spicy": "Seedance 2.0 I2V Spicy",
   "bytedance/seedance-2.5-i2v-spicy": "Seedance 2.5 I2V Spicy",
   "alibaba/wan-2.7-i2v-uncensored": "Wan 2.7 I2V Uncensored",
+  "fal-ai/flux-lora/inpainting": "Flux LoRA Inpainting",
+  "fal-ai/qwen-image-edit/inpaint": "Qwen Image Edit Inpaint",
   "dummy-t2i": "Dummy",
 };
 
-const VALID_MODES = new Set<string>(["t2i", "i2i", "t2v", "i2v"]);
+const VALID_MODES = new Set<string>(["t2i", "i2i", "t2v", "i2v", "inpaint"]);
 
 function asInt(value: { toString(): string } | number): number {
   return typeof value === "number" ? value : Number(value);
@@ -104,6 +112,9 @@ export function toOpaqueModelId(mode: string, rawModelId?: string, isSpicy?: boo
   if (rawModelId && rawModelId.includes("upscale")) {
     return "image-upscale";
   }
+  if (rawModelId && (rawModelId.includes("inpaint") || rawModelId === "image-inpaint") || mode === "inpaint") {
+    return "image-inpaint";
+  }
   const spicy =
     typeof isSpicy === "boolean"
       ? isSpicy
@@ -129,6 +140,7 @@ export function getCustomerCatalogDefaults() {
     normalVideoModelId: "video-standard",
     spicyVideoModelId: "video-spicy",
     upscaleModelId: "image-upscale",
+    inpaintModelId: "image-inpaint",
   };
 }
 
@@ -139,9 +151,12 @@ export function humanDisplayName(modelId: string, displayName?: string | null): 
 }
 
 export async function getActiveDefaultModels(): Promise<DefaultGenerationModelsConfig> {
+  const cached = await getCachedAppSetting<DefaultGenerationModelsConfig>(DEFAULT_GENERATION_MODELS_KEY);
+  if (cached) return cached;
+
   const row = await prisma.appSetting.findUnique({ where: { key: DEFAULT_GENERATION_MODELS_KEY } });
   const raw = row?.value as Partial<DefaultGenerationModelsConfig> | null | undefined;
-  return {
+  const config: DefaultGenerationModelsConfig = {
     normalT2iModelId:
       typeof raw?.normalT2iModelId === "string" && raw.normalT2iModelId.trim()
         ? raw.normalT2iModelId.trim()
@@ -166,7 +181,13 @@ export async function getActiveDefaultModels(): Promise<DefaultGenerationModelsC
       typeof raw?.spicyVideoModelId === "string" && raw.spicyVideoModelId.trim()
         ? raw.spicyVideoModelId.trim()
         : DEFAULT_FALLBACK_MODELS.spicyVideoModelId,
+    inpaintModelId:
+      typeof raw?.inpaintModelId === "string" && raw.inpaintModelId.trim()
+        ? raw.inpaintModelId.trim()
+        : DEFAULT_FALLBACK_MODELS.inpaintModelId,
   };
+  void setCachedAppSetting(DEFAULT_GENERATION_MODELS_KEY, config);
+  return config;
 }
 
 export function pickEnabledModel(rows: CatalogRow[], modeRaw: unknown, modelIdRaw: unknown): CatalogRow {
@@ -196,23 +217,10 @@ export function pickEnabledModel(rows: CatalogRow[], modeRaw: unknown, modelIdRa
   throw new AppError(ErrorCodes.VALIDATION_ERROR, "Pilih model yang tersedia");
 }
 
-export async function listEnabledModels(): Promise<CatalogRow[]> {
-  const rows = await prisma.modelCatalog.findMany({
-    where: { enabled: true },
-    orderBy: { createdAt: "asc" },
-  });
-  return rows.map((row) => ({
-    mode: row.mode,
-    modelId: row.modelId,
-    displayName: humanDisplayName(row.modelId, row.displayName),
-    providerId: row.providerId,
-    costPoints: asInt(row.costPoints),
-    videoConfigPoints: (row.videoConfigPoints as VideoConfigPoints) ?? null,
-    isSpicy: Boolean(row.isSpicy),
-  }));
-}
-
 export async function listCustomerCatalog(): Promise<CustomerCatalogItem[]> {
+  const cached = await getCachedCustomerCatalog<CustomerCatalogItem[]>();
+  if (cached) return cached;
+
   const [rows, defaults] = await Promise.all([
     prisma.modelCatalog.findMany({
       where: { enabled: true },
@@ -226,17 +234,19 @@ export async function listCustomerCatalog(): Promise<CustomerCatalogItem[]> {
   for (const row of rows) {
     const isSpicy = Boolean(row.isSpicy);
     const isUpscale = row.modelId.includes("upscale");
-    const opaqueId = isUpscale ? "image-upscale" : toOpaqueModelId(row.mode, row.modelId, isSpicy);
-    const key = isUpscale ? "upscale" : `${row.mode}_${isSpicy ? "spicy" : "normal"}`;
+    const isInpaint = row.mode === "inpaint" || row.modelId.includes("inpaint");
+    const opaqueId = isUpscale ? "image-upscale" : isInpaint ? "image-inpaint" : toOpaqueModelId(row.mode, row.modelId, isSpicy);
+    const key = isUpscale ? "upscale" : isInpaint ? "inpaint" : `${row.mode}_${isSpicy ? "spicy" : "normal"}`;
 
     const isPreferred =
       (row.mode === "t2i" && !isSpicy && row.modelId === defaults.normalT2iModelId) ||
       (row.mode === "t2i" && isSpicy && row.modelId === defaults.spicyT2iModelId) ||
-      (row.mode === "i2i" && !isUpscale && !isSpicy && row.modelId === defaults.normalI2iModelId) ||
-      (row.mode === "i2i" && !isUpscale && isSpicy && row.modelId === defaults.spicyI2iModelId) ||
+      (row.mode === "i2i" && !isUpscale && !isInpaint && !isSpicy && row.modelId === defaults.normalI2iModelId) ||
+      (row.mode === "i2i" && !isUpscale && !isInpaint && isSpicy && row.modelId === defaults.spicyI2iModelId) ||
       ((row.mode === "t2v" || row.mode === "i2v") && !isSpicy && row.modelId === defaults.normalVideoModelId) ||
       ((row.mode === "t2v" || row.mode === "i2v") && isSpicy && row.modelId === defaults.spicyVideoModelId) ||
-      isUpscale;
+      isUpscale ||
+      isInpaint;
 
     if (!map.has(key) || isPreferred) {
       map.set(key, {
@@ -249,7 +259,9 @@ export async function listCustomerCatalog(): Promise<CustomerCatalogItem[]> {
     }
   }
 
-  return Array.from(map.values());
+  const result = Array.from(map.values());
+  void setCachedCustomerCatalog(result);
+  return result;
 }
 
 export async function resolveModel(modeRaw: unknown, modelIdRaw: unknown, isSpicyRaw?: unknown) {
@@ -291,6 +303,53 @@ export async function resolveModel(modeRaw: unknown, modelIdRaw: unknown, isSpic
       return { ...upscaleRow, mode };
     }
     throw new AppError(ErrorCodes.VALIDATION_ERROR, "Fitur atau model upscale sedang dinonaktifkan");
+  }
+
+  if (rawModelId === "image-inpaint" || rawModelId === "image-edit" || rawModelId.includes("inpaint") || mode === "inpaint") {
+    const defaults = await getActiveDefaultModels();
+    const inpaintTargetId = defaults.inpaintModelId || "fal-ai/flux-lora/inpainting";
+
+    // 1. Cek model inpaint yang dikonfigurasi admin
+    const preferred = catalogRows.find((r) => r.modelId === inpaintTargetId);
+    if (preferred) {
+      return { ...preferred, mode: "inpaint" as JobMode };
+    }
+
+    // 2. Cek baris model inpaint yang aktif
+    const inpaintRow = catalogRows.find((r) => r.mode === "inpaint" || r.modelId.includes("inpaint"));
+    if (inpaintRow) {
+      return { ...inpaintRow, mode: "inpaint" as JobMode };
+    }
+
+    const directInpaint = await prisma.modelCatalog.findFirst({
+      where: {
+        OR: [
+          { modelId: inpaintTargetId, enabled: true },
+          { mode: "inpaint", enabled: true },
+          { modelId: { contains: "inpaint" }, enabled: true },
+        ],
+      },
+    });
+    if (directInpaint) {
+      return {
+        mode: "inpaint" as JobMode,
+        modelId: directInpaint.modelId,
+        displayName: humanDisplayName(directInpaint.modelId, directInpaint.displayName),
+        providerId: directInpaint.providerId,
+        costPoints: asInt(directInpaint.costPoints),
+        videoConfigPoints: (directInpaint.videoConfigPoints as VideoConfigPoints) ?? null,
+        isSpicy: Boolean(directInpaint.isSpicy),
+      };
+    }
+    return {
+      mode: "inpaint" as JobMode,
+      modelId: "fal-ai/flux-lora/inpainting",
+      displayName: "Flux LoRA Inpainting / Image Edit",
+      providerId: "falai",
+      costPoints: 10,
+      videoConfigPoints: null,
+      isSpicy: false,
+    };
   }
 
   const isAbstract =

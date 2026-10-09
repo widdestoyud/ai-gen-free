@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
-import { loadCustomerProfile } from "@/lib/server-api";
+import { loadCustomerProfile, loadPublicPackages } from "@/lib/server-api";
 import { LandingPageView } from "@/views/landing";
 
 export const metadata: Metadata = {
@@ -21,5 +21,7 @@ export default async function LandingRoutePage() {
     }
   }
 
-  return <LandingPageView />;
+  const packages = await loadPublicPackages();
+
+  return <LandingPageView packages={packages} />;
 }

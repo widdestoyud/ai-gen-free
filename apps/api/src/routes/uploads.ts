@@ -76,7 +76,12 @@ async function requireUser(
       ? (req.headers["authorization"] as string).slice(7).trim()
       : undefined);
 
-  const session = await userFromCookie(token, "user");
+  const context = {
+    ip: requestIp(req),
+    userAgent: typeof req.headers["user-agent"] === "string" ? req.headers["user-agent"] : undefined,
+  };
+
+  const session = await userFromCookie(token, "user", context);
   if (!session) {
     reply.status(401).send({ error: { code: ErrorCodes.UNAUTHENTICATED, message: "Silakan masuk" } });
     return null;
@@ -98,9 +103,14 @@ async function requireAdmin(
       ? (req.headers["authorization"] as string).slice(7).trim()
       : undefined);
 
-  let session = await userFromCookie(token, "admin");
+  const context = {
+    ip: requestIp(req),
+    userAgent: typeof req.headers["user-agent"] === "string" ? req.headers["user-agent"] : undefined,
+  };
+
+  let session = await userFromCookie(token, "admin", context);
   if (!session) {
-    session = await userFromCookie(token, "user");
+    session = await userFromCookie(token, "user", context);
   }
   if (!session || session.user.role !== "admin") {
     reply.status(401).send({
@@ -143,7 +153,7 @@ export async function registerUploadRoutes(app: FastifyInstance, deps: UploadRou
       }
 
       const buffer = await file.toBuffer();
-      const rawAlias = (file.fields?.alias as any)?.value;
+      const rawAlias = ((file.fields?.alias as any)?.value || file.filename || "").replace(/\.[^/.]+$/, "");
 
       const result = await processUpload({
         storage: deps.storage,
@@ -151,7 +161,7 @@ export async function registerUploadRoutes(app: FastifyInstance, deps: UploadRou
         actorId: session.userId,
         buffer,
         contentType: file.mimetype,
-        alias: typeof rawAlias === "string" ? rawAlias : undefined,
+        alias: rawAlias && rawAlias.trim().length > 0 ? rawAlias.trim() : undefined,
         req: { ip: requestIp(req as any), headers: req.headers },
       });
 
@@ -188,7 +198,7 @@ export async function registerUploadRoutes(app: FastifyInstance, deps: UploadRou
         id,
       });
       reply.header("Content-Type", file.contentType);
-      reply.header("Cache-Control", "private, max-age=3600");
+      reply.header("Cache-Control", "private, max-age=86400, stale-while-revalidate=604800");
       reply.header("Content-Disposition", "inline");
       return reply.send(Buffer.from(file.body));
     } catch (err) {
@@ -203,7 +213,7 @@ export async function registerUploadRoutes(app: FastifyInstance, deps: UploadRou
 
     try {
       const { id } = req.params as { id: string };
-      const res = await softDeleteUploadForUser(session.userId, id);
+      const res = await softDeleteUploadForUser(session.userId, id, deps.storage);
       return reply.status(200).send(res);
     } catch (err) {
       return sendError(reply, err, req);
@@ -239,7 +249,7 @@ export async function registerUploadRoutes(app: FastifyInstance, deps: UploadRou
       }
 
       const buffer = await file.toBuffer();
-      const rawAlias = (file.fields?.alias as any)?.value;
+      const rawAlias = ((file.fields?.alias as any)?.value || file.filename || "").replace(/\.[^/.]+$/, "");
 
       const result = await processUpload({
         storage: deps.storage,
@@ -247,7 +257,7 @@ export async function registerUploadRoutes(app: FastifyInstance, deps: UploadRou
         actorId: session.userId,
         buffer,
         contentType: file.mimetype,
-        alias: typeof rawAlias === "string" ? rawAlias : undefined,
+        alias: rawAlias && rawAlias.trim().length > 0 ? rawAlias.trim() : undefined,
       });
 
       return reply.status(200).send(result);
@@ -297,7 +307,7 @@ export async function registerUploadRoutes(app: FastifyInstance, deps: UploadRou
 
     try {
       const { id } = req.params as { id: string };
-      const res = await softDeleteUploadForAdmin(id);
+      const res = await softDeleteUploadForAdmin(id, deps.storage);
       return reply.status(200).send(res);
     } catch (err) {
       return sendError(reply, err, req);

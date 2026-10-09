@@ -1,5 +1,6 @@
 import type { IncomingHttpHeaders } from "node:http";
 import { randomBytes } from "node:crypto";
+import type IORedis from "ioredis";
 import { LedgerStatus, LedgerType, Prisma } from "@prisma/client";
 import { ErrorCodes, type ObjectStorage } from "@ai-gen-free/core";
 import { prisma } from "@ai-gen-free/db";
@@ -21,6 +22,50 @@ import {
   type CreatePackageInput,
   type UpdatePackageInput,
 } from "./catalog.js";
+
+let walletRedis: IORedis | null = null;
+
+export function setWalletRedis(redis: IORedis | null | undefined) {
+  walletRedis = redis ?? null;
+}
+
+export async function publishInvoiceEvent(invoice: {
+  id: string;
+  userId: string;
+  status: string;
+  uniqueCode: string;
+  points?: Prisma.Decimal | number;
+  amountIdr?: Prisma.Decimal | number;
+  reviewNote?: string | null;
+  paidAt?: Date | null;
+  proofSubmittedAt?: Date | null;
+  [key: string]: any;
+}) {
+  if (!walletRedis) return;
+  try {
+    const payload = JSON.stringify({
+      type: "invoice_updated",
+      invoiceId: invoice.id,
+      userId: invoice.userId,
+      status: invoice.status,
+      uniqueCode: invoice.uniqueCode,
+      points: invoice.points !== undefined ? asInt(invoice.points) : undefined,
+      amountIdr: invoice.amountIdr !== undefined ? asInt(invoice.amountIdr) : undefined,
+      reviewNote: invoice.reviewNote ?? null,
+      paidAt: invoice.paidAt instanceof Date ? invoice.paidAt.toISOString() : invoice.paidAt ?? null,
+      proofSubmittedAt:
+        invoice.proofSubmittedAt instanceof Date ? invoice.proofSubmittedAt.toISOString() : invoice.proofSubmittedAt ?? null,
+      timestamp: new Date().toISOString(),
+    });
+
+    await Promise.all([
+      walletRedis.publish(`invoice-events:${invoice.userId}`, payload),
+      walletRedis.publish("invoice-events:all", payload),
+    ]);
+  } catch (err) {
+    console.error("[wallet] Failed to publish invoice event to Redis", err);
+  }
+}
 
 export {
   computeBalance,
@@ -49,9 +94,10 @@ function asInt(value: Prisma.Decimal | number): number {
 export async function createInvoice(
   userId: string,
   packageId: unknown,
-  req?: {
+  opts?: {
     ip?: string;
     headers?: IncomingHttpHeaders;
+    paymentMethod?: string;
   },
 ) {
   const pack = await findPackage(packageId);
@@ -59,6 +105,8 @@ export async function createInvoice(
     throw new AuthError(ErrorCodes.VALIDATION_ERROR, "Paket tidak dikenal");
   }
   const uniqueCode = `INV-${randomBytes(4).toString("hex").toUpperCase()}`;
+  const paymentMethod =
+    opts?.paymentMethod === "manual" ? "manual" : opts?.paymentMethod === "online" ? "online" : opts?.paymentMethod;
   const invoice = await prisma.invoice.create({
     data: {
       userId,
@@ -66,45 +114,63 @@ export async function createInvoice(
       points: pack.points,
       uniqueCode,
       status: "unpaid",
+      paymentMethod: paymentMethod || undefined,
     },
   });
 
   void recordUserActivity({
     userId,
     action: "billing.invoice_created",
-    req,
+    req: opts ? { ip: opts.ip, headers: opts.headers } : undefined,
     metadata: {
       invoiceId: invoice.id,
       uniqueCode: invoice.uniqueCode,
       amountIdr: asInt(invoice.amountIdr),
       points: asInt(invoice.points),
+      paymentMethod: paymentMethod ?? null,
     },
   });
+
+  void publishInvoiceEvent(invoice);
+  triggerLazyAutoExpire();
 
   return serializeInvoice(invoice, true);
 }
 
 export async function getInvoiceForUser(userId: string, id: string) {
-  await autoExpireInvoices();
   const invoice = await prisma.invoice.findFirst({ where: { id, userId } });
   if (!invoice) throw new AuthError(ErrorCodes.NOT_FOUND, "Invoice tidak ditemukan", 404);
   return serializeInvoice(invoice, true);
 }
 
-export async function listInvoicesForUser(userId: string) {
-  await autoExpireInvoices();
-  const rows = await prisma.invoice.findMany({
-    where: { userId },
-    orderBy: { createdAt: "desc" },
-    take: 50,
-  });
-  return rows.map((row) => serializeInvoice(row, true));
+export async function listInvoicesForUser(userId: string, opts?: { page?: number; limit?: number }) {
+  const page = Math.max(1, Number(opts?.page) || 1);
+  const limit = Math.max(1, Math.min(100, Number(opts?.limit) || 10));
+  const skip = (page - 1) * limit;
+
+  const [total, rows] = await Promise.all([
+    prisma.invoice.count({ where: { userId } }),
+    prisma.invoice.findMany({
+      where: { userId },
+      orderBy: { createdAt: "desc" },
+      skip,
+      take: limit,
+    }),
+  ]);
+
+  return {
+    total,
+    page,
+    limit,
+    totalPages: Math.ceil(total / limit),
+    invoices: rows.map((row) => serializeInvoice(row, true)),
+  };
 }
 
-export async function autoExpireInvoices() {
+export async function autoExpireInvoices(): Promise<{ count: number }> {
   const now = new Date();
-  const manualCutoff = new Date(now.getTime() - 60 * 60 * 1000);
-  await prisma.invoice.updateMany({
+  const manualCutoff = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  const result = await prisma.invoice.updateMany({
     where: {
       status: "unpaid",
       OR: [
@@ -114,6 +180,58 @@ export async function autoExpireInvoices() {
     },
     data: { status: "expired" },
   });
+  return { count: result.count };
+}
+
+let lastLazyAutoExpireAt = 0;
+const LAZY_EXPIRE_COOLDOWN_MS = 30_000;
+
+export function triggerLazyAutoExpire(): void {
+  const now = Date.now();
+  if (now - lastLazyAutoExpireAt < LAZY_EXPIRE_COOLDOWN_MS) return;
+  lastLazyAutoExpireAt = now;
+  setImmediate(() => {
+    void autoExpireInvoices().catch(() => {});
+  });
+}
+
+export interface InvoiceSchedulerOptions {
+  intervalMs?: number;
+  logger?: {
+    info: (obj: Record<string, unknown>, msg?: string) => void;
+    warn: (obj: Record<string, unknown>, msg?: string) => void;
+    error: (obj: Record<string, unknown>, msg?: string) => void;
+  };
+}
+
+export function startInvoiceExpirationScheduler(opts?: InvoiceSchedulerOptions): () => void {
+  const intervalMs = opts?.intervalMs ?? Number(process.env.INVOICE_EXPIRY_INTERVAL_MS ?? 60_000);
+  const logger = opts?.logger;
+
+  // Run initial asynchronous sweep (non-blocking)
+  void autoExpireInvoices()
+    .then((res) => {
+      if (res.count > 0 && logger) {
+        logger.info({ event: "wallet.invoices_auto_expired", count: res.count, phase: "init" });
+      }
+    })
+    .catch((err) => {
+      logger?.warn?.({ event: "wallet.auto_expire_failed", error: String(err), phase: "init" });
+    });
+
+  const timer = setInterval(() => {
+    void autoExpireInvoices()
+      .then((res) => {
+        if (res.count > 0 && logger) {
+          logger.info({ event: "wallet.invoices_auto_expired", count: res.count, phase: "interval" });
+        }
+      })
+      .catch((err) => {
+        logger?.error?.({ event: "wallet.auto_expire_failed", error: String(err), phase: "interval" });
+      });
+  }, intervalMs).unref();
+
+  return () => clearInterval(timer);
 }
 
 export async function listAdminInvoices(opts?: {
@@ -124,36 +242,74 @@ export async function listAdminInvoices(opts?: {
   sortOrder?: "asc" | "desc";
   q?: string;
 }) {
-  await autoExpireInvoices();
-
   const page = Math.max(1, opts?.page ?? 1);
   const limit = Math.min(100, Math.max(1, opts?.limit ?? 10));
   const skip = (page - 1) * limit;
   const sortOrder = opts?.sortOrder === "asc" ? ("asc" as const) : ("desc" as const);
   const sortBy = opts?.sortBy ?? "createdAt";
 
-  const where: Prisma.InvoiceWhereInput = {};
+  const now = new Date();
+  const manualCutoff = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+
+  const andConditions: Prisma.InvoiceWhereInput[] = [];
   const status = opts?.status?.toLowerCase().trim();
 
+  const notExpiredCondition: Prisma.InvoiceWhereInput = {
+    OR: [
+      { gatewayExpiredAt: { gt: now } },
+      { gatewayExpiredAt: null, createdAt: { gt: manualCutoff } },
+    ],
+  };
+
+  const expiredCondition: Prisma.InvoiceWhereInput = {
+    OR: [
+      { status: "expired" },
+      {
+        status: "unpaid",
+        OR: [
+          { gatewayExpiredAt: { lte: now } },
+          { gatewayExpiredAt: null, createdAt: { lte: manualCutoff } },
+        ],
+      },
+    ],
+  };
+
   if (status === "pending") {
-    where.status = { in: ["awaiting_review", "unpaid"] };
+    andConditions.push({
+      OR: [
+        { status: "awaiting_review" },
+        {
+          status: "unpaid",
+          ...notExpiredCondition,
+        },
+      ],
+    });
   } else if (status === "canceled") {
-    where.status = { in: ["canceled", "rejected"] };
+    andConditions.push({ status: { in: ["canceled", "rejected"] } });
   } else if (status === "kurasi") {
-    where.status = "awaiting_review";
+    andConditions.push({ status: "awaiting_review" });
   } else if (status === "open") {
-    where.status = "unpaid";
+    andConditions.push({
+      status: "unpaid",
+      ...notExpiredCondition,
+    });
+  } else if (status === "expired") {
+    andConditions.push(expiredCondition);
   } else if (status && status !== "all") {
-    where.status = status as any;
+    andConditions.push({ status: status as any });
   }
 
   if (opts?.q && opts.q.trim()) {
     const q = opts.q.trim();
-    where.OR = [
-      { uniqueCode: { contains: q, mode: "insensitive" } },
-      { user: { email: { contains: q, mode: "insensitive" } } },
-    ];
+    andConditions.push({
+      OR: [
+        { uniqueCode: { contains: q, mode: "insensitive" } },
+        { user: { email: { contains: q, mode: "insensitive" } } },
+      ],
+    });
   }
+
+  const where: Prisma.InvoiceWhereInput = andConditions.length > 0 ? { AND: andConditions } : {};
 
   let orderBy: Prisma.InvoiceOrderByWithRelationInput = { createdAt: sortOrder };
   if (sortBy === "amountIdr") orderBy = { amountIdr: sortOrder };
@@ -191,9 +347,16 @@ export async function listAdminInvoices(opts?: {
 }
 
 export async function listNotifications() {
-  await autoExpireInvoices();
-  const whereReview = { status: "awaiting_review" as const };
-  const whereOpen = { status: "unpaid" as const };
+  const now = new Date();
+  const manualCutoff = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  const whereReview: Prisma.InvoiceWhereInput = { status: "awaiting_review" };
+  const whereOpen: Prisma.InvoiceWhereInput = {
+    status: "unpaid",
+    OR: [
+      { gatewayExpiredAt: { gt: now } },
+      { gatewayExpiredAt: null, createdAt: { gt: manualCutoff } },
+    ],
+  };
 
   const [pendingCount, openCount, reviewRows, openRows] = await Promise.all([
     prisma.invoice.count({ where: whereReview }),
@@ -264,7 +427,8 @@ export async function submitProof(opts: {
   const isExpired =
     invoice.status === "expired" ||
     (invoice.gatewayExpiredAt && invoice.gatewayExpiredAt < now) ||
-    (!invoice.gatewayExpiredAt && now.getTime() - invoice.createdAt.getTime() > 60 * 60 * 1000);
+    (!invoice.gatewayExpiredAt && invoice.status !== "rejected" && now.getTime() - invoice.createdAt.getTime() > 24 * 60 * 60 * 1000) ||
+    (!invoice.gatewayExpiredAt && invoice.status === "rejected" && invoice.reviewedAt && now.getTime() - invoice.reviewedAt.getTime() > 24 * 60 * 60 * 1000);
 
   if (isExpired) {
     if (invoice.status !== "expired") {
@@ -314,6 +478,8 @@ export async function submitProof(opts: {
       contentType: opts.contentType,
     },
   });
+
+  void publishInvoiceEvent(updated);
 
   return serializeInvoice(updated, true);
 }
@@ -414,6 +580,7 @@ export async function approveInvoice(invoiceId: string, adminUserId: string) {
           approvedByAdminId: adminUserId,
         },
       });
+      void publishInvoiceEvent(paid);
     }
     return serializeInvoice(paid, false);
   } catch (err) {
@@ -454,6 +621,7 @@ export async function rejectInvoice(invoiceId: string, adminUserId: string, reas
       meta: { reason },
     },
   });
+  void publishInvoiceEvent(updated);
   return serializeInvoice(updated, false);
 }
 
@@ -505,6 +673,7 @@ export async function cancelInvoiceForUser(userId: string, invoiceId: string, re
     },
   });
 
+  void publishInvoiceEvent(updated);
   return serializeInvoice(updated, false);
 }
 
@@ -542,34 +711,50 @@ export async function cancelInvoiceForAdmin(invoiceId: string, adminUserId: stri
     },
   });
 
+  void publishInvoiceEvent(updated);
   return serializeInvoice(updated, false);
 }
 
-export async function listLedger(userId: string) {
-  const rows = await prisma.ledgerEntry.findMany({
-    where: { userId },
-    orderBy: { createdAt: "desc" },
-    take: 100,
-    select: {
-      id: true,
-      type: true,
-      status: true,
-      amount: true,
-      createdAt: true,
-      invoiceId: true,
-      jobId: true,
-    },
-  });
-  return rows.map((row) => ({
-    id: row.id,
-    type: row.type,
-    status: row.status,
-    amount: asInt(row.amount),
-    createdAt: row.createdAt.toISOString(),
-    invoiceId: row.invoiceId,
-    jobId: row.jobId,
-    label: ledgerLabel(row.type, row.status),
-  }));
+export async function listLedger(userId: string, opts?: { page?: number; limit?: number }) {
+  const page = Math.max(1, Number(opts?.page) || 1);
+  const limit = Math.max(1, Math.min(100, Number(opts?.limit) || 10));
+  const skip = (page - 1) * limit;
+
+  const [total, rows] = await Promise.all([
+    prisma.ledgerEntry.count({ where: { userId } }),
+    prisma.ledgerEntry.findMany({
+      where: { userId },
+      orderBy: { createdAt: "desc" },
+      skip,
+      take: limit,
+      select: {
+        id: true,
+        type: true,
+        status: true,
+        amount: true,
+        createdAt: true,
+        invoiceId: true,
+        jobId: true,
+      },
+    }),
+  ]);
+
+  return {
+    total,
+    page,
+    limit,
+    totalPages: Math.ceil(total / limit),
+    entries: rows.map((row) => ({
+      id: row.id,
+      type: row.type,
+      status: row.status,
+      amount: asInt(row.amount),
+      createdAt: row.createdAt.toISOString(),
+      invoiceId: row.invoiceId,
+      jobId: row.jobId,
+      label: ledgerLabel(row.type, row.status),
+    })),
+  };
 }
 
 function ledgerLabel(type: LedgerType, status: LedgerStatus): string {

@@ -1,0 +1,146 @@
+--- /home/ubuntu/projects/ai-gen-free/apps/web/app/api/[...path]/route.ts	2026-10-07 09:05:03.626781822 +0800
++++ /home/ubuntu/projects/ai-gen-free/.agents/teamwork/explorer_m1_3/proposed_route.ts	2026-10-08 16:38:32.584553684 +0800
+@@ -1,7 +1,7 @@
+ import { NextRequest } from "next/server";
+ import { adminAuth } from "@/auth-admin";
+ import { auth } from "@/auth";
+-import { mergeCookie } from "@/lib/cookie-header";
++import { mergeCookie, sanitizeCookie } from "@/lib/cookie-header";
+ import { resolveBackendPath } from "@/lib/api-mapping";
+ import { adminBasicHeaders } from "@/lib/server-api";
+ 
+@@ -43,25 +43,33 @@
+     if (!HOP.has(key.toLowerCase())) headers.set(key, value);
+   });
+ 
++  // Sanitize incoming cookies: strip any untrusted client-supplied sid or sid_admin
++  const rawCookie = headers.get("cookie");
++  if (rawCookie) {
++    const sanitized = sanitizeCookie(rawCookie);
++    if (sanitized) {
++      headers.set("cookie", sanitized);
++    } else {
++      headers.delete("cookie");
++    }
++  }
++
+   const isAdmin = path[0] === "admin";
+   if (isAdmin) {
+     const session = await adminAuth();
++    // Security: Only forward session cookie and attach admin Basic Auth credentials
++    // if NextAuth verified an active, authenticated admin session.
+     if (session?.sid) {
+       headers.set("cookie", mergeCookie(headers.get("cookie"), `sid_admin=${session.sid}`));
+-    } else {
+-      const rawSid = req.cookies.get("sid_admin")?.value;
+-      if (rawSid) headers.set("cookie", mergeCookie(headers.get("cookie"), `sid_admin=${rawSid}`));
+-    }
+-    for (const [key, value] of Object.entries(adminBasicHeaders())) {
+-      if (!headers.has(key)) headers.set(key, value);
++      for (const [key, value] of Object.entries(adminBasicHeaders())) {
++        if (!headers.has(key)) headers.set(key, value);
++      }
+     }
+   } else {
+     const session = await auth();
++    // Security: Only forward customer session cookie if authenticated by NextAuth.
+     if (session?.sid) {
+       headers.set("cookie", mergeCookie(headers.get("cookie"), `sid=${session.sid}`));
+-    } else {
+-      const rawSid = req.cookies.get("sid")?.value;
+-      if (rawSid) headers.set("cookie", mergeCookie(headers.get("cookie"), `sid=${rawSid}`));
+     }
+   }
+ 
+@@ -73,9 +81,47 @@
+     cache: "no-store",
+   };
+   if (req.method !== "GET" && req.method !== "HEAD") {
+-    init.body = Buffer.from(await req.arrayBuffer());
++    try {
++      init.body = Buffer.from(await req.arrayBuffer());
++    } catch (err) {
++      console.error("[BFF Proxy Body Read Error]:", err);
++      return new Response(
++        JSON.stringify({
++          error: {
++            code: "E001",
++            message: "Gagal membaca body request.",
++          },
++        }),
++        {
++          status: 400,
++          headers: { "content-type": "application/json", "cache-control": "no-store" },
++        },
++      );
++    }
++  }
++
++  let upstream: Response;
++  try {
++    upstream = await fetch(target, init);
++  } catch (error) {
++    console.error(`[BFF Proxy Error] Upstream connection failure to ${target}:`, error);
++    return new Response(
++      JSON.stringify({
++        error: {
++          code: "E001",
++          message: "Gagal terhubung ke layanan backend.",
++        },
++      }),
++      {
++        status: 502,
++        headers: {
++          "content-type": "application/json",
++          "cache-control": "no-store",
++        },
++      },
++    );
+   }
+-  const upstream = await fetch(target, init);
++
+   const out = new Headers();
+   upstream.headers.forEach((value, key) => {
+     if (key.toLowerCase() === "transfer-encoding") return;
+@@ -109,10 +155,34 @@
+ 
+ type Ctx = { params: Promise<{ path: string[] }> };
+ 
+-export const GET = (req: NextRequest, ctx: Ctx) => ctx.params.then((p) => proxy(req, p.path));
+-export const POST = (req: NextRequest, ctx: Ctx) => ctx.params.then((p) => proxy(req, p.path));
+-export const PUT = (req: NextRequest, ctx: Ctx) => ctx.params.then((p) => proxy(req, p.path));
+-export const PATCH = (req: NextRequest, ctx: Ctx) => ctx.params.then((p) => proxy(req, p.path));
+-export const DELETE = (req: NextRequest, ctx: Ctx) => ctx.params.then((p) => proxy(req, p.path));
+-export const HEAD = (req: NextRequest, ctx: Ctx) => ctx.params.then((p) => proxy(req, p.path));
+-export const OPTIONS = (req: NextRequest, ctx: Ctx) => ctx.params.then((p) => proxy(req, p.path));
++async function handleProxy(req: NextRequest, ctx: Ctx) {
++  try {
++    const { path } = await ctx.params;
++    return await proxy(req, path);
++  } catch (error) {
++    console.error("[BFF Proxy Handler Exception]:", error);
++    return new Response(
++      JSON.stringify({
++        error: {
++          code: "E001",
++          message: "Gagal terhubung ke layanan backend.",
++        },
++      }),
++      {
++        status: 502,
++        headers: {
++          "content-type": "application/json",
++          "cache-control": "no-store",
++        },
++      },
++    );
++  }
++}
++
++export const GET = (req: NextRequest, ctx: Ctx) => handleProxy(req, ctx);
++export const POST = (req: NextRequest, ctx: Ctx) => handleProxy(req, ctx);
++export const PUT = (req: NextRequest, ctx: Ctx) => handleProxy(req, ctx);
++export const PATCH = (req: NextRequest, ctx: Ctx) => handleProxy(req, ctx);
++export const DELETE = (req: NextRequest, ctx: Ctx) => handleProxy(req, ctx);
++export const HEAD = (req: NextRequest, ctx: Ctx) => handleProxy(req, ctx);
++export const OPTIONS = (req: NextRequest, ctx: Ctx) => handleProxy(req, ctx);

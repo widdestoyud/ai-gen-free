@@ -23,6 +23,12 @@ export function parseGenerateParams(raw: unknown, providerId: string): Prisma.In
   }
 
   if (typeof input.size === "string") params.size = input.size;
+  if (typeof input.image_size === "string" || (typeof input.image_size === "object" && input.image_size !== null)) {
+    params.image_size = input.image_size;
+  }
+  if (typeof input.imageSize === "string" || (typeof input.imageSize === "object" && input.imageSize !== null)) {
+    params.image_size = input.imageSize;
+  }
   if (typeof input.tierSize === "string") params.tierSize = input.tierSize;
   if (typeof input.quality === "string") params.quality = input.quality;
   if (typeof input.output_format === "string") params.output_format = input.output_format;
@@ -40,6 +46,14 @@ export function parseGenerateParams(raw: unknown, providerId: string): Prisma.In
     params.images = input.images.filter((img) => typeof img === "string");
   }
   if (typeof input.mask === "string") params.mask = input.mask;
+  if (typeof input.mask_url === "string") params.mask_url = input.mask_url;
+  if (typeof input.maskUrl === "string") params.mask_url = input.maskUrl;
+  if (typeof input.maskDataUrl === "string") params.maskDataUrl = input.maskDataUrl;
+  if (typeof input.strength === "number") params.strength = input.strength;
+  if (typeof input.guidance_scale === "number") params.guidance_scale = input.guidance_scale;
+  if (typeof input.guidanceScale === "number") params.guidance_scale = input.guidanceScale;
+  if (typeof input.num_inference_steps === "number") params.num_inference_steps = input.num_inference_steps;
+  if (typeof input.steps === "number") params.num_inference_steps = input.steps;
   if (typeof input.duration === "string" || typeof input.duration === "number") params.duration = input.duration;
   if (typeof input.resolution === "string" || typeof input.resolution === "number") params.resolution = String(input.resolution);
   if (typeof input.negative_prompt === "string") params.negative_prompt = input.negative_prompt;
@@ -50,8 +64,8 @@ export function parseGenerateParams(raw: unknown, providerId: string): Prisma.In
   // Upscaler parameters
   if (typeof input.upscale_mode === "string") params.upscale_mode = input.upscale_mode;
   if (typeof input.upscaleMode === "string") params.upscale_mode = input.upscaleMode;
-  if (typeof input.upscale_factor === "number") params.upscale_factor = input.upscale_factor;
-  if (typeof input.upscaleFactor === "number") params.upscale_factor = input.upscaleFactor;
+  if (typeof input.upscale_factor === "number") params.upscale_factor = Math.min(Math.max(input.upscale_factor, 1), 4);
+  if (typeof input.upscaleFactor === "number") params.upscale_factor = Math.min(Math.max(input.upscaleFactor, 1), 4);
   if (typeof input.target_resolution === "string") params.target_resolution = input.target_resolution;
   if (typeof input.targetResolution === "string") params.target_resolution = input.targetResolution;
   if (typeof input.noise_scale === "number") params.noise_scale = input.noise_scale;

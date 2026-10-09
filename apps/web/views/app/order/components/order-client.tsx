@@ -7,7 +7,9 @@ import {
   CopyButton,
   FileInput,
   Group,
+  LoadingOverlay,
   Modal,
+  Pagination,
   Paper,
   SimpleGrid,
   Stack,
@@ -71,6 +73,15 @@ function SearchIcon() {
 export function OrderClient(props: {
   packages: Package[];
   invoices: Invoice[];
+  wallet?: { available: number; held: number };
+  pagination?: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  };
+  onPageChange?: (page: number) => void;
+  isLoading?: boolean;
 }) {
   const router = useRouter();
   const [search, setSearch] = useState("");
@@ -283,6 +294,37 @@ export function OrderClient(props: {
 
   return (
     <div className={classes.orderContainer}>
+      {props.wallet ? (
+        <Paper
+          p="md"
+          radius="md"
+          withBorder
+          mb="xl"
+          style={{
+            background: "linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, rgba(139, 92, 246, 0.08) 100%)",
+            borderColor: "rgba(59, 130, 246, 0.25)",
+          }}
+        >
+          <Group justify="space-between" align="center">
+            <div>
+              <Text size="xs" tt="uppercase" fw={700} c="dimmed" lts="0.05em">
+                Saldo Sparks Anda Saat Ini
+              </Text>
+              <Group gap="xs" align="baseline">
+                <Text size="xl" fw={800} c="#60a5fa">
+                  {props.wallet.available.toLocaleString()} Sparks
+                </Text>
+                {props.wallet.held > 0 ? (
+                  <Text size="xs" c="dimmed">
+                    ({props.wallet.held.toLocaleString()} terkunci dalam antrian proses render)
+                  </Text>
+                ) : null}
+              </Group>
+            </div>
+          </Group>
+        </Paper>
+      ) : null}
+
       <Text className={classes.sectionTitle}>Pilih Paket Poin</Text>
 
       <Text className={classes.sectionSubtitle}>
@@ -305,9 +347,11 @@ export function OrderClient(props: {
               points={plan.points}
               popular={plan.popular}
               perks={plan.perks}
-              buttonLabel={`Pesan ${plan.name}`}
+              buttonLabel={`Pilih ${plan.name}`}
               disabled={busy}
-              onSelect={(id) => void buy(id)}
+              onSelect={(id) => {
+                router.push(`/checkout?packageId=${id}`);
+              }}
             />
           );
         })}
@@ -316,7 +360,12 @@ export function OrderClient(props: {
       <ErrorAlert message={displayError} />
 
       {/* Tabel Riwayat Invoice */}
-      <Paper className={classes.tableContainer}>
+      <Paper className={classes.tableContainer} pos="relative">
+        <LoadingOverlay
+          visible={Boolean(props.isLoading)}
+          overlayProps={{ radius: "sm", blur: 1 }}
+          loaderProps={{ size: "sm" }}
+        />
         <div className={classes.tableHeaderRow}>
           <Stack gap={2}>
             <Text className={classes.sectionTitle}>Riwayat Invoice</Text>
@@ -377,6 +426,25 @@ export function OrderClient(props: {
               const canCancel = (isUnpaid || isRejected || isAwaiting) && !isExpired;
               const isPaying = payingInvoiceId === inv.id;
 
+              const isExplicitManual = inv.paymentMethod === "manual";
+              const isExplicitOnline =
+                inv.paymentMethod === "online" ||
+                inv.paymentMethod === "midtrans" ||
+                inv.paymentMethod === "xendit" ||
+                inv.paymentMethod === "dana" ||
+                Boolean(inv.gateway?.paymentUrl || inv.paymentGateway);
+              const showOnlineButton = !isExplicitManual && onlineEnabled && (isExplicitOnline || !manualEnabled);
+              const showManualButton = isExplicitManual ? manualEnabled : (!onlineEnabled && manualEnabled) || (!isExplicitOnline && manualEnabled);
+
+              const onlineGatewayLabel =
+                activeGateway === "midtrans"
+                  ? "Midtrans"
+                  : activeGateway === "dana"
+                    ? "DANA"
+                    : activeGateway === "xendit"
+                      ? "Xendit"
+                      : "Online";
+
               return (
                 <Table.Tr key={inv.id} className={classes.tableRow}>
                   <Table.Td>
@@ -394,33 +462,43 @@ export function OrderClient(props: {
                   </Table.Td>
 
                   <Table.Td>
-                    <Group gap="xs">
-                      <Badge
-                        color={
-                          isPaid
-                            ? "teal"
-                            : isAwaiting
-                              ? "yellow"
-                              : isRejected
-                                ? "red"
-                                : isCanceled || isExpired
-                                  ? "gray"
-                                  : "blue"
-                        }
-                        size="sm"
-                        radius="sm"
-                        variant={isCanceled || isExpired ? "outline" : "light"}
-                      >
-                        {isExpired ? "Kedaluwarsa" : inv.statusLabel}
-                      </Badge>
-                      {isRejected && inv.reviewNote ? (
-                        <Tooltip label={`Alasan tolak: ${inv.reviewNote}`} withArrow>
-                          <Text size="xs" c="red" td="underline" className={classes.pointerText}>
-                            Lihat alasan
+                    <Stack gap={4}>
+                      <Group gap="xs">
+                        <Badge
+                          color={
+                            isPaid
+                              ? "teal"
+                              : isAwaiting
+                                ? "yellow"
+                                : isRejected
+                                  ? "red"
+                                  : isCanceled || isExpired
+                                    ? "gray"
+                                    : "blue"
+                          }
+                          size="sm"
+                          radius="sm"
+                          variant={isCanceled || isExpired ? "outline" : "light"}
+                        >
+                          {isExpired ? "Kedaluwarsa" : inv.statusLabel}
+                        </Badge>
+                      </Group>
+                      {isRejected && (
+                        <div
+                          style={{
+                            background: "rgba(239, 68, 68, 0.1)",
+                            border: "1px solid rgba(239, 68, 68, 0.25)",
+                            borderRadius: 6,
+                            padding: "4px 8px",
+                            maxWidth: 240,
+                          }}
+                        >
+                          <Text size="xs" c="red.3" fw={500}>
+                            {inv.reviewNote ? `Alasan: ${inv.reviewNote}` : "Bukti ditolak. Silakan unggah ulang bukti yang valid."}
                           </Text>
-                        </Tooltip>
-                      ) : null}
-                    </Group>
+                        </div>
+                      )}
+                    </Stack>
                   </Table.Td>
 
                   <Table.Td className={classes.dateCell} suppressHydrationWarning>
@@ -436,7 +514,7 @@ export function OrderClient(props: {
                   <Table.Td className={classes.actionCell}>
                     {canPay ? (
                       <Group gap="xs" justify="flex-end">
-                        {onlineEnabled ? (
+                        {showOnlineButton ? (
                           <Button
                             size="xs"
                             variant="gradient"
@@ -449,22 +527,22 @@ export function OrderClient(props: {
                               ? "Memproses..."
                               : hasGatewaySession && !gatewayExpired
                                 ? "Lanjut Bayar Online"
-                                : `Bayar Online (${activeGateway === "midtrans" ? "Midtrans" : "Xendit"})`}
+                                : `Bayar Online (${onlineGatewayLabel})`}
                           </Button>
                         ) : null}
 
-                        {manualEnabled ? (
+                        {showManualButton ? (
                           <Button
                             size="xs"
-                            variant="light"
-                            color="blue"
+                            variant={isRejected ? "filled" : "light"}
+                            color={isRejected ? "orange" : "blue"}
                             onClick={() => {
                               setUploadInvoice(inv);
                               setSelectedFile(null);
                             }}
                             disabled={busy}
                           >
-                            Unggah Bukti
+                            {isRejected ? "Unggah Ulang Bukti" : "Unggah Bukti"}
                           </Button>
                         ) : null}
 
@@ -479,20 +557,9 @@ export function OrderClient(props: {
                         </Button>
                       </Group>
                     ) : isAwaiting ? (
-                      <Group gap="xs" justify="flex-end">
-                        <Text size="xs" c="dimmed">
-                          Menunggu kurasi admin
-                        </Text>
-                        <Button
-                          size="xs"
-                          variant="subtle"
-                          color="red"
-                          disabled={busy}
-                          onClick={() => setCancelingInvoice(inv)}
-                        >
-                          Batalkan
-                        </Button>
-                      </Group>
+                      <Text size="xs" c="dimmed">
+                        Menunggu kurasi admin
+                      </Text>
                     ) : isPaid ? (
                       <Text size="xs" c="teal">
                         Poin sudah ditambahkan
@@ -522,6 +589,25 @@ export function OrderClient(props: {
               const canPay = (isUnpaid || isRejected) && !isExpired;
               const canCancel = (isUnpaid || isRejected || isAwaiting) && !isExpired;
               const isPaying = payingInvoiceId === inv.id;
+
+              const isExplicitManual = inv.paymentMethod === "manual";
+              const isExplicitOnline =
+                inv.paymentMethod === "online" ||
+                inv.paymentMethod === "midtrans" ||
+                inv.paymentMethod === "xendit" ||
+                inv.paymentMethod === "dana" ||
+                Boolean(inv.gateway?.paymentUrl || inv.paymentGateway);
+              const showOnlineButton = !isExplicitManual && onlineEnabled && (isExplicitOnline || !manualEnabled);
+              const showManualButton = isExplicitManual ? manualEnabled : (!onlineEnabled && manualEnabled) || (!isExplicitOnline && manualEnabled);
+
+              const onlineGatewayLabel =
+                activeGateway === "midtrans"
+                  ? "Midtrans"
+                  : activeGateway === "dana"
+                    ? "DANA"
+                    : activeGateway === "xendit"
+                      ? "Xendit"
+                      : "Online";
 
               return (
                 <div key={inv.id} className={classes.mobileInvoiceCard}>
@@ -575,11 +661,23 @@ export function OrderClient(props: {
                     </div>
                   </div>
 
-                  {isRejected && inv.reviewNote ? (
-                    <Text size="xs" c="red.4" bg="rgba(239, 68, 68, 0.1)" p="xs" style={{ borderRadius: 6 }}>
-                      Alasan ditolak: {inv.reviewNote}
-                    </Text>
-                  ) : null}
+                  {isRejected && (
+                    <div
+                      style={{
+                        background: "rgba(239, 68, 68, 0.12)",
+                        border: "1px solid rgba(239, 68, 68, 0.25)",
+                        borderRadius: 8,
+                        padding: "8px 12px",
+                      }}
+                    >
+                      <Text size="xs" fw={700} c="red.4" mb={2}>
+                        ⚠️ Bukti Pembayaran Ditolak Admin:
+                      </Text>
+                      <Text size="xs" c="red.2">
+                        {inv.reviewNote || "Bukti ditolak. Silakan unggah ulang bukti transfer yang valid."}
+                      </Text>
+                    </div>
+                  )}
 
                   {inv.paidAt && isPaid ? (
                     <Text size="xs" c="teal.4" suppressHydrationWarning>
@@ -591,7 +689,7 @@ export function OrderClient(props: {
                   <div className={classes.mobileInvoiceBottom}>
                     {canPay ? (
                       <Group gap="xs" justify="flex-end" style={{ width: "100%" }}>
-                        {onlineEnabled ? (
+                        {showOnlineButton ? (
                           <Button
                             size="xs"
                             variant="gradient"
@@ -600,22 +698,22 @@ export function OrderClient(props: {
                             leftSection={isPaying ? <Loader size="xs" /> : null}
                             onClick={() => handlePayGateway(inv.id, inv.uniqueCode)}
                           >
-                            {isPaying ? "Memproses..." : `Bayar Online (${activeGateway === "midtrans" ? "Midtrans" : "Xendit"})`}
+                            {isPaying ? "Memproses..." : `Bayar Online (${onlineGatewayLabel})`}
                           </Button>
                         ) : null}
 
-                        {manualEnabled ? (
+                        {showManualButton ? (
                           <Button
                             size="xs"
-                            variant="light"
-                            color="blue"
+                            variant={isRejected ? "filled" : "light"}
+                            color={isRejected ? "orange" : "blue"}
                             onClick={() => {
                               setUploadInvoice(inv);
                               setSelectedFile(null);
                             }}
                             disabled={busy}
                           >
-                            Unggah Bukti
+                            {isRejected ? "Unggah Ulang Bukti" : "Unggah Bukti"}
                           </Button>
                         ) : null}
 
@@ -630,20 +728,9 @@ export function OrderClient(props: {
                         </Button>
                       </Group>
                     ) : isAwaiting ? (
-                      <Group gap="xs" justify="space-between" style={{ width: "100%" }}>
-                        <Text size="xs" c="dimmed">
-                          Menunggu kurasi admin
-                        </Text>
-                        <Button
-                          size="xs"
-                          variant="subtle"
-                          color="red"
-                          disabled={busy}
-                          onClick={() => setCancelingInvoice(inv)}
-                        >
-                          Batalkan
-                        </Button>
-                      </Group>
+                      <Text size="xs" c="dimmed">
+                        Menunggu kurasi admin
+                      </Text>
                     ) : isPaid ? (
                       <Text size="xs" c="teal.4">
                         Poin sudah ditambahkan
@@ -663,6 +750,24 @@ export function OrderClient(props: {
             }}
           />
         )}
+
+        {props.pagination && props.pagination.total > 0 && (
+          <Group justify="space-between" align="center" mt="md" wrap="wrap" gap="sm">
+            <Text size="xs" c="dimmed">
+              Menampilkan <strong>{props.pagination.total === 0 ? 0 : (props.pagination.page - 1) * props.pagination.limit + 1}–{Math.min(props.pagination.page * props.pagination.limit, props.pagination.total)}</strong> dari{" "}
+              <strong>{props.pagination.total}</strong> riwayat invoice
+            </Text>
+            {props.pagination.totalPages > 1 && props.onPageChange && (
+              <Pagination
+                size="sm"
+                total={props.pagination.totalPages}
+                value={props.pagination.page}
+                onChange={props.onPageChange}
+                disabled={props.isLoading}
+              />
+            )}
+          </Group>
+        )}
       </Paper>
 
       {/* Modal Upload Bukti Transfer & Rincian Pembayaran */}
@@ -677,10 +782,12 @@ export function OrderClient(props: {
         title={
           <Group gap="xs">
             <Text fw={700} size="md">
-              Pembayaran QRIS & Bukti Transfer
+              {uploadInvoice?.status === "rejected"
+                ? "Unggah Ulang Bukti Pembayaran"
+                : "Pembayaran QRIS & Bukti Transfer"}
             </Text>
             {uploadInvoice?.uniqueCode && (
-              <Badge variant="light" color="blue" size="sm">
+              <Badge variant="light" color={uploadInvoice?.status === "rejected" ? "red" : "blue"} size="sm">
                 {uploadInvoice.uniqueCode}
               </Badge>
             )}
@@ -692,6 +799,27 @@ export function OrderClient(props: {
         padding="lg"
       >
         <Stack gap="md">
+          {/* Rejection Alert if previously rejected */}
+          {uploadInvoice?.status === "rejected" && (
+            <div
+              style={{
+                background: "rgba(239, 68, 68, 0.12)",
+                border: "1px solid rgba(239, 68, 68, 0.3)",
+                borderRadius: 8,
+                padding: "10px 14px",
+              }}
+            >
+              <Text size="xs" fw={700} c="red.3" mb={2}>
+                ⚠️ Bukti Sebelumnya Ditolak Admin:
+              </Text>
+              <Text size="xs" c="red.2">
+                {uploadInvoice.reviewNote
+                  ? uploadInvoice.reviewNote
+                  : "Bukti transfer tidak valid atau tidak sesuai. Pastikan mengunggah struk / tangkapan layar transfer yang jelas dan valid."}
+              </Text>
+            </div>
+          )}
+
           {/* Summary Box */}
           <div className={classes.modalSummaryCard}>
             <Group justify="space-between" align="center">

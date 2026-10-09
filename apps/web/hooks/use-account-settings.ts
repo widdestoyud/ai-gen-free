@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   validateIndonesianPhoneNumber,
   validatePasswordFormat,
@@ -8,7 +8,7 @@ import {
 } from "@/lib/validation";
 import { requestJson } from "@/lib/api";
 import { hashPasswordClient } from "@/lib/crypto";
-import type { CustomerProfile } from "@/views/app/profile/components/customer-home";
+import type { CustomerProfile } from "@/views/app/profile";
 
 export type EditableField = "displayName" | "phoneNumber" | "address" | "ktp" | "gender" | "dateOfBirth";
 
@@ -87,24 +87,64 @@ export interface AccountSettingsState {
   setPasswordFormField: (field: keyof PasswordFormState, value: string) => void;
   submitChangePassword: () => Promise<boolean>;
 
+  isLoading: boolean;
   clearMessages: () => void;
 }
 
-export function useAccountSettings(initialProfile: CustomerProfile): AccountSettingsState {
-  const [profile, setProfile] = useState<CustomerProfile>(initialProfile);
+const EMPTY_PROFILE: CustomerProfile = {
+  id: "",
+  email: "",
+  displayName: null,
+  phoneNumber: null,
+  ktp: null,
+  address: null,
+  gender: null,
+};
+
+export function useAccountSettings(initialProfile?: CustomerProfile | null): AccountSettingsState {
+  const [profile, setProfile] = useState<CustomerProfile>(initialProfile ?? EMPTY_PROFILE);
+  const [isLoading, setIsLoading] = useState(!initialProfile);
   const [editingField, setEditingField] = useState<EditableField | null>(null);
   const [editValues, setEditValues] = useState({
-    displayName: initialProfile.displayName ?? "",
-    gender: initialProfile.gender ?? "",
-    phoneNumber: initialProfile.phoneNumber ?? "",
-    address: initialProfile.address ?? "",
-    ktp: initialProfile.ktp ?? "",
-    dateOfBirth: initialProfile.dateOfBirth ? initialProfile.dateOfBirth.slice(0, 10) : "",
+    displayName: initialProfile?.displayName ?? "",
+    gender: initialProfile?.gender ?? "",
+    phoneNumber: initialProfile?.phoneNumber ?? "",
+    address: initialProfile?.address ?? "",
+    ktp: initialProfile?.ktp ?? "",
+    dateOfBirth: initialProfile?.dateOfBirth ? initialProfile.dateOfBirth.slice(0, 10) : "",
   });
   const [validationErrors, setValidationErrors] = useState<Partial<Record<EditableField, string>>>({});
   const [phoneInfo, setPhoneInfo] = useState<IndonesianPhoneInfo | null>(() => {
-    return initialProfile.phoneNumber ? validateIndonesianPhoneNumber(initialProfile.phoneNumber) : null;
+    return initialProfile?.phoneNumber ? validateIndonesianPhoneNumber(initialProfile.phoneNumber) : null;
   });
+
+  // Sync profile data on mount / focus
+  useEffect(() => {
+    let active = true;
+    async function syncProfile() {
+      const res = await requestJson<{ user?: CustomerProfile }>("/api/customer/profile");
+      if (active && res.ok && res.data?.user) {
+        const u = res.data.user;
+        setProfile(u);
+        setEditValues({
+          displayName: u.displayName ?? "",
+          gender: u.gender ?? "",
+          phoneNumber: u.phoneNumber ?? "",
+          address: u.address ?? "",
+          ktp: u.ktp ?? "",
+          dateOfBirth: u.dateOfBirth ? u.dateOfBirth.slice(0, 10) : "",
+        });
+        if (u.phoneNumber) {
+          setPhoneInfo(validateIndonesianPhoneNumber(u.phoneNumber));
+        }
+        setIsLoading(false);
+      }
+    }
+    void syncProfile();
+    return () => {
+      active = false;
+    };
+  }, []);
   const [saving, setSaving] = useState(false);
   const [saveSuccessMessage, setSaveSuccessMessage] = useState("");
   const [saveErrorMessage, setSaveErrorMessage] = useState("");
@@ -411,7 +451,7 @@ export function useAccountSettings(initialProfile: CustomerProfile): AccountSett
     clearMessages();
     if (enable && !profile.spicyModeAcceptedAt) {
       if (!profile.dateOfBirth) {
-        setSaveErrorMessage("Silakan isi tanggal lahir pada profil terlebih dahulu sebelum mengaktifkan Spicy Mode.");
+        setSpicyError("Silakan isi tanggal lahir pada profil terlebih dahulu sebelum mengaktifkan Spicy Mode.");
         return false;
       }
       setSpicyConsentModalOpened(true);
@@ -429,7 +469,7 @@ export function useAccountSettings(initialProfile: CustomerProfile): AccountSett
     setSpicySaving(false);
 
     if (!res.ok) {
-      setSaveErrorMessage(res.message ?? "Gagal memperbarui status Spicy Mode.");
+      setSpicyError(res.message ?? "Gagal memperbarui status Spicy Mode.");
       return false;
     }
 
@@ -471,6 +511,7 @@ export function useAccountSettings(initialProfile: CustomerProfile): AccountSett
 
   return {
     profile,
+    isLoading,
     editingField,
     editValues,
     validationErrors,

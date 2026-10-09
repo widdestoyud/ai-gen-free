@@ -35,6 +35,7 @@ export interface ProcessUploadResult {
   url: string;
   width: number;
   height: number;
+  alias?: string | null;
 }
 
 export interface UploadResult {
@@ -217,10 +218,11 @@ export async function processUpload(
       ? `/customer/uploads/${uploadId}/file`
       : `/admin/uploads/${uploadId}/file`;
 
-  const alias =
+  const cleanAlias =
     typeof opts.alias === "string" && opts.alias.trim().length > 0
-      ? opts.alias.trim().slice(0, 100)
+      ? opts.alias.trim().replace(/\.[^/.]+$/, "").slice(0, 100)
       : null;
+  const alias = cleanAlias && cleanAlias.length > 0 ? cleanAlias : null;
 
   try {
     if (opts.actor === "customer") {
@@ -262,6 +264,7 @@ export async function processUpload(
     url: sameOriginUrl,
     width: compressed.width,
     height: compressed.height,
+    alias,
   };
 }
 
@@ -443,7 +446,11 @@ export async function listAdminUploads(
 /**
  * Soft delete berkas upload milik customer (Anti-IDOR).
  */
-export async function softDeleteUploadForUser(userId: string, id: string): Promise<{ ok: true; id: string }> {
+export async function softDeleteUploadForUser(
+  userId: string,
+  id: string,
+  storage?: ObjectStorage,
+): Promise<{ ok: true; id: string }> {
   const cleanId = id.replace(/\.[^.]+$/, "");
   let upload: any = null;
   try {
@@ -458,10 +465,19 @@ export async function softDeleteUploadForUser(userId: string, id: string): Promi
     throw new AuthError(ErrorCodes.NOT_FOUND, "Berkas gambar tidak ditemukan atau sudah dihapus", 404);
   }
 
+  if (storage && upload.storageKey) {
+    try {
+      await storage.delete(upload.storageKey);
+    } catch (err) {
+      console.warn(`[softDeleteUploadForUser] Gagal menghapus storage key ${upload.storageKey}:`, err);
+    }
+  }
+
+  const now = new Date();
   try {
     await prisma.upload.update({
       where: { id: upload.id },
-      data: { deletedAt: new Date() },
+      data: { deletedAt: now, purgedAt: storage ? now : null },
     });
   } catch {
     // Non-fatal
@@ -473,7 +489,10 @@ export async function softDeleteUploadForUser(userId: string, id: string): Promi
 /**
  * Soft delete berkas upload oleh admin.
  */
-export async function softDeleteUploadForAdmin(id: string): Promise<{ ok: true; id: string }> {
+export async function softDeleteUploadForAdmin(
+  id: string,
+  storage?: ObjectStorage,
+): Promise<{ ok: true; id: string }> {
   const cleanId = id.replace(/\.[^.]+$/, "");
   let upload: any = null;
   try {
@@ -488,10 +507,19 @@ export async function softDeleteUploadForAdmin(id: string): Promise<{ ok: true; 
     throw new AuthError(ErrorCodes.NOT_FOUND, "Berkas gambar tidak ditemukan atau sudah dihapus", 404);
   }
 
+  if (storage && upload.storageKey) {
+    try {
+      await storage.delete(upload.storageKey);
+    } catch (err) {
+      console.warn(`[softDeleteUploadForAdmin] Gagal menghapus storage key ${upload.storageKey}:`, err);
+    }
+  }
+
+  const now = new Date();
   try {
     await prisma.upload.update({
       where: { id: upload.id },
-      data: { deletedAt: new Date() },
+      data: { deletedAt: now, purgedAt: storage ? now : null },
     });
   } catch {
     // Non-fatal

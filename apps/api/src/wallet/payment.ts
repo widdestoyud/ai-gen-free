@@ -9,6 +9,7 @@ import { prisma } from "@ai-gen-free/db";
 import { refreshWalletCache } from "@ai-gen-free/wallet";
 import { AuthError } from "../auth/service.js";
 import { recordUserActivity } from "../activity/service.js";
+import { publishInvoiceEvent } from "./service.js";
 
 function asInt(value: Prisma.Decimal | number): number {
   return typeof value === "number" ? value : Number(value);
@@ -233,7 +234,7 @@ export async function processPaymentNotification(
 
   if (status === "FAILED") {
     // Mark as rejected (bisa retry dengan payment baru)
-    await prisma.invoice.update({
+    const updated = await prisma.invoice.update({
       where: { id: invoice.id },
       data: {
         status: "rejected",
@@ -248,6 +249,8 @@ export async function processPaymentNotification(
         meta: { paymentChannel, paymentMethod, gateway: deps.paymentGateway.provider },
       },
     });
+
+    void publishInvoiceEvent(updated);
 
     return {
       invoiceId: invoice.id,
@@ -377,6 +380,7 @@ async function processSuccessfulPayment(
           paymentMethod: meta.paymentMethod,
         },
       });
+      void publishInvoiceEvent(paid.invoice);
     }
 
     return {

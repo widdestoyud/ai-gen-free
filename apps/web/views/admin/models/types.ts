@@ -18,4 +18,5 @@ export type DefaultGenerationModelsConfig = {
   spicyI2iModelId: string;
   normalVideoModelId: string;
   spicyVideoModelId: string;
+  inpaintModelId?: string;
 };

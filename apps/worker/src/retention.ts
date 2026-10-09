@@ -23,7 +23,13 @@ export type RetentionStore = {
 };
 
 export function isRetentionKey(storageKey: string): boolean {
-  return storageKey.startsWith("outputs/") || storageKey.startsWith("inputs/");
+  return (
+    storageKey.startsWith("outputs/") ||
+    storageKey.startsWith("inputs/") ||
+    storageKey.startsWith("uploads/customer/") ||
+    storageKey.startsWith("uploads/admin/") ||
+    storageKey.startsWith("temp/")
+  );
 }
 
 export function createPrismaRetentionStore(): RetentionStore {
@@ -115,6 +121,54 @@ export async function runRetentionSweep(opts: {
     const last = batch[batch.length - 1]!;
     after = { expiresAt: last.expiresAt, id: last.id };
     if (batch.length < batchSize) break;
+  }
+
+  // Sweep unpurged deleted or expired uploads
+  try {
+    const deletedOrExpiredUploads = await prisma.upload.findMany({
+      where: {
+        OR: [
+          { deletedAt: { not: null }, purgedAt: null },
+          { expiresAt: { lt: now() }, purgedAt: null },
+        ],
+      },
+      take: batchSize,
+    });
+    for (const upload of deletedOrExpiredUploads) {
+      if (upload.storageKey) {
+        try {
+          await opts.storage.delete(upload.storageKey);
+          purged += 1;
+          console.log(
+            JSON.stringify({
+              event: "retention.upload_purged",
+              uploadId: upload.id,
+              userId: upload.userId,
+              key: upload.storageKey,
+            }),
+          );
+        } catch (err) {
+          failed += 1;
+          console.error(
+            JSON.stringify({
+              event: "retention.upload_delete_failed",
+              uploadId: upload.id,
+              key: upload.storageKey,
+              error: err instanceof Error ? err.message : "delete failed",
+            }),
+          );
+        }
+      }
+      await prisma.upload.update({
+        where: { id: upload.id },
+        data: {
+          deletedAt: upload.deletedAt ?? now(),
+          purgedAt: now(),
+        },
+      });
+    }
+  } catch (err) {
+    console.warn("[retention] Error sweep uploads:", err);
   }
 
   return { purged, skipped, failed };

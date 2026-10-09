@@ -202,6 +202,41 @@
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
 }
 
+.viewModeToggle {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 6px;
+  padding: 2px;
+  margin-right: 2px;
+}
+
+.viewModeBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 500;
+  border-radius: 4px;
+  border: none;
+  background: transparent;
+  color: #a1a1aa;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.viewModeBtn:hover {
+  color: #ffffff;
+}
+
+.viewModeBtnActive {
+  background: rgba(139, 92, 246, 0.35);
+  color: #e9d5ff;
+  font-weight: 600;
+}
+
 .zoomBtn {
   width: 28px;
   height: 28px;
@@ -357,6 +392,19 @@
   text-transform: uppercase;
 }
 
+.modeBadgeUpscale {
+  background: rgba(147, 51, 234, 0.2) !important;
+  color: #c084fc !important;
+  border: 1px solid rgba(168, 85, 247, 0.35);
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.6px !important;
+  border-radius: 4px !important;
+  padding: 4px 8px !important;
+  height: auto !important;
+  text-transform: uppercase;
+}
+
 .statusBadge {
   background: rgba(22, 101, 52, 0.2) !important;
   color: #4ade80 !important;
@@ -370,13 +418,20 @@
   text-transform: uppercase;
 }
 
+.actionButtonsContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
 .actionButtonsRow {
   display: flex;
   gap: 8px;
   width: 100%;
 }
 
-.actionButtonsRow .primaryDownloadBtn,
+.actionButtonsRow .inpaintEditBtn,
 .actionButtonsRow .upscaleBtn {
   flex: 1;
   min-width: 0;
@@ -384,38 +439,58 @@
 }
 
 .primaryDownloadBtn {
-  background: #32333a !important;
-  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  background: linear-gradient(135deg, #4f7bf7 0%, #8054f7 100%) !important;
+  border: 1px solid rgba(128, 84, 247, 0.4) !important;
   color: #ffffff !important;
   font-weight: 600 !important;
   font-size: 14px !important;
   border-radius: 8px !important;
   height: 42px !important;
   width: 100% !important;
+  box-shadow: 0 2px 10px rgba(128, 84, 247, 0.25);
   transition: all 0.15s ease !important;
 }
 
 .primaryDownloadBtn:hover {
-  background: #3e4049 !important;
-  border-color: rgba(255, 255, 255, 0.18) !important;
+  background: linear-gradient(135deg, #436ce8 0%, #7246eb 100%) !important;
+  border-color: rgba(128, 84, 247, 0.6) !important;
+  box-shadow: 0 4px 14px rgba(128, 84, 247, 0.4);
 }
 
-.upscaleBtn {
-  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%) !important;
-  border: 1px solid rgba(167, 139, 250, 0.35) !important;
+.inpaintEditBtn {
+  background: linear-gradient(135deg, #4f7bf7 0%, #6366f1 100%) !important;
+  border: 1px solid rgba(99, 102, 241, 0.4) !important;
   color: #ffffff !important;
   font-weight: 600 !important;
   font-size: 13.5px !important;
   border-radius: 8px !important;
   height: 42px !important;
-  box-shadow: 0 2px 10px rgba(124, 58, 237, 0.25);
+  box-shadow: 0 2px 10px rgba(99, 102, 241, 0.25);
+  transition: all 0.15s ease !important;
+}
+
+.inpaintEditBtn:hover {
+  background: linear-gradient(135deg, #436ce8 0%, #5254db 100%) !important;
+  border-color: rgba(99, 102, 241, 0.6) !important;
+  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.4);
+}
+
+.upscaleBtn {
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%) !important;
+  border: 1px solid rgba(139, 92, 246, 0.4) !important;
+  color: #ffffff !important;
+  font-weight: 600 !important;
+  font-size: 13.5px !important;
+  border-radius: 8px !important;
+  height: 42px !important;
+  box-shadow: 0 2px 10px rgba(139, 92, 246, 0.25);
   transition: all 0.15s ease !important;
 }
 
 .upscaleBtn:hover {
-  background: linear-gradient(135deg, #4338ca 0%, #6d28d9 100%) !important;
-  border-color: rgba(167, 139, 250, 0.5) !important;
-  box-shadow: 0 4px 14px rgba(124, 58, 237, 0.4);
+  background: linear-gradient(135deg, #5355e0 0%, #7c4beb 100%) !important;
+  border-color: rgba(139, 92, 246, 0.6) !important;
+  box-shadow: 0 4px 14px rgba(139, 92, 246, 0.4);
 }
 
 .dangerDeleteBtn {

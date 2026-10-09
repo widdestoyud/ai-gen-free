@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useLandingPage } from "@/hooks/use-landing-page";
 import { LandingHeader } from "./components/landing-header";
 import { LandingHero } from "./components/landing-hero";
@@ -22,6 +23,7 @@ interface LandingPageViewProps {
 }
 
 export function LandingPageView({ packages }: LandingPageViewProps = {}) {
+  const router = useRouter();
   const {
     login,
     register,
@@ -31,6 +33,8 @@ export function LandingPageView({ packages }: LandingPageViewProps = {}) {
     handleOpenLogin,
     handleOpenForgotPassword,
     handleBackToLoginFromForgot,
+    handleOpenRegisterFromLogin,
+    handleOpenLoginFromRegister,
   } = useLandingPage();
 
   return (
@@ -61,7 +65,12 @@ export function LandingPageView({ packages }: LandingPageViewProps = {}) {
         <LandingSteps />
 
         {/* Pricing Packages */}
-        <LandingPricing packages={packages} onSelectPlan={() => handleStartCreation()} />
+        <LandingPricing
+          packages={packages}
+          onSelectPlan={(planId) => {
+            router.push(`/checkout?packageId=${planId || "starter"}`);
+          }}
+        />
 
         {/* Frequently Asked Questions */}
         <LandingFaq />
@@ -74,6 +83,7 @@ export function LandingPageView({ packages }: LandingPageViewProps = {}) {
         opened={login.loginOpened}
         onClose={login.closeLogin}
         onForgotPassword={handleOpenForgotPassword}
+        onRegister={handleOpenRegisterFromLogin}
         email={login.email}
         password={login.password}
         onEmailChange={login.setEmail}
@@ -88,6 +98,7 @@ export function LandingPageView({ packages }: LandingPageViewProps = {}) {
       <RegisterModal
         opened={register.opened}
         onClose={register.closeRegister}
+        onLogin={handleOpenLoginFromRegister}
         email={register.email}
         password={register.password}
         onEmailChange={register.setEmail}

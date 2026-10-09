@@ -1,13 +1,17 @@
 "use client";
 
-import { Anchor, Button, Checkbox, Modal, PasswordInput, Stack, Text, TextInput } from "@mantine/core";
+import { Anchor, Button, Checkbox, Divider, Group, Modal, PasswordInput, Stack, Text, TextInput } from "@mantine/core";
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
+import { initiateGoogleSignIn } from "@/lib/google-auth";
 import { ErrorAlert } from "@/components/error-alert";
+import { GoogleAuthButton } from "@/components/google-auth-button";
 
 export function RegisterModal({
   opened,
   onClose,
+  onLogin,
+  callbackUrl = "/app/generate",
   email,
   password,
   onEmailChange,
@@ -23,6 +27,8 @@ export function RegisterModal({
 }: {
   opened: boolean;
   onClose: () => void;
+  onLogin?: () => void;
+  callbackUrl?: string;
   email: string;
   password: string;
   onEmailChange: (value: string) => void;
@@ -37,6 +43,7 @@ export function RegisterModal({
   onSubmit: (e: FormEvent) => void;
 }) {
   const [shake, setShake] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
 
   useEffect(() => {
     if (error || errorCode) {
@@ -47,7 +54,7 @@ export function RegisterModal({
   }, [error, errorCode]);
 
   const handleSubmit = (e: FormEvent) => {
-    if (pending) {
+    if (pending || googleLoading) {
       e.preventDefault();
       return;
     }
@@ -58,21 +65,42 @@ export function RegisterModal({
     onSubmit(e);
   };
 
+  const handleGoogleSignIn = async () => {
+    if (pending || googleLoading) return;
+    setGoogleLoading(true);
+    try {
+      await initiateGoogleSignIn(callbackUrl);
+    } catch {
+      setGoogleLoading(false);
+    }
+  };
+
   return (
     <Modal
       opened={opened}
       onClose={() => {
-        if (!pending) onClose();
+        if (!pending && !googleLoading) onClose();
       }}
-      closeOnClickOutside={!pending}
-      closeOnEscape={!pending}
-      withCloseButton={!pending}
+      closeOnClickOutside={!pending && !googleLoading}
+      closeOnEscape={!pending && !googleLoading}
+      withCloseButton={!pending && !googleLoading}
       title="Daftar Akun"
       centered
-      size="sm"
+      size="md"
+      radius="md"
+      padding="lg"
       classNames={{ content: shake ? "modal-shake" : "" }}
     >
-      <form onSubmit={handleSubmit}>
+      <Stack gap="md">
+        <GoogleAuthButton
+          loading={googleLoading}
+          disabled={pending || googleLoading}
+          showConsentText={true}
+          onClick={handleGoogleSignIn}
+        />
+        <Divider label="atau daftar dengan email" labelPosition="center" my={2} />
+      </Stack>
+      <form onSubmit={handleSubmit} style={{ marginTop: 12 }}>
         <Stack gap="sm">
           <TextInput
             label="Email"
@@ -136,9 +164,32 @@ export function RegisterModal({
             variant="gradient"
             gradient={{ from: "#3b82f6", to: "#8b5cf6", deg: 135 }}
             fullWidth
+            size="md"
           >
             {pending ? "Mendaftar…" : "Daftar"}
           </Button>
+
+          {onLogin ? (
+            <Group justify="center" mt={4}>
+              <Text size="xs" c="dimmed">
+                Sudah memiliki akun?{" "}
+                <Anchor
+                  component="button"
+                  type="button"
+                  size="xs"
+                  c="blue.4"
+                  fw={600}
+                  disabled={pending}
+                  onClick={() => {
+                    if (!pending) onLogin();
+                  }}
+                  underline="hover"
+                >
+                  Masuk Sekarang
+                </Anchor>
+              </Text>
+            </Group>
+          ) : null}
         </Stack>
       </form>
     </Modal>

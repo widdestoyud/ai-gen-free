@@ -1,3 +1,5 @@
+import { timingSafeEqual } from "node:crypto";
+
 export function parseBasicAuth(
   header: string | undefined,
 ): { user: string; pass: string } | null {
@@ -18,5 +20,17 @@ export function basicAuthorized(header: string | undefined): boolean {
   if (!expectedUser || !expectedPass) return false;
   const parsed = parseBasicAuth(header);
   if (!parsed) return false;
-  return parsed.user === expectedUser && parsed.pass === expectedPass;
+
+  const userBuf = Buffer.from(parsed.user);
+  const expUserBuf = Buffer.from(expectedUser);
+  const passBuf = Buffer.from(parsed.pass);
+  const expPassBuf = Buffer.from(expectedPass);
+
+  if (userBuf.length !== expUserBuf.length || passBuf.length !== expPassBuf.length) {
+    return false;
+  }
+
+  const userMatch = timingSafeEqual(userBuf, expUserBuf);
+  const passMatch = timingSafeEqual(passBuf, expPassBuf);
+  return userMatch && passMatch;
 }

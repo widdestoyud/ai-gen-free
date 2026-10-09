@@ -4,6 +4,9 @@ import { useEffect, useMemo, useState } from "react";
 import {
   ActionIcon,
   Button,
+  Group,
+  LoadingOverlay,
+  Pagination,
   Paper,
   Select,
   Table,
@@ -111,6 +114,14 @@ export type ComputedLedgerItem = LedgerRow & {
 export function CreditHistory(props: {
   entries: LedgerRow[];
   currentBalance: number;
+  pagination?: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  };
+  onPageChange?: (page: number) => void;
+  isLoading?: boolean;
 }) {
   const [channelFilter, setChannelFilter] = useState<string | null>("all");
   const [typeFilter, setTypeFilter] = useState<string | null>("all");
@@ -199,7 +210,12 @@ export function CreditHistory(props: {
 
   return (
     <>
-      <Paper className={classes.historyContainer}>
+      <Paper className={classes.historyContainer} pos="relative">
+        <LoadingOverlay
+          visible={Boolean(props.isLoading)}
+          overlayProps={{ radius: "sm", blur: 1 }}
+          loaderProps={{ size: "sm" }}
+        />
         <div className={classes.headerRow}>
           <Text className={classes.title}>Riwayat Kredit</Text>
           <div className={classes.controls}>
@@ -356,6 +372,24 @@ export function CreditHistory(props: {
               );
             }}
           />
+        )}
+
+        {props.pagination && props.pagination.total > 0 && (
+          <Group justify="space-between" align="center" mt="md" wrap="wrap" gap="sm">
+            <Text size="xs" c="dimmed">
+              Menampilkan <strong>{props.pagination.total === 0 ? 0 : (props.pagination.page - 1) * props.pagination.limit + 1}–{Math.min(props.pagination.page * props.pagination.limit, props.pagination.total)}</strong> dari{" "}
+              <strong>{props.pagination.total}</strong> riwayat transaksi
+            </Text>
+            {props.pagination.totalPages > 1 && props.onPageChange && (
+              <Pagination
+                size="sm"
+                total={props.pagination.totalPages}
+                value={props.pagination.page}
+                onChange={props.onPageChange}
+                disabled={props.isLoading}
+              />
+            )}
+          </Group>
         )}
       </Paper>
 

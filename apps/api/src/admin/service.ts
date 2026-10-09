@@ -1,14 +1,24 @@
+import { LedgerStatus, LedgerType, type Prisma } from "@prisma/client";
 import { prisma } from "@ai-gen-free/db";
 import { AppError, ErrorCodes } from "@ai-gen-free/core";
 import { adjustWallet, computeBalance } from "@ai-gen-free/wallet";
 import {
+  getCachedAppSetting,
+  setCachedAppSetting,
+  invalidateAppSetting,
+  invalidateModelCatalogCache,
+} from "../lib/cache.js";
+import {
   DEFAULT_FALLBACK_MODELS,
   DEFAULT_GENERATION_MODELS_KEY,
+  DEFAULT_TESTER_ACCOUNT_CONFIG,
   GENERATE_COOLDOWN_KEY,
   PAYMENT_SETTINGS_KEY,
+  TESTER_ACCOUNT_KEY,
   asCooldownSeconds,
   type DefaultGenerationModelsConfig,
   type PaymentSettingsConfig,
+  type TesterAccountConfig,
 } from "./parse.js";
 
 function iso(value: Date | null | undefined): string | null {
@@ -20,6 +30,9 @@ function logEvent(event: string, payload: Record<string, unknown>) {
 }
 
 export async function getPaymentSettings(): Promise<PaymentSettingsConfig> {
+  const cached = await getCachedAppSetting<PaymentSettingsConfig>(PAYMENT_SETTINGS_KEY);
+  if (cached) return cached;
+
   const row = await prisma.appSetting.findUnique({ where: { key: PAYMENT_SETTINGS_KEY } });
   const raw = row?.value as Partial<PaymentSettingsConfig> | null | undefined;
 
@@ -36,6 +49,7 @@ export async function getPaymentSettings(): Promise<PaymentSettingsConfig> {
     manualExpiryMinutes: typeof raw?.manualExpiryMinutes === "number" && raw.manualExpiryMinutes > 0 ? raw.manualExpiryMinutes : 60,
     onlineExpiryMinutes: typeof raw?.onlineExpiryMinutes === "number" && raw.onlineExpiryMinutes > 0 ? raw.onlineExpiryMinutes : 10,
   };
+  void setCachedAppSetting(PAYMENT_SETTINGS_KEY, config);
   return config;
 }
 
@@ -106,6 +120,8 @@ export async function putPaymentSettings(opts: {
     });
   });
 
+  void invalidateAppSetting(PAYMENT_SETTINGS_KEY);
+
   logEvent("admin.settings.payment_updated", {
     actorId: opts.actorId,
     key: PAYMENT_SETTINGS_KEY,
@@ -116,9 +132,143 @@ export async function putPaymentSettings(opts: {
   return nextConfig;
 }
 
+export async function getTesterAccountSetting(): Promise<TesterAccountConfig> {
+  const cached = await getCachedAppSetting<TesterAccountConfig>(TESTER_ACCOUNT_KEY);
+  if (cached) return cached;
+
+  const row = await prisma.appSetting.findUnique({ where: { key: TESTER_ACCOUNT_KEY } });
+  const raw = row?.value as Partial<TesterAccountConfig> | null | undefined;
+  if (!raw) {
+    void setCachedAppSetting(TESTER_ACCOUNT_KEY, DEFAULT_TESTER_ACCOUNT_CONFIG);
+    return DEFAULT_TESTER_ACCOUNT_CONFIG;
+  }
+
+  const config: TesterAccountConfig = {
+    enabled: typeof raw.enabled === "boolean" ? raw.enabled : DEFAULT_TESTER_ACCOUNT_CONFIG.enabled,
+    email: typeof raw.email === "string" && raw.email.trim() ? raw.email.trim().toLowerCase() : DEFAULT_TESTER_ACCOUNT_CONFIG.email,
+    otp: typeof raw.otp === "string" && /^\d{6}$/.test(raw.otp.trim()) ? raw.otp.trim() : DEFAULT_TESTER_ACCOUNT_CONFIG.otp,
+    expiresAt: typeof raw.expiresAt === "string" && !isNaN(new Date(raw.expiresAt).getTime()) ? raw.expiresAt : DEFAULT_TESTER_ACCOUNT_CONFIG.expiresAt,
+  };
+  void setCachedAppSetting(TESTER_ACCOUNT_KEY, config);
+  return config;
+}
+
+export async function putTesterAccountSetting(opts: {
+  config: {
+    enabled?: unknown;
+    email?: unknown;
+    otp?: unknown;
+    expiresAt?: unknown;
+  };
+  actorId: string;
+  ip: string;
+}): Promise<TesterAccountConfig> {
+  const current = await getTesterAccountSetting();
+
+  let nextEnabled = current.enabled;
+  if (opts.config.enabled !== undefined) {
+    if (typeof opts.config.enabled !== "boolean") {
+      throw new AppError(ErrorCodes.VALIDATION_ERROR, "enabled harus bernilai boolean");
+    }
+    nextEnabled = opts.config.enabled;
+  }
+
+  let nextEmail = current.email;
+  if (opts.config.email !== undefined) {
+    if (typeof opts.config.email !== "string" || !opts.config.email.includes("@")) {
+      throw new AppError(ErrorCodes.VALIDATION_ERROR, "Format email tidak valid");
+    }
+    nextEmail = opts.config.email.trim().toLowerCase();
+  }
+
+  let nextOtp = current.otp;
+  if (opts.config.otp !== undefined) {
+    const rawOtp = String(opts.config.otp).trim();
+    if (!/^\d{6}$/.test(rawOtp)) {
+      throw new AppError(ErrorCodes.VALIDATION_ERROR, "Kode OTP harus berupa 6 digit angka");
+    }
+    nextOtp = rawOtp;
+  }
+
+  let nextExpiresAt = current.expiresAt;
+  if (opts.config.expiresAt !== undefined) {
+    const d = new Date(String(opts.config.expiresAt));
+    if (isNaN(d.getTime())) {
+      throw new AppError(ErrorCodes.VALIDATION_ERROR, "Format tanggal masa aktif (expiresAt) tidak valid");
+    }
+    nextExpiresAt = d.toISOString();
+  }
+
+  const nextConfig: TesterAccountConfig = {
+    enabled: nextEnabled,
+    email: nextEmail,
+    otp: nextOtp,
+    expiresAt: nextExpiresAt,
+  };
+
+  await prisma.$transaction(async (tx) => {
+    await tx.appSetting.upsert({
+      where: { key: TESTER_ACCOUNT_KEY },
+      update: { value: nextConfig },
+      create: { key: TESTER_ACCOUNT_KEY, value: nextConfig },
+    });
+
+    const existingUser = await tx.user.findUnique({ where: { email: nextEmail } });
+    if (!existingUser) {
+      const createdUser = await tx.user.create({
+        data: {
+          email: nextEmail,
+          displayName: "Reviewer Tester (Payment Gateway)",
+          role: "user",
+          emailVerifiedAt: new Date(),
+        },
+      });
+      await tx.wallet.create({
+        data: {
+          userId: createdUser.id,
+          availableCached: 1000,
+        },
+      });
+    } else if (!existingUser.emailVerifiedAt) {
+      await tx.user.update({
+        where: { id: existingUser.id },
+        data: { emailVerifiedAt: new Date() },
+      });
+    }
+
+    await tx.auditLog.create({
+      data: {
+        actorId: opts.actorId,
+        action: "settings.tester_account.updated",
+        target: TESTER_ACCOUNT_KEY,
+        ip: opts.ip,
+        meta: { from: current, to: nextConfig },
+      },
+    });
+  });
+
+  void invalidateAppSetting(TESTER_ACCOUNT_KEY);
+
+  logEvent("admin.settings.tester_account_updated", {
+    actorId: opts.actorId,
+    key: TESTER_ACCOUNT_KEY,
+    from: current,
+    to: nextConfig,
+  });
+
+  return nextConfig;
+}
+
 export async function getGenerateCooldownSetting() {
+  const cached = await getCachedAppSetting<number>(GENERATE_COOLDOWN_KEY);
+  if (cached !== null && cached !== undefined) {
+    return { key: GENERATE_COOLDOWN_KEY, value: cached };
+  }
+
   const row = await prisma.appSetting.findUnique({ where: { key: GENERATE_COOLDOWN_KEY } });
-  return { key: GENERATE_COOLDOWN_KEY, value: asCooldownSeconds(row?.value) };
+  const val = asCooldownSeconds(row?.value);
+  void setCachedAppSetting(GENERATE_COOLDOWN_KEY, val);
+  return { key: GENERATE_COOLDOWN_KEY, value: val };
 }
 
 export async function putGenerateCooldownSetting(opts: {
@@ -144,6 +294,7 @@ export async function putGenerateCooldownSetting(opts: {
       },
     });
   });
+  void invalidateAppSetting(GENERATE_COOLDOWN_KEY);
   logEvent("admin.settings.updated", {
     actorId: opts.actorId,
     key: GENERATE_COOLDOWN_KEY,
@@ -157,6 +308,9 @@ export async function getDefaultGenerationModelsSetting(): Promise<{
   key: string;
   value: DefaultGenerationModelsConfig;
 }> {
+  const cached = await getCachedAppSetting<DefaultGenerationModelsConfig>(DEFAULT_GENERATION_MODELS_KEY);
+  if (cached) return { key: DEFAULT_GENERATION_MODELS_KEY, value: cached };
+
   const row = await prisma.appSetting.findUnique({ where: { key: DEFAULT_GENERATION_MODELS_KEY } });
   const raw = row?.value as Partial<DefaultGenerationModelsConfig> | null | undefined;
   const config: DefaultGenerationModelsConfig = {
@@ -184,7 +338,12 @@ export async function getDefaultGenerationModelsSetting(): Promise<{
       typeof raw?.spicyVideoModelId === "string" && raw.spicyVideoModelId.trim()
         ? raw.spicyVideoModelId.trim()
         : DEFAULT_FALLBACK_MODELS.spicyVideoModelId,
+    inpaintModelId:
+      typeof raw?.inpaintModelId === "string" && raw.inpaintModelId.trim()
+        ? raw.inpaintModelId.trim()
+        : DEFAULT_FALLBACK_MODELS.inpaintModelId,
   };
+  void setCachedAppSetting(DEFAULT_GENERATION_MODELS_KEY, config);
   return { key: DEFAULT_GENERATION_MODELS_KEY, value: config };
 }
 
@@ -205,6 +364,7 @@ export async function putDefaultGenerationModelsSetting(opts: {
   const spicyI2iModelId = opts.config.spicyI2iModelId?.trim() ?? current.spicyI2iModelId;
   const normalVideoModelId = opts.config.normalVideoModelId?.trim() ?? current.normalVideoModelId;
   const spicyVideoModelId = opts.config.spicyVideoModelId?.trim() ?? current.spicyVideoModelId;
+  const inpaintModelId = opts.config.inpaintModelId?.trim() ?? current.inpaintModelId;
 
   // 1. Validasi Normal T2I Model (Wajib Gambar T2I, bukan Video, bukan Spicy)
   const normT2i = enabledModels.find((m) => m.modelId === normalT2iModelId);
@@ -260,6 +420,17 @@ export async function putDefaultGenerationModelsSetting(opts: {
     );
   }
 
+  // 7. Validasi Inpaint Model (Wajib Model Inpaint)
+  if (inpaintModelId) {
+    const inpaintModel = enabledModels.find((m) => m.modelId === inpaintModelId);
+    if (!inpaintModel || inpaintModel.mode !== "inpaint") {
+      throw new AppError(
+        ErrorCodes.VALIDATION_ERROR,
+        `Model "${inpaintModelId}" tidak valid untuk Inpaint / Image Edit. Model harus aktif dan berjenis inpaint.`,
+      );
+    }
+  }
+
   const updatedConfig: DefaultGenerationModelsConfig = {
     normalT2iModelId,
     normalI2iModelId,
@@ -267,6 +438,7 @@ export async function putDefaultGenerationModelsSetting(opts: {
     spicyI2iModelId,
     normalVideoModelId,
     spicyVideoModelId,
+    inpaintModelId,
   };
 
   await prisma.$transaction(async (tx) => {
@@ -286,6 +458,9 @@ export async function putDefaultGenerationModelsSetting(opts: {
     });
   });
 
+  void invalidateAppSetting(DEFAULT_GENERATION_MODELS_KEY);
+  void invalidateModelCatalogCache();
+
   logEvent("admin.settings.default_generation_models.updated", {
     actorId: opts.actorId,
     key: DEFAULT_GENERATION_MODELS_KEY,
@@ -304,10 +479,22 @@ async function serializeAdminUser(
     nextGenerateAt: Date | null;
     createdAt: Date;
     emailVerifiedAt?: Date | null;
+    wallet?: { availableCached: Prisma.Decimal | number } | null;
   },
-  extra: { emailVerifiedAt?: boolean },
+  extra: { emailVerifiedAt?: boolean; balance?: { available: number; held: number } },
 ) {
-  const bal = await computeBalance(user.id);
+  let bal: { available: number; held: number };
+  if (extra.balance) {
+    bal = extra.balance;
+  } else if (user.wallet !== undefined) {
+    bal = {
+      available: user.wallet ? Number(user.wallet.availableCached) : 0,
+      held: 0,
+    };
+  } else {
+    bal = await computeBalance(user.id);
+  }
+
   return {
     id: user.id,
     email: user.email,
@@ -365,11 +552,43 @@ export async function listAdminUsers(opts: {
         role: true,
         nextGenerateAt: true,
         createdAt: true,
+        wallet: {
+          select: {
+            availableCached: true,
+          },
+        },
       },
     }),
   ]);
 
-  const users = await Promise.all(rows.map((row) => serializeAdminUser(row, {})));
+  const userIds = rows.map((r) => r.id);
+  const heldByUserId = new Map<string, number>();
+  if (userIds.length > 0) {
+    const heldRows = await prisma.ledgerEntry.groupBy({
+      by: ["userId"],
+      where: {
+        userId: { in: userIds },
+        type: LedgerType.hold,
+        status: LedgerStatus.pending,
+      },
+      _sum: { amount: true },
+    });
+    for (const h of heldRows) {
+      if (h._sum.amount) heldByUserId.set(h.userId, Number(h._sum.amount));
+    }
+  }
+
+  const users = await Promise.all(
+    rows.map((row) =>
+      serializeAdminUser(row, {
+        balance: {
+          available: row.wallet ? Number(row.wallet.availableCached) : 0,
+          held: heldByUserId.get(row.id) ?? 0,
+        },
+      }),
+    ),
+  );
+
   return {
     users,
     items: users,
@@ -394,10 +613,16 @@ export async function getAdminUser(id: string) {
       nextGenerateAt: true,
       createdAt: true,
       emailVerifiedAt: true,
+      wallet: {
+        select: {
+          availableCached: true,
+        },
+      },
     },
   });
   if (!user) throw new AppError(ErrorCodes.NOT_FOUND, "User tidak ditemukan", 404);
-  return serializeAdminUser(user, { emailVerifiedAt: true });
+  const bal = await computeBalance(user.id);
+  return serializeAdminUser(user, { emailVerifiedAt: true, balance: bal });
 }
 
 export async function resetUserCooldown(opts: { userId: string; actorId: string; ip: string }) {
@@ -667,6 +892,8 @@ export async function updateAdminModel(opts: {
     });
     return res;
   });
+
+  void invalidateModelCatalogCache();
 
   logEvent("admin.model_catalog.updated", { actorId: opts.actorId, id: modelRecordId, modelId: model.modelId });
 

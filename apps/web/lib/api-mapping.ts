@@ -117,6 +117,66 @@ export const API_MAPPINGS: readonly ApiRouteMapping[] = [
     method: "POST",
     description: "Submit generate langsung ke adapter fal.ai (alias)",
   },
+  {
+    FE: "/api/generate/image-edit",
+    BE: "/generate/image-edit",
+    method: "POST",
+    description: "Submit inpainting / image edit ke model Flux LoRA (fal-ai/flux-lora/inpainting)",
+  },
+  {
+    FE: "/api/generate/image-edit/:modelSlug",
+    BE: "/generate/image-edit/:modelSlug",
+    method: "POST",
+    description: "Submit inpainting / image edit dengan slug spesifik",
+  },
+  {
+    FE: "/api/generate/inpaint-qwen",
+    BE: "/generate/image-edit",
+    method: "POST",
+    description: "Submit inpainting (alias ke /generate/image-edit)",
+  },
+  {
+    FE: "/api/generate/inpaint-zit",
+    BE: "/generate/image-edit",
+    method: "POST",
+    description: "Submit inpainting ke model Qwen / ZIT alias",
+  },
+  {
+    FE: "/api/generate/inpaint",
+    BE: "/generate/image-edit",
+    method: "POST",
+    description: "Submit inpainting gambar dengan mask",
+  },
+  {
+    FE: "/api/generate/inpaint/:modelSlug",
+    BE: "/generate/image-edit/:modelSlug",
+    method: "POST",
+    description: "Submit inpainting dengan slug spesifik",
+  },
+  {
+    FE: "/api/generate/chat",
+    BE: "/generate/chat",
+    method: "POST",
+    description: "Chat completion multi-turn / session-based",
+  },
+  {
+    FE: "/api/generate/magic-prompt",
+    BE: "/generate/magic-prompt",
+    method: "POST",
+    description: "Magic prompt enhancer untuk memperjelas prompt visual",
+  },
+  {
+    FE: "/api/chat/magic-prompt",
+    BE: "/chat/magic-prompt",
+    method: "POST",
+    description: "Magic prompt enhancer (alias)",
+  },
+  {
+    FE: "/api/chat/sessions",
+    BE: "/customer/chat/sessions",
+    method: "GET",
+    description: "Daftar sesi riwayat chat pengguna",
+  },
 
   // -------------------------------------------------------------
   // 2. Auth & Pelanggan (Registrasi, OTP, Reset Password)
@@ -274,6 +334,12 @@ export const API_MAPPINGS: readonly ApiRouteMapping[] = [
     description: "Buat (POST) dan daftar (GET) invoice topup",
   },
   {
+    FE: "/api/invoices/events",
+    BE: "/invoices/events",
+    method: "GET",
+    description: "Server-Sent Events streaming status invoice pelanggan realtime",
+  },
+  {
     FE: "/api/invoices/:id",
     BE: "/invoices/:id",
     method: "GET",
@@ -350,6 +416,12 @@ export const API_MAPPINGS: readonly ApiRouteMapping[] = [
     description: "Ambil dan simpan pengaturan metode pembayaran (Transfer Manual & Online Gateway)",
   },
   {
+    FE: "/api/admin/settings/tester-account",
+    BE: "/admin/settings/tester-account",
+    method: "ALL",
+    description: "Ambil dan simpan konfigurasi akun testing reviewer payment gateway (Fixed OTP & Expiry)",
+  },
+  {
     FE: "/api/admin/settings/generate_cooldown_seconds",
     BE: "/admin/settings/generate_cooldown_seconds",
     method: "ALL",
@@ -402,6 +474,12 @@ export const API_MAPPINGS: readonly ApiRouteMapping[] = [
     BE: "/admin/invoices",
     method: "GET",
     description: "Daftar invoice pembelian koin untuk kurasi",
+  },
+  {
+    FE: "/api/admin/invoices/events",
+    BE: "/admin/invoices/events",
+    method: "GET",
+    description: "Server-Sent Events streaming invoice dan bukti bayar masuk realtime untuk admin",
   },
   {
     FE: "/api/admin/invoices/:id/proof",
@@ -655,7 +733,13 @@ export function resolveBackendPath(fePath: string, method = "GET"): string {
   const generateFileMatch = m === "GET" ? path.match(/^\/api\/generate\/([^/]+)\/file$/) : null;
   if (generateFileMatch) return `/customer/generated/${generateFileMatch[1]}/file` + search;
 
-  // Adapter generate direct routes (Siray & Fal.ai)
+  // Adapter generate direct routes (Siray & Fal.ai & Image Edit & Inpaint)
+  const imageEditMatch = m === "POST" ? path.match(/^\/api\/generate\/image-edit(?:\/([^/]+))?$/) : null;
+  if (imageEditMatch) return (imageEditMatch[1] ? `/generate/image-edit/${imageEditMatch[1]}` : `/generate/image-edit`) + search;
+
+  const inpaintMatch = m === "POST" ? path.match(/^\/api\/generate\/inpaint(?:\/([^/]+))?$/) : null;
+  if (inpaintMatch) return (inpaintMatch[1] ? `/generate/image-edit/${inpaintMatch[1]}` : `/generate/image-edit`) + search;
+
   const sirayMatch = m === "POST" ? path.match(/^\/api\/generate\/siray\/([^/]+)$/) : null;
   if (sirayMatch) return `/generate/siray/${sirayMatch[1]}` + search;
 
@@ -670,7 +754,9 @@ export function resolveBackendPath(fePath: string, method = "GET"): string {
     m === "GET" &&
     !path.startsWith("/api/generate/siray/") &&
     !path.startsWith("/api/generate/falai/") &&
-    !path.startsWith("/api/generate/fal/")
+    !path.startsWith("/api/generate/fal/") &&
+    !path.startsWith("/api/generate/image-edit") &&
+    !path.startsWith("/api/generate/inpaint")
       ? path.match(/^\/api\/generate\/([^/]+)$/)
       : null;
   if (generateDetailMatch) return `/customer/generated/${generateDetailMatch[1]}` + search;
@@ -725,7 +811,7 @@ export function resolveBackendPath(fePath: string, method = "GET"): string {
   if (userInvoiceCancel) return `/invoices/${userInvoiceCancel[1]}/cancel` + search;
 
   const userInvoiceDetail = m === "GET" ? path.match(/^\/api\/invoices\/([^/]+)$/) : null;
-  if (userInvoiceDetail) return `/invoices/${userInvoiceDetail[1]}` + search;
+  if (userInvoiceDetail && userInvoiceDetail[1] !== "events") return `/invoices/${userInvoiceDetail[1]}` + search;
 
   // Upload file streaming user & admin
   const customerUploadsFileMatch = m === "GET" ? path.match(/^\/api\/customer-uploads\/([^/]+)\/file$/) : null;

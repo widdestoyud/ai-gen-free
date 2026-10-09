@@ -46,6 +46,9 @@ export function resolveUploadUrl(url: string | null | undefined, id?: string): s
   if (url.startsWith("/customer/uploads/")) {
     return `/api${url}`;
   }
+  if (url.startsWith("/customer/generated/")) {
+    return `/api${url}`;
+  }
   if (url.startsWith("/admin/uploads/")) {
     return `/api${url}`;
   }

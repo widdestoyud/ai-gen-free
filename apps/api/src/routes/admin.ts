@@ -19,6 +19,7 @@ import {
   getDefaultGenerationModelsSetting,
   getGenerateCooldownSetting,
   getPaymentSettings,
+  getTesterAccountSetting,
   listAdminModels,
   listAdminModelsByProvider,
   listAdminUsers,
@@ -26,6 +27,7 @@ import {
   putDefaultGenerationModelsSetting,
   putGenerateCooldownSetting,
   putPaymentSettings,
+  putTesterAccountSetting,
   resetUserCooldown,
   updateAdminModel,
 } from "../admin/service.js";
@@ -48,7 +50,6 @@ async function requireAdmin(
 ) {
   const token =
     (typeof req.cookies?.sid_admin === "string" && req.cookies.sid_admin.trim().length > 0 ? req.cookies.sid_admin.trim() : undefined) ??
-    (typeof req.cookies?.sid === "string" && req.cookies.sid.trim().length > 0 ? req.cookies.sid.trim() : undefined) ??
     (typeof req.headers["x-session-token"] === "string" && (req.headers["x-session-token"] as string).trim().length > 0
       ? (req.headers["x-session-token"] as string).trim()
       : undefined) ??
@@ -56,10 +57,12 @@ async function requireAdmin(
       ? (req.headers["authorization"] as string).slice(7).trim()
       : undefined);
 
-  let session = await userFromCookie(token, "admin");
-  if (!session) {
-    session = await userFromCookie(token, "user");
-  }
+  const context = {
+    ip: requestIp(req),
+    userAgent: typeof req.headers["user-agent"] === "string" ? req.headers["user-agent"] : undefined,
+  };
+
+  const session = await userFromCookie(token, "admin", context);
 
   if (!session || session.user.role !== "admin") {
     reply.status(401).send({
@@ -132,7 +135,6 @@ export async function registerAdminRoutes(app: FastifyInstance, deps: { storage:
         (typeof body.token === "string" && body.token.trim().length > 0 ? body.token.trim() : undefined) ??
         (typeof body.sessionToken === "string" && body.sessionToken.trim().length > 0 ? body.sessionToken.trim() : undefined) ??
         req.cookies?.sid_admin ??
-        req.cookies?.sid ??
         (typeof req.headers["x-session-token"] === "string" ? req.headers["x-session-token"] : undefined);
 
       const result = await loginAdmin({
@@ -170,7 +172,6 @@ export async function registerAdminRoutes(app: FastifyInstance, deps: { storage:
         (typeof body.token === "string" && body.token.trim().length > 0 ? body.token.trim() : undefined) ??
         (typeof body.sessionToken === "string" && body.sessionToken.trim().length > 0 ? body.sessionToken.trim() : undefined) ??
         req.cookies?.sid_admin ??
-        req.cookies?.sid ??
         (typeof req.headers["x-session-token"] === "string" ? req.headers["x-session-token"] : undefined);
 
       if (!token) {
@@ -322,6 +323,40 @@ export async function registerAdminRoutes(app: FastifyInstance, deps: { storage:
   };
   app.put("/admin/settings/payment", handlePutPaymentSettings);
   app.patch("/admin/settings/payment", handlePutPaymentSettings);
+
+  const handleGetTesterAccount = async (req: any, reply: any) => {
+    const session = await requireAdmin(req, reply);
+    if (!session) return;
+    try {
+      return await getTesterAccountSetting();
+    } catch (err) {
+      return sendError(reply, err);
+    }
+  };
+  app.get("/admin/settings/tester-account", handleGetTesterAccount);
+
+  const handlePutTesterAccount = async (req: any, reply: any) => {
+    const session = await requireAdmin(req, reply);
+    if (!session) return;
+    try {
+      const body = (req.body ?? {}) as {
+        enabled?: unknown;
+        email?: unknown;
+        otp?: unknown;
+        expiresAt?: unknown;
+      };
+      const settings = await putTesterAccountSetting({
+        config: body,
+        actorId: session.userId,
+        ip: requestIp(req),
+      });
+      return settings;
+    } catch (err) {
+      return sendError(reply, err);
+    }
+  };
+  app.put("/admin/settings/tester-account", handlePutTesterAccount);
+  app.patch("/admin/settings/tester-account", handlePutTesterAccount);
 
   const handleGetUser = async (req: any, reply: any) => {
     const session = await requireAdmin(req, reply);
@@ -564,6 +599,7 @@ export async function registerAdminRoutes(app: FastifyInstance, deps: { storage:
         spicyI2iModelId?: unknown;
         normalVideoModelId?: unknown;
         spicyVideoModelId?: unknown;
+        inpaintModelId?: unknown;
       };
       const result = await putDefaultGenerationModelsSetting({
         config: {
@@ -573,6 +609,7 @@ export async function registerAdminRoutes(app: FastifyInstance, deps: { storage:
           spicyI2iModelId: typeof body.spicyI2iModelId === "string" ? body.spicyI2iModelId : undefined,
           normalVideoModelId: typeof body.normalVideoModelId === "string" ? body.normalVideoModelId : undefined,
           spicyVideoModelId: typeof body.spicyVideoModelId === "string" ? body.spicyVideoModelId : undefined,
+          inpaintModelId: typeof body.inpaintModelId === "string" ? body.inpaintModelId : undefined,
         },
         actorId: session.userId,
         ip: requestIp(req),

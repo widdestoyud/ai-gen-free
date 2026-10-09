@@ -55,6 +55,7 @@ Jangan mengarang ulang arsitektur. Jika ingin mengubah keputusan di `docs/adr/`,
   - **Kamus API Mapping**: Seluruh endpoint FE (`/api/*`) wajib terdaftar di `apps/web/lib/api-mapping.ts` (`API_MAPPINGS` & `resolveBackendPath`) untuk menjamin transparansi pemetaan kontrak FE ke Fastify backend (`/customer/...`, `/admin/...`, `/invoices/...`).
 - Koleksi & Environment Postman: hanya **1 file koleksi** (`postman/ai-gen-free.postman_collection.json`) dan **1 file environment** (`postman/local.postman_environment.json`). Update Postman wajib menjaga tepat 1 koleksi dan 1 environment tanpa file ganda/duplikat.
 - Paginasi, Pengurutan, & Penyaringan Server-Side (ADR 0018): Seluruh API daftar data (`GET /admin/invoices`, `GET /admin/users`, `GET /customer/invoices`, `GET /customer/generated-lists`, `GET /admin/audit-logs`, dll.) **WAJIB** mengeksekusi paginasi (`page`, `limit`), penyaringan (`status`, `q`), dan pengurutan (`sortBy`, `sortOrder`) secara server-side pada database query layer dengan dukungan PostgreSQL Composite Indexing. Frontend (`apps/web`) **DILARANG** mengambil seluruh data lalu melakukan slice/filter/sort di memori browser.
+- **Larangan Polling / Refetch Interval di Frontend**: `apps/web` **DILARANG** melakukan refetch atau polling data ke API secara berkala menggunakan interval (`refetchInterval` pada TanStack Query ataupun polling berulang via `setInterval`). Seluruh sinkronisasi data realtime lintas modul (seperti saldo wallet, status transaksi/invoice, dsb.) **WAJIB** murni *event-driven* melalui Server-Sent Events (SSE `/api/invoices/events`) dan invalidasi query cache on-demand (`queryClient.invalidateQueries(...)`).
 - Seluruh stack jalan lewat Docker Compose.
 
 
@@ -101,6 +102,7 @@ UI dan Route Handler Next.js **dilarang** memanggil SDK Siray, Prisma wallet mut
 - Memanggil atau mendaftarkan endpoint API di frontend tanpa mencatatnya di `apps/web/lib/api-mapping.ts`.
 - Melakukan client-side slicing/pagination, filtering, atau sorting pada daftar data di frontend (ADR 0018).
 - Mengekspos nama model upstream (OpenAI, Bytedance, Alibaba, Flux, GPT, Seedance, Wan, Qwen, dsb.) dan nama provider (Siray, dsb.) pada endpoint publik/pelanggan yang diakses browser (seperti `GET /api/catalog/generate`, `GET /customer/models`, `GET /customer/generated-lists`, dsb.). Endpoint browser hanya boleh mengekspos identifier abstrak (`t2i-standard`, `t2i-spicy`, `video-standard`, `video-spicy`), mode, isSpicy, dan matriks poin (`costPoints`/`videoConfigPoints`). Detail provider dan nama model mentah hanya untuk internal backend worker dan panel admin `/admin/*`.
+- **Integrasi API/Model & Mapping Aspect Ratio**: Setiap integrasi provider/model baru di `packages/providers-*` **WAJIB** merujuk pada kamus mapping aspect ratio kanonik sistem (`apps/web/lib/aspect-ratio.ts`). Karena tiap model upstream memiliki format payload berbeda (misal: enum string `portrait_16_9`/`landscape_16_9`, object `{ width, height }`, atau dimensi pixel), adapter provider wajib mengonversi rasio kanonik (`9:16`, `16:9`, `1:1`, `2:3`, `3:2`, dll.) ke format payload spesifik model tersebut. **DILARANG** mengabaikan aspect ratio pilihan user atau membiarkan output fallback ke default model (seperti 1024x1024 / 1:1) saat user memilih orientasi non-square.
 
 ## Cara menambah fitur
 
@@ -128,6 +130,11 @@ UI dan Route Handler Next.js **dilarang** memanggil SDK Siray, Prisma wallet mut
 - Error API: `{ error: { code, message } }`.
 - Log: jangan kirim foto input / prompt kesusilaan ke Sentry tanpa redaksi.
 - Commit: kecil, satu topik. Jangan campur schema + UI acak.
+- **Standar Pengujian Provider (Probing / Diagnostik Upstream)**:
+  - Setiap kali agen atau developer mengirim request uji coba langsung (ad-hoc / probing / diagnostik) ke API upstream provider (Fal.ai, Siray, dll.), prompt **WAJIB** menyertakan prefix terstandarisasi:
+    - Format: `[TEST:DEV] <prompt>` atau `[TEST:QA] <prompt>` (contoh: `"[TEST:DEV] cat standing on grass"`).
+  - Tujuannya agar seluruh riwayat pemanggilan di dashboard atau log provider dapat diidentifikasi secara konsisten dan transparan sebagai pengujian sistem/developer, bukan lalu lintas pengguna nyata.
+  - Setiap eksekusi probing wajib mencatat minimal: `Timestamp`, `Provider & Model Endpoint`, `Request ID`, dan `Output Dimensions/Status`.
 
 ## Directives & Permissions Agent
 

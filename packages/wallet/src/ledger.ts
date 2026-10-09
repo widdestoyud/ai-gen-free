@@ -29,9 +29,37 @@ function balanceFromEntries(entries: LedgerLike[]) {
   return { available: postedNet - held, held, postedNet };
 }
 
-export async function computeBalance(userId: string) {
-  const entries = await prisma.ledgerEntry.findMany({ where: { userId } });
-  return balanceFromEntries(entries);
+export async function computeBalance(userId: string, tx?: Prisma.TransactionClient) {
+  const client = tx ?? prisma;
+  const groups = await client.ledgerEntry.groupBy({
+    by: ["type", "status"],
+    where: {
+      userId,
+      OR: [
+        { status: LedgerStatus.posted },
+        { status: LedgerStatus.pending, type: LedgerType.hold },
+      ],
+    },
+    _sum: {
+      amount: true,
+    },
+  });
+
+  let postedNet = 0;
+  let held = 0;
+  for (const g of groups) {
+    const sum = g._sum.amount ? asInt(g._sum.amount) : 0;
+    if (g.status === LedgerStatus.posted) {
+      if (g.type === LedgerType.topup || g.type === LedgerType.refund || g.type === LedgerType.adjust) {
+        postedNet += sum;
+      } else if (g.type === LedgerType.capture) {
+        postedNet -= sum;
+      }
+    } else if (g.status === LedgerStatus.pending && g.type === LedgerType.hold) {
+      held += sum;
+    }
+  }
+  return { available: postedNet - held, held, postedNet };
 }
 
 export type AdjustWalletResult = {
@@ -98,8 +126,7 @@ export async function adjustWallet(opts: {
       await tx.$queryRaw`SELECT "userId" FROM "Wallet" WHERE "userId" = ${opts.userId} FOR UPDATE`;
       const replay = await tx.ledgerEntry.findUnique({ where: { idempotencyKey } });
       if (replay) return { row: replay, idempotent: true as const };
-      const entries = await tx.ledgerEntry.findMany({ where: { userId: opts.userId } });
-      const bal = balanceFromEntries(entries);
+      const bal = await computeBalance(opts.userId, tx);
       if (bal.available + opts.amount < 0) {
         throw new AppError(ErrorCodes.INSUFFICIENT_POINTS, "Poin tidak cukup", 402);
       }

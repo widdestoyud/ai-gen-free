@@ -210,5 +210,30 @@ export function GearIcon({ size = 16, ...props }: SVGProps<SVGSVGElement> & { si
   );
 }
 
+export function MagicWandIcon({ size = 16, ...props }: SVGProps<SVGSVGElement> & { size?: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      {...props}
+    >
+      <path d="m15 4 5 5" />
+      <path d="M18.5 7.5 7 19l-4-1 1-4L15.5 2.5a2.121 2.121 0 0 1 3 3L18.5 7.5z" />
+      <path d="M3 3v2" />
+      <path d="M4 4H2" />
+      <path d="M9 2v2" />
+      <path d="M10 3H8" />
+      <path d="M2 9v2" />
+      <path d="M3 10H1" />
+    </svg>
+  );
+}
+
 
 

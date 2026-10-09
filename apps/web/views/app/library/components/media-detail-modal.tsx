@@ -14,15 +14,92 @@ import {
   Tooltip,
 } from "@mantine/core";
 import { useEffect, useState } from "react";
-import type { LibraryItem } from "@/hooks/use-library";
+import { useRouter } from "next/navigation";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { type LibraryItem, isUpscaledImage } from "@/hooks/use-library";
 import { formatBytes, resolveUploadUrl } from "@/lib/format";
 import { extractReferenceImages, type ReferenceImageItem } from "@/lib/job-status";
 import { downloadMediaFile } from "@/lib/download-media";
 import { useImageViewer } from "@/hooks/use-image-viewer";
 import { SparkleIcon } from "./library-icons";
 import { requestJson } from "@/lib/api";
+import { queryKeys } from "@/lib/query-keys";
 import { ErrorAlert } from "@/components/error-alert";
+import { ImageCompareSlider } from "./image-compare-slider";
 import classes from "./media-detail-modal.module.css";
+
+function EditPencilIcon({ size = 14 }: { size?: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+      <path d="m15 5 4 4" />
+    </svg>
+  );
+}
+
+function BrushIcon({ size = 14 }: { size?: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="m9.06 11.9 8.07-8.06a2.85 2.85 0 1 1 4.03 4.03l-8.06 8.08" />
+      <path d="M7.07 14.94c-1.66 0-3 1.34-3 3 0 .83.34 1.58.88 2.12C5.5 20.62 6.25 21 7.07 21c1.66 0 3-1.34 3-3 0-.82-.34-1.57-.88-2.11" />
+    </svg>
+  );
+}
+
+function SplitIcon({ size = 14 }: { size?: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+      <line x1="12" y1="3" x2="12" y2="21" />
+    </svg>
+  );
+}
+
+function SingleImageIcon({ size = 14 }: { size?: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
+      <circle cx="8.5" cy="8.5" r="1.5" />
+      <polyline points="21 15 16 10 5 21" />
+    </svg>
+  );
+}
 
 function DownloadIcon({ size = 16 }: { size?: number }) {
   return (
@@ -216,6 +293,7 @@ function formatModalDateShort(iso?: string | null): string {
 
 function getModeLabel(item: LibraryItem): string {
   if (item.type === "upload") return "UPLOAD MEDIA";
+  if (isUpscaledImage(item)) return "UPSCALE IMAGE";
   if (item.kind === "video") return "GENERATED VIDEO";
   return "GENERATED IMAGE";
 }
@@ -234,6 +312,7 @@ export function MediaDetailModal({
   onSelectItem,
   onDeleteUpload,
   onUpscaleSuccess,
+  onOpenInpaint,
 }: {
   opened: boolean;
   onClose: () => void;
@@ -242,22 +321,28 @@ export function MediaDetailModal({
   onSelectItem: (item: LibraryItem) => void;
   onDeleteUpload?: (id: string) => Promise<boolean>;
   onUpscaleSuccess?: () => void;
+  onOpenInpaint?: (item: LibraryItem) => void;
 }) {
+  const router = useRouter();
+  const queryClient = useQueryClient();
   const [previewRef, setPreviewRef] = useState<ReferenceImageItem | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
-  const [upscaleCost, setUpscaleCost] = useState<number>(5);
-  const [upscaleEnabled, setUpscaleEnabled] = useState<boolean>(false);
   const [confirmUpscale, setConfirmUpscale] = useState(false);
   const [isUpscaling, setIsUpscaling] = useState(false);
   const [upscaleError, setUpscaleError] = useState<string | null>(null);
   const [upscaleSuccessMsg, setUpscaleSuccessMsg] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<"compare" | "single">("compare");
   const viewer = useImageViewer({ resetKey: `${item?.id}-${opened}` });
 
   const currentIndex = items.findIndex((i) => i.id === item?.id);
   const hasPrev = currentIndex > 0;
   const hasNext = currentIndex >= 0 && currentIndex < items.length - 1;
+
+  useEffect(() => {
+    setViewMode("compare");
+  }, [item?.id]);
 
   useEffect(() => {
     setConfirmDelete(false);
@@ -266,32 +351,22 @@ export function MediaDetailModal({
     setUpscaleSuccessMsg(null);
   }, [item?.id, opened]);
 
-  useEffect(() => {
-    if (!opened) return;
-    let active = true;
-    async function fetchCatalog() {
+  const { data: catalogData } = useQuery<{ models?: Array<{ modelId: string; costPoints: number }> }>({
+    queryKey: ["catalog-generate"],
+    queryFn: async () => {
       const res = await requestJson<{ models?: Array<{ modelId: string; costPoints: number }> }>("/api/catalog/generate");
-      if (active && res.ok && res.data?.models) {
-        const found = res.data.models.find(
-          (m) => m.modelId === "image-upscale" || m.modelId.toLowerCase().includes("upscale")
-        );
-        if (found) {
-          setUpscaleEnabled(true);
-          if (typeof found.costPoints === "number") {
-            setUpscaleCost(found.costPoints);
-          }
-        } else {
-          setUpscaleEnabled(false);
-        }
-      } else if (active) {
-        setUpscaleEnabled(false);
-      }
-    }
-    void fetchCatalog();
-    return () => {
-      active = false;
-    };
-  }, [opened]);
+      return res.ok && res.data ? res.data : { models: [] };
+    },
+    staleTime: 1000 * 60 * 30,
+    gcTime: 1000 * 60 * 60 * 24,
+    refetchOnWindowFocus: false,
+  });
+
+  const upscaleModel = catalogData?.models?.find(
+    (m) => m.modelId === "image-upscale" || m.modelId.toLowerCase().includes("upscale")
+  );
+  const upscaleEnabled = Boolean(upscaleModel);
+  const upscaleCost = typeof upscaleModel?.costPoints === "number" ? upscaleModel.costPoints : 5;
 
   useEffect(() => {
     if (!opened) return;
@@ -331,13 +406,19 @@ export function MediaDetailModal({
 
   const isVideo = item.kind === "video" || item.mime_type.startsWith("video/");
   const isGenerated = item.type === "generated";
-  const displayLabel = item.prompt || item.alias || item.id;
+  const isUpscaled = isUpscaledImage(item);
+  const cleanAlias = item.alias ? item.alias.replace(/\.[^/.]+$/, "") : "";
+  const displayLabel = item.type === "upload" ? (cleanAlias || item.id) : (item.prompt || cleanAlias || (isUpscaled ? "Upscaled Image" : item.id));
+
+  const referenceImages = extractReferenceImages(item.params, item.prompt ?? undefined);
+  const originalImageUrl = isUpscaled && referenceImages.length > 0 ? resolveUploadUrl(referenceImages[0].url) : null;
+  const isCompareAvailable = Boolean(isUpscaled && originalImageUrl && item.url);
 
   const handleDownload = async () => {
     if (!item?.url) return;
     setIsDownloading(true);
     try {
-      const rawFilename = item.type === "upload" ? (item.alias || `upload-${item.id}`) : `media-${item.id}`;
+      const rawFilename = item.type === "upload" ? (cleanAlias || `upload-${item.id}`) : `media-${item.id}`;
       await downloadMediaFile({
         url: item.url,
         filename: rawFilename,
@@ -369,7 +450,7 @@ export function MediaDetailModal({
           params: {
             image: item.url,
             upscale_mode: "factor",
-            upscale_factor: 8.0,
+            upscale_factor: 4.0,
           },
         }),
       });
@@ -377,9 +458,19 @@ export function MediaDetailModal({
         setUpscaleError(res.message || "Gagal memulai proses upscale");
         return;
       }
-      setUpscaleSuccessMsg("Proses upscale 8x sedang berjalan! Hasil resolusi tinggi akan muncul di Library.");
+      const newJobId = res.data?.id || res.data?.job_id;
       setConfirmUpscale(false);
+      handleModalClose();
       onUpscaleSuccess?.();
+      void queryClient.invalidateQueries({ queryKey: queryKeys.generatedJobs() });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.library() });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.wallet() });
+      if (newJobId) {
+        router.push(`/app/generate?jobId=${encodeURIComponent(newJobId)}`);
+      } else {
+        router.push("/app/generate");
+      }
+      router.refresh();
     } catch (err) {
       setUpscaleError(err instanceof Error ? err.message : "Terjadi kesalahan saat memulai upscale");
     } finally {
@@ -409,22 +500,29 @@ export function MediaDetailModal({
             <div
               ref={viewer.containerRef}
               className={classes.mediaViewerWrapper}
-              data-zoomed={viewer.isZoomed ? "true" : undefined}
-              data-dragging={viewer.isDragging ? "true" : undefined}
-              {...(!isVideo ? viewer.viewerProps : {})}
+              data-zoomed={!isCompareAvailable || viewMode === "single" ? (viewer.isZoomed ? "true" : undefined) : undefined}
+              data-dragging={!isCompareAvailable || viewMode === "single" ? (viewer.isDragging ? "true" : undefined) : undefined}
+              {...(!isVideo && (!isCompareAvailable || viewMode === "single") ? viewer.viewerProps : {})}
             >
               {isVideo ? (
                 <video
-                  src={item.url ?? ""}
+                  src={resolveUploadUrl(item.url)}
                   controls
                   autoPlay
                   loop
                   className={classes.detailMedia}
                 />
+              ) : isCompareAvailable && viewMode === "compare" && originalImageUrl ? (
+                <ImageCompareSlider
+                  beforeUrl={originalImageUrl}
+                  afterUrl={resolveUploadUrl(item.url)}
+                  beforeLabel="Sebelum (Original)"
+                  afterLabel="Sesudah (4x Upscale)"
+                />
               ) : (
                 <img
                   ref={viewer.imageRef}
-                  src={item.url ?? ""}
+                  src={resolveUploadUrl(item.url)}
                   alt={displayLabel}
                   className={classes.detailMedia}
                 />
@@ -454,43 +552,74 @@ export function MediaDetailModal({
               ) : null}
             </div>
 
-            {/* Kontrol Zoom (Hanya untuk Gambar) */}
+            {/* Kontrol Zoom & View Mode Switcher (Hanya untuk Gambar) */}
             {!isVideo && item.url ? (
               <div className={classes.zoomControlsBar}>
-                <Tooltip label="Perkecil (-)" withArrow position="top">
-                  <button
-                    type="button"
-                    onClick={viewer.zoomOut}
-                    disabled={!viewer.canZoomOut}
-                    className={classes.zoomBtn}
-                    aria-label="Zoom Out"
-                  >
-                    <ZoomOutIcon size={15} />
-                  </button>
-                </Tooltip>
-                <span className={classes.zoomPercent}>{viewer.zoomLevel}%</span>
-                <Tooltip label="Perbesar (+)" withArrow position="top">
-                  <button
-                    type="button"
-                    onClick={viewer.zoomIn}
-                    disabled={!viewer.canZoomIn}
-                    className={classes.zoomBtn}
-                    aria-label="Zoom In"
-                  >
-                    <ZoomInIcon size={15} />
-                  </button>
-                </Tooltip>
-                {viewer.isZoomed ? (
-                  <Tooltip label="Reset Ukuran" withArrow position="top">
-                    <button
-                      type="button"
-                      onClick={viewer.resetZoom}
-                      className={classes.zoomBtn}
-                      aria-label="Reset Zoom"
-                    >
-                      <ZoomResetIcon size={13} />
-                    </button>
-                  </Tooltip>
+                {isCompareAvailable ? (
+                  <div className={classes.viewModeToggle}>
+                    <Tooltip label="Bandingkan Before & After (Geser Garis)" withArrow position="top">
+                      <button
+                        type="button"
+                        className={`${classes.viewModeBtn} ${viewMode === "compare" ? classes.viewModeBtnActive : ""}`}
+                        onClick={() => setViewMode("compare")}
+                        aria-label="Mode Pembanding"
+                      >
+                        <SplitIcon size={13} />
+                        <span>Bandingkan</span>
+                      </button>
+                    </Tooltip>
+                    <Tooltip label="Mode Zoom & Pan Gambar Tunggal" withArrow position="top">
+                      <button
+                        type="button"
+                        className={`${classes.viewModeBtn} ${viewMode === "single" ? classes.viewModeBtnActive : ""}`}
+                        onClick={() => setViewMode("single")}
+                        aria-label="Mode Gambar Tunggal"
+                      >
+                        <SingleImageIcon size={13} />
+                        <span>Detail</span>
+                      </button>
+                    </Tooltip>
+                  </div>
+                ) : null}
+
+                {!isCompareAvailable || viewMode === "single" ? (
+                  <>
+                    <Tooltip label="Perkecil (-)" withArrow position="top">
+                      <button
+                        type="button"
+                        onClick={viewer.zoomOut}
+                        disabled={!viewer.canZoomOut}
+                        className={classes.zoomBtn}
+                        aria-label="Zoom Out"
+                      >
+                        <ZoomOutIcon size={15} />
+                      </button>
+                    </Tooltip>
+                    <span className={classes.zoomPercent}>{viewer.zoomLevel}%</span>
+                    <Tooltip label="Perbesar (+)" withArrow position="top">
+                      <button
+                        type="button"
+                        onClick={viewer.zoomIn}
+                        disabled={!viewer.canZoomIn}
+                        className={classes.zoomBtn}
+                        aria-label="Zoom In"
+                      >
+                        <ZoomInIcon size={15} />
+                      </button>
+                    </Tooltip>
+                    {viewer.isZoomed ? (
+                      <Tooltip label="Reset Ukuran" withArrow position="top">
+                        <button
+                          type="button"
+                          onClick={viewer.resetZoom}
+                          className={classes.zoomBtn}
+                          aria-label="Reset Zoom"
+                        >
+                          <ZoomResetIcon size={13} />
+                        </button>
+                      </Tooltip>
+                    ) : null}
+                  </>
                 ) : null}
               </div>
             ) : null}
@@ -502,7 +631,7 @@ export function MediaDetailModal({
               <div className={classes.sidebarContent}>
                 {/* Status & Mode Badges */}
                 <div className={classes.badgesRow}>
-                  <Badge className={classes.modeBadge}>
+                  <Badge className={isUpscaled ? classes.modeBadgeUpscale : classes.modeBadge}>
                     {getModeLabel(item)}
                   </Badge>
                   <Badge className={classes.statusBadge}>
@@ -510,43 +639,63 @@ export function MediaDetailModal({
                   </Badge>
                 </div>
 
-                {/* Tombol Aksi (Download, Upscale & Delete) */}
+                {/* Tombol Aksi (Download full width, Edit & Upscale side by side, & Delete) */}
                 {item.url ? (
-                  !isVideo && upscaleEnabled ? (
-                    <div className={classes.actionButtonsRow}>
+                  !isVideo ? (
+                    <div className={classes.actionButtonsContainer}>
                       <Button
                         onClick={() => void handleDownload()}
                         loading={isDownloading}
                         variant="filled"
+                        fullWidth
                         leftSection={<DownloadIcon size={16} />}
                         className={classes.primaryDownloadBtn}
                       >
                         Download
                       </Button>
-                      <Button
-                        onClick={() => {
-                          setUpscaleError(null);
-                          setConfirmUpscale(true);
-                        }}
-                        loading={isUpscaling}
-                        variant="filled"
-                        leftSection={<SparkleIcon size={14} />}
-                        className={classes.upscaleBtn}
-                      >
-                        Upscale ({upscaleCost} Sparks)
-                      </Button>
+                      <div className={classes.actionButtonsRow}>
+                        <Button
+                          onClick={() => {
+                            if (onOpenInpaint && item) {
+                              onOpenInpaint(item);
+                            }
+                            onClose();
+                          }}
+                          variant="filled"
+                          leftSection={<EditPencilIcon size={14} />}
+                          className={classes.inpaintEditBtn}
+                        >
+                          Edit
+                        </Button>
+                        {!isUpscaled && upscaleEnabled ? (
+                          <Button
+                            onClick={() => {
+                              setUpscaleError(null);
+                              setConfirmUpscale(true);
+                            }}
+                            loading={isUpscaling}
+                            variant="filled"
+                            leftSection={<SparkleIcon size={13} />}
+                            className={classes.upscaleBtn}
+                          >
+                            Upscale
+                          </Button>
+                        ) : null}
+                      </div>
                     </div>
                   ) : (
-                    <Button
-                      onClick={() => void handleDownload()}
-                      loading={isDownloading}
-                      variant="filled"
-                      fullWidth
-                      leftSection={<DownloadIcon size={16} />}
-                      className={classes.primaryDownloadBtn}
-                    >
-                      Download
-                    </Button>
+                    <div className={classes.actionButtonsContainer}>
+                      <Button
+                        onClick={() => void handleDownload()}
+                        loading={isDownloading}
+                        variant="filled"
+                        fullWidth
+                        leftSection={<DownloadIcon size={16} />}
+                        className={classes.primaryDownloadBtn}
+                      >
+                        Download
+                      </Button>
+                    </div>
                   )
                 ) : null}
 
@@ -568,41 +717,19 @@ export function MediaDetailModal({
                 ) : null}
 
                 {item.type === "upload" && onDeleteUpload ? (
-                  confirmDelete ? (
-                    <Group gap="xs" grow>
-                      <Button
-                        variant="filled"
-                        color="red"
-                        size="sm"
-                        loading={isDeleting}
-                        onClick={() => void handleDeleteUpload()}
-                      >
-                        Ya, Hapus
-                      </Button>
-                      <Button
-                        variant="default"
-                        size="sm"
-                        disabled={isDeleting}
-                        onClick={() => setConfirmDelete(false)}
-                      >
-                        Batal
-                      </Button>
-                    </Group>
-                  ) : (
-                    <Button
-                      variant="light"
-                      color="red"
-                      fullWidth
-                      leftSection={<TrashIcon size={16} />}
-                      className={classes.dangerDeleteBtn}
-                      onClick={() => setConfirmDelete(true)}
-                    >
-                      Hapus Berkas
-                    </Button>
-                  )
+                  <Button
+                    variant="light"
+                    color="red"
+                    fullWidth
+                    leftSection={<TrashIcon size={16} />}
+                    className={classes.dangerDeleteBtn}
+                    onClick={() => setConfirmDelete(true)}
+                  >
+                    Hapus Berkas
+                  </Button>
                 ) : null}
 
-                {/* Reference Images (@image) */}
+                {/* Reference Images (@image / Original Image) */}
                 {(() => {
                   const referenceImages = extractReferenceImages(item.params, item.prompt ?? undefined);
                   if (referenceImages.length === 0) return null;
@@ -610,27 +737,35 @@ export function MediaDetailModal({
                     <div className={classes.referenceImagesSection}>
                       <div className={classes.referenceHeader}>
                         <span className={classes.promptHeading}>
-                          REFERENCE IMAGE{referenceImages.length > 1 ? "S" : ""}
+                          {isUpscaled
+                            ? "REFERENSI GAMBAR ASLI"
+                            : `REFERENCE IMAGE${referenceImages.length > 1 ? "S" : ""}`}
                         </span>
                       </div>
                       <div className={classes.referenceGrid}>
                         {referenceImages.map((ref, idx) => {
                           const imgUrl = resolveUploadUrl(ref.url);
+                          const tagLabel = isUpscaled ? "Original" : ref.tag;
                           return (
-                            <Tooltip key={idx} label={`Lihat referensi: ${ref.tag}`} withArrow position="top">
+                            <Tooltip
+                              key={idx}
+                              label={isUpscaled ? "Lihat gambar asli sebelum di-upscale" : `Lihat referensi: ${ref.tag}`}
+                              withArrow
+                              position="top"
+                            >
                               <button
                                 type="button"
-                                onClick={() => setPreviewRef(ref)}
+                                onClick={() => setPreviewRef({ ...ref, tag: tagLabel })}
                                 className={classes.referenceCard}
-                                aria-label={`Lihat media referensi ${ref.tag}`}
+                                aria-label={isUpscaled ? "Lihat gambar asli" : `Lihat media referensi ${tagLabel}`}
                               >
                                 <img
                                   src={imgUrl}
-                                  alt={ref.tag}
+                                  alt={tagLabel}
                                   className={classes.referenceThumb}
                                 />
                                 <div className={classes.referenceTagBadge}>
-                                  {ref.tag}
+                                  {tagLabel}
                                 </div>
                               </button>
                             </Tooltip>
@@ -664,6 +799,33 @@ export function MediaDetailModal({
                   </div>
                   <div className={classes.promptParagraph}>
                     {item.prompt}
+                  </div>
+                </div>
+              ) : null}
+
+              {/* Box Nama Berkas (Hanya untuk Uploaded Media) */}
+              {item.type === "upload" && (cleanAlias || item.id) ? (
+                <div className={classes.promptSection}>
+                  <div className={classes.promptHeader}>
+                    <span className={classes.promptHeading}>NAMA BERKAS</span>
+                    <CopyButton value={cleanAlias || item.id} timeout={2000}>
+                      {({ copied, copy }) => (
+                        <Tooltip label={copied ? "Tersalin" : "Salin nama berkas"} withArrow position="left">
+                          <ActionIcon
+                            variant="subtle"
+                            color={copied ? "teal" : "gray"}
+                            size="xs"
+                            onClick={copy}
+                            aria-label="Salin nama berkas"
+                          >
+                            {copied ? <CheckIcon size={14} /> : <CopyIcon size={14} />}
+                          </ActionIcon>
+                        </Tooltip>
+                      )}
+                    </CopyButton>
+                  </div>
+                  <div className={classes.promptParagraph}>
+                    {cleanAlias || item.id}
                   </div>
                 </div>
               ) : null}
@@ -745,7 +907,7 @@ export function MediaDetailModal({
     <Modal
       opened={Boolean(previewRef)}
       onClose={() => setPreviewRef(null)}
-      title="Detail Media Referensi"
+      title={isUpscaled ? "Detail Gambar Asli (Sebelum Upscale)" : "Detail Media Referensi"}
       size="lg"
       centered
       zIndex={300}
@@ -764,10 +926,10 @@ export function MediaDetailModal({
             <Group justify="space-between" wrap="wrap" gap="sm">
               <div>
                 <Text size="xs" c="dimmed">
-                  Tag Referensi
+                  {isUpscaled ? "Keterangan" : "Tag Referensi"}
                 </Text>
                 <Group gap={6} mt={2}>
-                  <Badge size="sm" variant="light" color="green">
+                  <Badge size="sm" variant="light" color={isUpscaled ? "violet" : "green"}>
                     {previewRef.tag}
                   </Badge>
                 </Group>
@@ -810,7 +972,7 @@ export function MediaDetailModal({
     >
       <Stack gap="md">
         <Text size="sm" c="dimmed">
-          Tingkatkan kualitas dan ketajaman gambar hingga 8x lipat lebih tinggi menggunakan AI Image Upscaler.
+          Tingkatkan kualitas dan ketajaman gambar hingga 4x lipat lebih tinggi menggunakan AI Image Upscaler.
         </Text>
 
         <Paper p="sm" withBorder radius="md" bg="rgba(255, 255, 255, 0.03)">
@@ -848,6 +1010,45 @@ export function MediaDetailModal({
             onClick={() => void handleUpscale()}
           >
             Mulai Upscale
+          </Button>
+        </Group>
+      </Stack>
+    </Modal>
+
+    {/* Modal Konfirmasi Hapus Berkas */}
+    <Modal
+      opened={confirmDelete}
+      onClose={() => {
+        if (!isDeleting) setConfirmDelete(false);
+      }}
+      title="Hapus Berkas Media"
+      size="sm"
+      centered
+      zIndex={360}
+    >
+      <Stack gap="md">
+        <Text size="sm">
+          Apakah Anda yakin ingin menghapus berkas <strong>{displayLabel}</strong>? Tindakan ini permanen dan tidak dapat dibatalkan.
+        </Text>
+
+        <Group justify="flex-end" gap="xs" mt="xs">
+          <Button
+            variant="default"
+            size="sm"
+            disabled={isDeleting}
+            onClick={() => setConfirmDelete(false)}
+          >
+            Batal
+          </Button>
+          <Button
+            color="red"
+            variant="filled"
+            size="sm"
+            loading={isDeleting}
+            leftSection={<TrashIcon size={14} />}
+            onClick={() => void handleDeleteUpload()}
+          >
+            Ya, Hapus
           </Button>
         </Group>
       </Stack>

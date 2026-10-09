@@ -16,6 +16,11 @@ enum UserRole {
   admin
 }
 
+enum AuthProvider {
+  password
+  google
+}
+
 enum SessionKind {
   user
   admin
@@ -72,7 +77,10 @@ model User {
   email           String    @unique
   emailVerifiedAt DateTime?
   passwordHash    String?
+  authProvider    AuthProvider @default(password)
+  googleSub       String?      @unique
   displayName     String?
+  avatarUrl       String?
   phoneNumber     String?
   ktp             String?
   address         String?
@@ -100,6 +108,7 @@ model User {
   passwordResetTokens PasswordResetToken[]
   uploads             Upload[]
   activities          UserActivityLog[]
+  chatSessions        ChatSession[]
 
   @@index([role, createdAt])
   @@index([createdAt])
@@ -195,6 +204,8 @@ model Job {
 
   @@unique([userId, idempotencyKey])
   @@index([userId, createdAt])
+  @@index([userId, status])
+  @@index([userId, status, createdAt])
   @@index([status, createdAt])
   @@index([createdAt])
   @@index([mode, status, createdAt])
@@ -399,4 +410,27 @@ model UserActivityLog {
   @@index([userId, createdAt])
   @@index([action, createdAt])
   @@index([ip])
+}
+
+model ChatSession {
+  id        String        @id @default(cuid())
+  userId    String
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String?
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  messages  ChatMessage[]
+
+  @@index([userId, createdAt])
+}
+
+model ChatMessage {
+  id        String      @id @default(cuid())
+  sessionId String
+  session   ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  role      String
+  content   String      @db.Text
+  createdAt DateTime    @default(now())
+
+  @@index([sessionId, createdAt])
 }

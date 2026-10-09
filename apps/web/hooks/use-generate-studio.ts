@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from "react";
+import { useSearchParams } from "next/navigation";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { requestJson } from "@/lib/api";
 import { remainingSeconds, resolveUploadUrl } from "@/lib/format";
 import {
@@ -20,6 +22,9 @@ import {
   type AspectRatioId,
   type AspectRatioOption,
 } from "@/lib/aspect-ratio";
+import { uploadFileWithProgress } from "@/lib/upload";
+import { queryKeys } from "@/lib/query-keys";
+import { useWallet } from "./use-wallet";
 
 export { STUDIO_ASPECTS, getAspectMetadata, transformAspectRatioToSize, type AspectRatioId, type AspectRatioOption };
 
@@ -142,22 +147,98 @@ function nearestSignedRefresh(jobs: JobView[]): number | null {
   return best;
 }
 
-export function useGenerateStudio(props: {
-  available: number;
-  held: number;
-  models: Model[];
+export function useGenerateStudio(props?: {
+  available?: number;
+  held?: number;
+  models?: Model[];
   defaults?: Partial<DefaultGenerationModelsConfig>;
-  jobs: JobView[];
-  nextGenerateAt: string | null;
+  jobs?: JobView[];
+  nextGenerateAt?: string | null;
   initialUploads?: StudioUpload[];
   initialUploadsTotal?: number;
   initialSpicyModeEnabled?: boolean;
   initialUploadPolicyAccepted?: boolean;
 }) {
-  const [models, setModels] = useState<Model[]>(() => props.models ?? []);
-  const [defaults, setDefaults] = useState<Partial<DefaultGenerationModelsConfig> | undefined>(() => props.defaults);
+  const wallet = useWallet(
+    typeof props?.available === "number"
+      ? { available: props.available, held: props.held ?? 0 }
+      : undefined
+  );
+  const queryClient = useQueryClient();
+
+  const catalogQuery = useQuery<{ models?: Model[]; defaults?: Partial<DefaultGenerationModelsConfig> }>({
+    queryKey: queryKeys.catalogGenerate(),
+    queryFn: async () => {
+      const res = await requestJson<{ models?: Model[]; defaults?: Partial<DefaultGenerationModelsConfig> }>("/api/catalog/generate");
+      if (res.ok && res.data) return res.data;
+      return { models: [], defaults: undefined };
+    },
+    staleTime: 1000 * 60 * 30,
+    gcTime: 1000 * 60 * 60 * 24,
+    refetchOnWindowFocus: false,
+    initialData: props?.models ? { models: props.models, defaults: props.defaults } : undefined,
+  });
+
+  const [localModels, setLocalModels] = useState<Model[] | null>(null);
+  const [localDefaults, setLocalDefaults] = useState<Partial<DefaultGenerationModelsConfig> | null>(null);
+
+  const models = localModels ?? catalogQuery.data?.models ?? props?.models ?? [];
+  const defaults = localDefaults ?? catalogQuery.data?.defaults ?? props?.defaults;
+
+  const setModels = (m: Model[] | ((prev: Model[]) => Model[])) => {
+    if (typeof m === "function") {
+      setLocalModels((prev) => m(prev ?? catalogQuery.data?.models ?? props?.models ?? []));
+    } else {
+      setLocalModels(m);
+    }
+  };
+
+  const setDefaults = (d: Partial<DefaultGenerationModelsConfig> | undefined | ((prev: Partial<DefaultGenerationModelsConfig> | undefined) => Partial<DefaultGenerationModelsConfig> | undefined)) => {
+    if (typeof d === "function") {
+      setLocalDefaults((prev) => d(prev ?? catalogQuery.data?.defaults ?? props?.defaults) ?? null);
+    } else {
+      setLocalDefaults(d ?? null);
+    }
+  };
+
+  const userStatusQuery = useQuery({
+    queryKey: queryKeys.userStatus(),
+    queryFn: async () => {
+      const res = await requestJson<{
+        user: {
+          uploadPolicyAcceptedAt: string | null;
+          hasUploads?: boolean;
+          nextGenerateAt: string | null;
+          spicyModeEnabled?: boolean;
+        };
+      }>("/api/me");
+      if (res.ok && res.data?.user) return res.data.user;
+      return null;
+    },
+    staleTime: 1000 * 60 * 5,
+    gcTime: 1000 * 60 * 30,
+    refetchOnWindowFocus: false,
+  });
+
+  const searchParams = useSearchParams();
+  const urlJobId = searchParams?.get("jobId") || null;
+
+  const jobsQuery = useQuery<JobsListView>({
+    queryKey: queryKeys.generatedJobs(),
+    queryFn: async () => {
+      const res = await requestJson<JobsListView>("/api/generate");
+      if (res.ok && res.data) return res.data;
+      return { jobs: [], nextGenerateAt: null };
+    },
+    staleTime: 0,
+    refetchOnMount: "always",
+    gcTime: 1000 * 60 * 30,
+    refetchOnWindowFocus: false,
+    initialData: props?.jobs ? { jobs: props.jobs, nextGenerateAt: props.nextGenerateAt ?? null } : undefined,
+  });
+
   const [mediaType, setMediaType] = useState<"image" | "video">("image");
-  const [spicyModeEnabled, setSpicyModeEnabled] = useState(() => props.initialSpicyModeEnabled ?? false);
+  const [spicyModeEnabled, setSpicyModeEnabled] = useState(() => props?.initialSpicyModeEnabled ?? false);
   const [spicyFilter, setSpicyFilter] = useState<"normal" | "spicy">("normal");
   const [selectedRefs, setSelectedRefs] = useState<StudioRef[]>([]);
   const hasImageRefs = selectedRefs.length > 0;
@@ -167,8 +248,8 @@ export function useGenerateStudio(props: {
     () => filterModels(models, effectiveMode, spicyFilter),
     [models, effectiveMode, spicyFilter],
   );
-  const [jobs, setJobs] = useState<JobView[]>(() => props.jobs ?? []);
-  const [modelId, setModelId] = useState(() => pickInitialModel(catalog, effectiveMode, spicyFilter, props.defaults));
+  const [jobs, setJobs] = useState<JobView[]>(() => props?.jobs ?? []);
+  const [modelId, setModelId] = useState(() => pickInitialModel(catalog, effectiveMode, spicyFilter, props?.defaults));
   const [videoDuration, setVideoDuration] = useState<"6s" | "10s" | "15s">("6s");
   const [videoResolution, setVideoResolution] = useState<"480p" | "720p" | "1080p">("480p");
   const [prompt, setPrompt] = useState("");
@@ -177,19 +258,19 @@ export function useGenerateStudio(props: {
   const [errorCode, setErrorCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [now, setNow] = useState(() => Date.now());
-  const [cooldownUntil, setCooldownUntil] = useState<string | null>(props.nextGenerateAt ?? null);
+  const [cooldownUntil, setCooldownUntil] = useState<string | null>(props?.nextGenerateAt ?? null);
   const [libraryOpened, setLibraryOpened] = useState(false);
   const [libraryTab, setLibraryTab] = useState<"generations" | "uploads">("generations");
-  const [uploads, setUploads] = useState<StudioUpload[]>(() => props.initialUploads ?? []);
+  const [uploads, setUploads] = useState<StudioUpload[]>(() => props?.initialUploads ?? []);
   const [uploadPage, setUploadPage] = useState(1);
-  const [uploadTotal, setUploadTotal] = useState(() => props.initialUploadsTotal ?? props.initialUploads?.length ?? 0);
+  const [uploadTotal, setUploadTotal] = useState(() => props?.initialUploadsTotal ?? props?.initialUploads?.length ?? 0);
   const [isUploadsLoading, setIsUploadsLoading] = useState(false);
   const [mentionOpen, setMentionOpen] = useState(false);
   const [mentionIndex, setMentionIndex] = useState(0);
   const fileRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [resultModalOpened, setResultModalOpened] = useState(false);
-  const [uploadPolicyAccepted, setUploadPolicyAccepted] = useState(() => props.initialUploadPolicyAccepted ?? false);
+  const [uploadPolicyAccepted, setUploadPolicyAccepted] = useState(() => props?.initialUploadPolicyAccepted ?? false);
   const [uploadPolicyModalOpened, setUploadPolicyModalOpened] = useState(false);
   const [policySaving, setPolicySaving] = useState(false);
   const [policyError, setPolicyError] = useState<string | null>(null);
@@ -197,73 +278,61 @@ export function useGenerateStudio(props: {
   const userCheckedRef = useRef(false);
 
   useEffect(() => {
-    if (props.models) setModels(props.models);
-  }, [props.models]);
+    if (props?.models) setModels(props.models);
+  }, [props?.models]);
 
   useEffect(() => {
-    if (props.defaults) setDefaults(props.defaults);
-  }, [props.defaults]);
+    if (props?.defaults) setDefaults(props.defaults);
+  }, [props?.defaults]);
 
   useEffect(() => {
-    if (typeof props.initialSpicyModeEnabled === "boolean") {
+    if (typeof props?.initialSpicyModeEnabled === "boolean") {
       setSpicyModeEnabled(props.initialSpicyModeEnabled);
     }
-  }, [props.initialSpicyModeEnabled]);
+  }, [props?.initialSpicyModeEnabled]);
 
   useEffect(() => {
-    if (typeof props.initialUploadPolicyAccepted === "boolean") {
+    if (typeof props?.initialUploadPolicyAccepted === "boolean") {
       setUploadPolicyAccepted(props.initialUploadPolicyAccepted);
     }
-  }, [props.initialUploadPolicyAccepted]);
+  }, [props?.initialUploadPolicyAccepted]);
 
-  // Sync catalog & defaults real-time on client mount and focus
   useEffect(() => {
-    let active = true;
-    async function syncCatalog() {
-      const res = await requestJson<{ models?: Model[]; defaults?: DefaultGenerationModelsConfig }>("/api/catalog/generate");
-      if (active && res.ok && res.data) {
-        if (res.data.models) setModels(res.data.models);
-        if (res.data.defaults) setDefaults(res.data.defaults);
+    if (userStatusQuery.data) {
+      userCheckedRef.current = true;
+      setUploadPolicyAccepted(Boolean(userStatusQuery.data.uploadPolicyAcceptedAt));
+      setSpicyModeEnabled(Boolean(userStatusQuery.data.spicyModeEnabled));
+    }
+  }, [userStatusQuery.data]);
+
+  useEffect(() => {
+    if (jobsQuery.data?.jobs) {
+      setJobs(jobsQuery.data.jobs);
+      const activeItem = jobsQuery.data.jobs.find((j) => isJobActive(j.status));
+      if (activeItem) {
+        setActiveJobId(activeItem.id);
+        setActiveJob(activeItem);
       }
     }
-    void syncCatalog();
-    const onFocus = () => void syncCatalog();
-    window.addEventListener("focus", onFocus);
-    return () => {
-      active = false;
-      window.removeEventListener("focus", onFocus);
-    };
-  }, []);
-
-  // Sync user status (spicyModeEnabled, upload policy, etc.) on client mount and focus
-  useEffect(() => {
-    let active = true;
-    async function syncUserStatus() {
-      const res = await requestJson<{
-        user: {
-          uploadPolicyAcceptedAt: string | null;
-          hasUploads?: boolean;
-          nextGenerateAt: string | null;
-          spicyModeEnabled?: boolean;
-        };
-      }>("/api/me");
-      if (active && res.ok && res.data?.user) {
-        userCheckedRef.current = true;
-        setUploadPolicyAccepted(Boolean(res.data.user.uploadPolicyAcceptedAt));
-        setSpicyModeEnabled(Boolean(res.data.user.spicyModeEnabled));
-      }
+    if (jobsQuery.data?.nextGenerateAt !== undefined) {
+      setCooldownUntil(jobsQuery.data.nextGenerateAt);
     }
-    void syncUserStatus();
-    const onFocus = () => void syncUserStatus();
-    window.addEventListener("focus", onFocus);
-    return () => {
-      active = false;
-      window.removeEventListener("focus", onFocus);
-    };
-  }, []);
+  }, [jobsQuery.data]);
 
   async function checkUserStatus() {
     if (userCheckedRef.current) return { accepted: uploadPolicyAccepted, spicyModeEnabled };
+    if (userStatusQuery.data) {
+      userCheckedRef.current = true;
+      const accepted = Boolean(userStatusQuery.data.uploadPolicyAcceptedAt);
+      const spicyEnabled = Boolean(userStatusQuery.data.spicyModeEnabled);
+      setUploadPolicyAccepted(accepted);
+      setSpicyModeEnabled(spicyEnabled);
+      return {
+        accepted,
+        hasUploads: userStatusQuery.data.hasUploads,
+        spicyModeEnabled: spicyEnabled,
+      };
+    }
     const res = await requestJson<{
       user: {
         uploadPolicyAcceptedAt: string | null;
@@ -285,9 +354,26 @@ export function useGenerateStudio(props: {
     };
   }
   const [lastGeneratedJob, setLastGeneratedJob] = useState<JobView | null>(null);
-  const initialActive = (props.jobs ?? []).find((j) => isJobActive(j.status));
-  const [activeJobId, setActiveJobId] = useState<string | null>(initialActive?.id ?? null);
-  const [activeJob, setActiveJob] = useState<JobView | null>(initialActive ?? null);
+  const initialActive = (props?.jobs ?? []).find((j) => isJobActive(j.status));
+  const [activeJobId, setActiveJobId] = useState<string | null>(() => urlJobId || initialActive?.id || null);
+  const [activeJob, setActiveJob] = useState<JobView | null>(() => {
+    if (urlJobId) {
+      const found = (props?.jobs ?? []).find((j) => j.id === urlJobId);
+      if (found) return found;
+    }
+    return initialActive ?? null;
+  });
+
+  useEffect(() => {
+    if (urlJobId) {
+      setActiveJobId(urlJobId);
+      if (typeof window !== "undefined") {
+        const url = new URL(window.location.href);
+        url.searchParams.delete("jobId");
+        window.history.replaceState({}, "", url.pathname + (url.search ? url.search : ""));
+      }
+    }
+  }, [urlJobId]);
 
   const isSpicy = spicyFilter === "spicy";
   const preferredDefaultId = isSpicy
@@ -318,13 +404,13 @@ export function useGenerateStudio(props: {
   const aspectMeta = STUDIO_ASPECTS.find((item) => item.value === aspectRatio) ?? STUDIO_ASPECTS[1];
 
   useEffect(() => {
-    if (props.initialUploads && props.initialUploads.length > 0) {
+    if (props?.initialUploads && props.initialUploads.length > 0) {
       setUploads(props.initialUploads);
     }
-    if (typeof props.initialUploadsTotal === "number") {
+    if (typeof props?.initialUploadsTotal === "number") {
       setUploadTotal(props.initialUploadsTotal);
     }
-  }, [props.initialUploads, props.initialUploadsTotal]);
+  }, [props?.initialUploads, props?.initialUploadsTotal]);
 
   async function fetchUploadsPage(page = 1) {
     setIsUploadsLoading(true);
@@ -347,15 +433,18 @@ export function useGenerateStudio(props: {
       if (typeof res.data.total === "number") {
         setUploadTotal(res.data.total);
       }
-      const loaded: StudioUpload[] = res.data.items.map((item) => ({
-        id: item.id,
-        url: resolveUploadUrl(item.url, item.id),
-        name: item.key.split("/").pop() ?? item.id,
-        key: item.key,
-        alias: item.alias ?? null,
-        width: item.width,
-        height: item.height,
-      }));
+      const loaded: StudioUpload[] = res.data.items.map((item) => {
+        const cleanName = (item.alias || item.key.split("/").pop() || item.id).replace(/\.[^/.]+$/, "");
+        return {
+          id: item.id,
+          url: resolveUploadUrl(item.url, item.id),
+          name: cleanName,
+          key: item.key,
+          alias: item.alias ? item.alias.replace(/\.[^/.]+$/, "") : cleanName,
+          width: item.width,
+          height: item.height,
+        };
+      });
       setUploads((prev) => {
         const inFlight = prev.filter((u) => u.uploading);
         return [...inFlight, ...loaded];
@@ -405,9 +494,18 @@ export function useGenerateStudio(props: {
     cooldownLeft <= 0;
 
   useEffect(() => {
-    setJobs(props.jobs ?? []);
-    setCooldownUntil(props.nextGenerateAt ?? null);
-  }, [props.jobs, props.nextGenerateAt]);
+    if (props?.jobs) {
+      setJobs(props.jobs);
+      const activeItem = props.jobs.find((j) => isJobActive(j.status));
+      if (activeItem) {
+        setActiveJobId(activeItem.id);
+        setActiveJob(activeItem);
+      }
+    }
+    if (props?.nextGenerateAt !== undefined) {
+      setCooldownUntil(props.nextGenerateAt);
+    }
+  }, [props?.jobs, props?.nextGenerateAt]);
 
   const prevModeRef = useRef(effectiveMode);
   const prevSpicyRef = useRef(spicyFilter);
@@ -429,9 +527,21 @@ export function useGenerateStudio(props: {
   }, [catalog, modelId, effectiveMode, spicyFilter, defaults, preferredDefaultId]);
 
   useEffect(() => {
-    const tick = window.setInterval(() => setNow(Date.now()), 1000);
+    if (!cooldownUntil) return;
+    const initialLeft = remainingSeconds(cooldownUntil, Date.now());
+    if (initialLeft <= 0) return;
+
+    setNow(Date.now());
+    const tick = window.setInterval(() => {
+      const current = Date.now();
+      setNow(current);
+      if (remainingSeconds(cooldownUntil, current) <= 0) {
+        window.clearInterval(tick);
+      }
+    }, 1000);
+
     return () => window.clearInterval(tick);
-  }, []);
+  }, [cooldownUntil]);
 
   useEffect(() => {
     return () => {
@@ -459,14 +569,22 @@ export function useGenerateStudio(props: {
         setActiveJobId(null);
         setActiveJob(null);
         setJobs((prev) => [data, ...prev.filter((j) => j.id !== data.id)]);
+        void queryClient.invalidateQueries({ queryKey: queryKeys.generatedJobs() });
+        void queryClient.invalidateQueries({ queryKey: queryKeys.library() });
+        void queryClient.invalidateQueries({ queryKey: queryKeys.wallet() });
       } else if (data.status === "failed" || data.status === "canceled") {
         setError(jobErrorMessage(data.errorCode, data.errorMessage));
         setErrorCode(data.errorCode ?? "JOB_FAILED");
         setActiveJobId(null);
         setActiveJob(null);
         setJobs((prev) => [data, ...prev.filter((j) => j.id !== data.id)]);
+        void queryClient.invalidateQueries({ queryKey: queryKeys.generatedJobs() });
+        void queryClient.invalidateQueries({ queryKey: queryKeys.wallet() });
       }
     }
+
+    // Fetch current job state immediately (initial snapshot)
+    void checkJobFallback();
 
     let eventSource: EventSource | null = null;
     try {
@@ -516,22 +634,6 @@ export function useGenerateStudio(props: {
       }
     };
   }, [activeJobId]);
-
-  useEffect(() => {
-    if (isGenerating || cooldownLeft <= 0) return;
-    let cancelled = false;
-    const timer = window.setInterval(() => {
-      void (async () => {
-        const result = await requestJson<{ user: { nextGenerateAt: string | null } }>("/api/me");
-        if (cancelled || !result.ok) return;
-        setCooldownUntil(result.data.user.nextGenerateAt ?? null);
-      })();
-    }, 4000);
-    return () => {
-      cancelled = true;
-      window.clearInterval(timer);
-    };
-  }, [isGenerating, cooldownLeft]);
 
   useEffect(() => {
     if (isGenerating) return;
@@ -659,83 +761,57 @@ export function useGenerateStudio(props: {
   }
 
   function uploadFileAsync(file: File, tempId: string) {
-    const formData = new FormData();
-    formData.append("file", file);
-
-    const xhr = new XMLHttpRequest();
-    xhr.open("POST", "/api/customer-uploads");
-
-    xhr.upload.onprogress = (event) => {
-      if (event.lengthComputable) {
-        const pct = Math.min(99, Math.max(1, Math.round((event.loaded / event.total) * 100)));
+    uploadFileWithProgress(file, {
+      onProgress: (pct) => {
         setUploads((prev) =>
           prev.map((item) => (item.id === tempId ? { ...item, progress: pct } : item))
         );
         setSelectedRefs((prev) =>
           prev.map((item) => (item.id === tempId ? { ...item, progress: pct } : item))
         );
-      }
-    };
-
-    xhr.onload = () => {
-      if (xhr.status >= 200 && xhr.status < 300) {
-        try {
-          const data = JSON.parse(xhr.responseText) as {
-            id: string;
-            url: string;
-            width?: number;
-            height?: number;
-          };
-          const finalUrl = resolveUploadUrl(data.url, data.id);
-          setUploads((prev) =>
-            prev.map((item) =>
-              item.id === tempId
-                ? {
-                    ...item,
-                    id: data.id,
-                    url: finalUrl,
-                    uploading: false,
-                    progress: 100,
-                    width: data.width,
-                    height: data.height,
-                  }
-                : item
-            )
-          );
-          setSelectedRefs((prev) =>
-            prev.map((item) =>
-              item.id === tempId
-                ? {
-                    ...item,
-                    id: data.id,
-                    url: finalUrl,
-                    uploading: false,
-                    progress: 100,
-                    format: "WEBP",
-                    width: data.width,
-                    height: data.height,
-                  }
-                : item
-            )
-          );
-        } catch {
-          handleUploadError(tempId, "Gagal memproses respon berkas unggahan");
-        }
-      } else {
-        let msg = "Gagal mengunggah berkas";
-        try {
-          const parsed = JSON.parse(xhr.responseText);
-          if (parsed?.error?.message) msg = parsed.error.message;
-        } catch {}
+      },
+      onSuccess: (result) => {
+        const cleanName = (result.alias || file.name).replace(/\.[^/.]+$/, "");
+        setUploads((prev) =>
+          prev.map((item) =>
+            item.id === tempId
+              ? {
+                  ...item,
+                  id: result.id,
+                  url: result.url,
+                  name: cleanName,
+                  alias: cleanName,
+                  uploading: false,
+                  progress: 100,
+                  width: result.width,
+                  height: result.height,
+                }
+              : item
+          )
+        );
+        setSelectedRefs((prev) =>
+          prev.map((item) =>
+            item.id === tempId
+              ? {
+                  ...item,
+                  id: result.id,
+                  url: result.url,
+                  name: cleanName,
+                  alias: cleanName,
+                  uploading: false,
+                  progress: 100,
+                  format: "WEBP",
+                  width: result.width,
+                  height: result.height,
+                }
+              : item
+          )
+        );
+      },
+      onError: (msg) => {
         handleUploadError(tempId, msg);
-      }
-    };
-
-    xhr.onerror = () => {
-      handleUploadError(tempId, "Gagal terhubung ke server saat mengunggah berkas");
-    };
-
-    xhr.send(formData);
+      },
+    });
   }
 
   function handleUploadError(tempId: string, message: string) {
@@ -748,6 +824,8 @@ export function useGenerateStudio(props: {
     setSelectedRefs((prev) => prev.filter((item) => item.id !== tempId));
   }
 
+  const MAX_STUDIO_REFS = 5;
+
   function onFiles(e: ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? []);
     e.target.value = "";
@@ -758,13 +836,25 @@ export function useGenerateStudio(props: {
       return;
     }
 
+    const availableSlots = MAX_STUDIO_REFS - selectedRefs.length;
+    if (availableSlots <= 0) {
+      setError("Maksimal hanya 5 gambar referensi yang dapat dipilih.");
+      return;
+    }
+
+    const filesToUpload = files.slice(0, availableSlots);
+    if (files.length > availableSlots) {
+      setError("Maksimal hanya 5 gambar referensi yang dapat dipilih.");
+    }
+
     const newUploads: StudioUpload[] = [];
     const newRefs: StudioRef[] = [];
 
-    for (const file of files) {
+    for (const file of filesToUpload) {
       const tempId = `up-${crypto.randomUUID()}`;
       const localBlobUrl = URL.createObjectURL(file);
       const ext = file.name.split(".").pop()?.toUpperCase() ?? file.type.split("/")[1]?.toUpperCase() ?? "IMAGE";
+      const cleanName = file.name.replace(/\.[^/.]+$/, "");
 
       const newRef: StudioRef = {
         id: tempId,
@@ -772,7 +862,8 @@ export function useGenerateStudio(props: {
         kind: "upload",
         uploading: true,
         progress: 0,
-        name: file.name,
+        name: cleanName,
+        alias: cleanName,
         format: ext,
         contentType: file.type,
       };
@@ -782,7 +873,8 @@ export function useGenerateStudio(props: {
       newUploads.push({
         id: tempId,
         url: localBlobUrl,
-        name: file.name,
+        name: cleanName,
+        alias: cleanName,
         uploading: true,
         progress: 0,
       });
@@ -803,6 +895,10 @@ export function useGenerateStudio(props: {
     setSelectedRefs((prev) => {
       if (prev.some((item) => item.id === job.id)) {
         return prev.filter((item) => item.id !== job.id);
+      }
+      if (prev.length >= MAX_STUDIO_REFS) {
+        setError("Maksimal hanya 5 gambar referensi yang dapat dipilih.");
+        return prev;
       }
       return resequenceRefs([
         ...prev,
@@ -827,10 +923,15 @@ export function useGenerateStudio(props: {
       return;
     }
     if (item.uploading) return;
-    const ext = (item.name.split(".").pop() ?? "webp").toUpperCase();
+    const displayName = (item.alias || item.name).replace(/\.[^/.]+$/, "");
+    const ext = "WEBP";
     setSelectedRefs((prev) => {
       if (prev.some((ref) => ref.id === item.id)) {
         return prev.filter((ref) => ref.id !== item.id);
+      }
+      if (prev.length >= MAX_STUDIO_REFS) {
+        setError("Maksimal hanya 5 gambar referensi yang dapat dipilih.");
+        return prev;
       }
       return resequenceRefs([
         ...prev,
@@ -840,8 +941,8 @@ export function useGenerateStudio(props: {
           kind: "upload",
           uploading: item.uploading,
           progress: item.progress,
-          alias: item.alias,
-          name: item.name,
+          alias: displayName,
+          name: displayName,
           format: ext,
           width: item.width,
           height: item.height,
@@ -1029,6 +1130,8 @@ export function useGenerateStudio(props: {
   }
 
   return {
+    available: wallet.available,
+    held: wallet.held,
     catalog,
     selected,
     jobs,

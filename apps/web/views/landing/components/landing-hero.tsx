@@ -80,9 +80,9 @@ export function LandingHero({
           muted
           playsInline
           preload="auto"
-          poster="/dreamina/dreamina-hero-main.webp"
+          poster="/landing-page/hero-main.webp"
         >
-          <source src="/dreamina/dreamina-hero-main.mp4" type="video/mp4" />
+          <source src="/landing-page/hero-main.mp4" type="video/mp4" />
         </video>
 
         {/* Video Darkening Overlay */}

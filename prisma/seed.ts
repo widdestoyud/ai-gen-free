@@ -359,6 +359,179 @@ async function main() {
     },
   });
 
+  await prisma.modelCatalog.upsert({
+    where: { mode_modelId: { mode: "inpaint", modelId: "fal-ai/flux-lora/inpainting" } },
+    update: {
+      displayName: "Flux LoRA Inpainting / Image Edit",
+      providerId: "falai",
+      costPoints: 10,
+      enabled: true,
+      isSpicy: false,
+    },
+    create: {
+      mode: "inpaint",
+      modelId: "fal-ai/flux-lora/inpainting",
+      displayName: "Flux LoRA Inpainting / Image Edit",
+      providerId: "falai",
+      costPoints: 10,
+      enabled: true,
+      isSpicy: false,
+    },
+  });
+
+  await prisma.modelCatalog.upsert({
+    where: { mode_modelId: { mode: "inpaint", modelId: "fal-ai/qwen-image-edit/inpaint" } },
+    update: {
+      displayName: "Qwen Image Edit Inpaint",
+      providerId: "falai",
+      costPoints: 10,
+      enabled: true,
+      isSpicy: false,
+    },
+    create: {
+      mode: "inpaint",
+      modelId: "fal-ai/qwen-image-edit/inpaint",
+      displayName: "Qwen Image Edit Inpaint",
+      providerId: "falai",
+      costPoints: 10,
+      enabled: true,
+      isSpicy: false,
+    },
+  });
+
+  // Fal.ai Lowest Cost Models (t2i, i2i, t2v, i2v <= 1s duration)
+  await prisma.modelCatalog.upsert({
+    where: { mode_modelId: { mode: "t2i", modelId: "fal-ai/fast-sdxl" } },
+    update: {
+      displayName: "Fast SDXL (Cheapest T2I)",
+      providerId: "falai",
+      costPoints: 5,
+      enabled: true,
+      isSpicy: false,
+    },
+    create: {
+      mode: "t2i",
+      modelId: "fal-ai/fast-sdxl",
+      displayName: "Fast SDXL (Cheapest T2I)",
+      providerId: "falai",
+      costPoints: 5,
+      enabled: true,
+      isSpicy: false,
+    },
+  });
+
+  await prisma.modelCatalog.upsert({
+    where: { mode_modelId: { mode: "t2i", modelId: "fal-ai/flux/schnell" } },
+    update: {
+      displayName: "Flux Schnell",
+      providerId: "falai",
+      costPoints: 5,
+      enabled: true,
+      isSpicy: false,
+    },
+    create: {
+      mode: "t2i",
+      modelId: "fal-ai/flux/schnell",
+      displayName: "Flux Schnell",
+      providerId: "falai",
+      costPoints: 5,
+      enabled: true,
+      isSpicy: false,
+    },
+  });
+
+  await prisma.modelCatalog.upsert({
+    where: { mode_modelId: { mode: "i2i", modelId: "fal-ai/fast-sdxl/image-to-image" } },
+    update: {
+      displayName: "Fast SDXL Image-to-Image",
+      providerId: "falai",
+      costPoints: 5,
+      enabled: true,
+      isSpicy: false,
+    },
+    create: {
+      mode: "i2i",
+      modelId: "fal-ai/fast-sdxl/image-to-image",
+      displayName: "Fast SDXL Image-to-Image",
+      providerId: "falai",
+      costPoints: 5,
+      enabled: true,
+      isSpicy: false,
+    },
+  });
+
+  const FAST_VIDEO_CONFIG_POINTS = {
+    "1s_384p": 15,
+    "1s_512p": 20,
+    "6s_480p": 50,
+  };
+
+  await prisma.modelCatalog.upsert({
+    where: { mode_modelId: { mode: "t2v", modelId: "fal-ai/fast-animatediff/text-to-video" } },
+    update: {
+      displayName: "Fast AnimateDiff (1s T2V)",
+      providerId: "falai",
+      costPoints: 20,
+      videoConfigPoints: FAST_VIDEO_CONFIG_POINTS,
+      enabled: true,
+      isSpicy: false,
+    },
+    create: {
+      mode: "t2v",
+      modelId: "fal-ai/fast-animatediff/text-to-video",
+      displayName: "Fast AnimateDiff (1s T2V)",
+      providerId: "falai",
+      costPoints: 20,
+      videoConfigPoints: FAST_VIDEO_CONFIG_POINTS,
+      enabled: true,
+      isSpicy: false,
+    },
+  });
+
+  await prisma.modelCatalog.upsert({
+    where: { mode_modelId: { mode: "i2v", modelId: "fal-ai/fast-svd" } },
+    update: {
+      displayName: "Fast SVD (1s I2V / Ref2V)",
+      providerId: "falai",
+      costPoints: 20,
+      videoConfigPoints: FAST_VIDEO_CONFIG_POINTS,
+      enabled: true,
+      isSpicy: false,
+    },
+    create: {
+      mode: "i2v",
+      modelId: "fal-ai/fast-svd",
+      displayName: "Fast SVD (1s I2V / Ref2V)",
+      providerId: "falai",
+      costPoints: 20,
+      videoConfigPoints: FAST_VIDEO_CONFIG_POINTS,
+      enabled: true,
+      isSpicy: false,
+    },
+  });
+
+  await prisma.modelCatalog.upsert({
+    where: { mode_modelId: { mode: "i2v", modelId: "fal-ai/fast-animatediff/image-to-video" } },
+    update: {
+      displayName: "Fast AnimateDiff (1s I2V)",
+      providerId: "falai",
+      costPoints: 20,
+      videoConfigPoints: FAST_VIDEO_CONFIG_POINTS,
+      enabled: true,
+      isSpicy: false,
+    },
+    create: {
+      mode: "i2v",
+      modelId: "fal-ai/fast-animatediff/image-to-video",
+      displayName: "Fast AnimateDiff (1s I2V)",
+      providerId: "falai",
+      costPoints: 20,
+      videoConfigPoints: FAST_VIDEO_CONFIG_POINTS,
+      enabled: true,
+      isSpicy: false,
+    },
+  });
+
   const dummyEnabled = process.env.ENABLE_DUMMY_T2I === "true";
   await prisma.modelCatalog.upsert({
     where: { mode_modelId: { mode: "t2i", modelId: "dummy-t2i" } },
