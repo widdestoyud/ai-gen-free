@@ -118,8 +118,13 @@ export class DokuPaymentProvider implements PaymentGatewayPort {
         requestBody.order.callback_url = input.callbackUrl;
       }
 
-      if (input.paymentMethods && input.paymentMethods.length > 0) {
-        requestBody.payment!.payment_method_types = input.paymentMethods;
+      const allowedMethods =
+        input.paymentMethods && input.paymentMethods.length > 0
+          ? input.paymentMethods
+          : this.config.paymentMethods;
+
+      if (allowedMethods && allowedMethods.length > 0) {
+        requestBody.payment!.payment_method_types = allowedMethods;
       }
 
       if (input.customerName || input.customerEmail || input.customerPhone) {

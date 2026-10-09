@@ -45,6 +45,14 @@ export function createDokuPaymentGateway(logger?: Logger): PaymentGatewayPort | 
     return null;
   }
 
+  const paymentMethodsEnv = process.env.DOKU_PAYMENT_METHODS;
+  const paymentMethods = paymentMethodsEnv
+    ? paymentMethodsEnv
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean)
+    : undefined;
+
   const config: DokuConfig = {
     clientId,
     secretKey,
@@ -52,6 +60,7 @@ export function createDokuPaymentGateway(logger?: Logger): PaymentGatewayPort | 
     isProduction,
     baseUrl: process.env.DOKU_BASE_URL,
     notificationPath: process.env.DOKU_NOTIFICATION_PATH,
+    paymentMethods,
   };
 
   logger?.info({
@@ -59,6 +68,7 @@ export function createDokuPaymentGateway(logger?: Logger): PaymentGatewayPort | 
     clientId: `${clientId.substring(0, 8)}...`,
     hasPublicKey: Boolean(publicKey),
     isProduction,
+    paymentMethodsCount: paymentMethods?.length,
   });
 
   return createDokuProvider(config);

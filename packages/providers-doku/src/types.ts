@@ -19,6 +19,8 @@ export interface DokuConfig {
   baseUrl?: string;
   /** Optional custom notification path (e.g. /webhooks/doku) */
   notificationPath?: string;
+  /** Optional allowed payment method types to restrict channels */
+  paymentMethods?: string[];
 }
 
 export interface DokuLineItem {
