@@ -420,8 +420,13 @@ export async function checkPaymentStatus(
   opts: { userId?: string; invoiceId: string },
 ) {
   const where = opts.userId
-    ? { id: opts.invoiceId, userId: opts.userId }
-    : { id: opts.invoiceId };
+    ? {
+        userId: opts.userId,
+        OR: [{ id: opts.invoiceId }, { uniqueCode: opts.invoiceId }],
+      }
+    : {
+        OR: [{ id: opts.invoiceId }, { uniqueCode: opts.invoiceId }],
+      };
 
   const invoice = await prisma.invoice.findFirst({
     where,
@@ -509,7 +514,10 @@ export async function checkPaymentStatus(
  */
 export async function getInvoiceWithPaymentInfo(userId: string, invoiceId: string) {
   const invoice = await prisma.invoice.findFirst({
-    where: { id: invoiceId, userId },
+    where: {
+      userId,
+      OR: [{ id: invoiceId }, { uniqueCode: invoiceId }],
+    },
   });
 
   if (!invoice) {

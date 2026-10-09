@@ -66,6 +66,15 @@ export function PaymentSuccessView({ invoiceId }: { invoiceId?: string }) {
         const statusRes = await requestJson<PaymentStatusResponse>(`/api/invoices/${invoiceId}/payment-status`);
         if (isMounted && statusRes.ok && statusRes.data) {
           setStatusInfo(statusRes.data);
+          const rawStatus = (statusRes.data.status || "").toLowerCase();
+          if (rawStatus === "expired") {
+            window.location.replace(`/payment/expired?invoice=${encodeURIComponent(invoiceId || "")}`);
+            return;
+          }
+          if (rawStatus === "failed" || rawStatus === "rejected" || rawStatus === "cancelled") {
+            window.location.replace(`/payment/failed?invoice=${encodeURIComponent(invoiceId || "")}`);
+            return;
+          }
         }
 
         // 2. Fetch invoice info for display
