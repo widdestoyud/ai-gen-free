@@ -5,6 +5,7 @@ import classes from "./landing.module.css";
 import type { PublicPackage } from "@/lib/server-api";
 import { PackageCard } from "@/components/package-card";
 import { buildPlanFromPackage, DEFAULT_PRICING_PLANS } from "@/lib/pricing-packages";
+import { useI18n } from "@/lib/i18n";
 
 interface LandingPricingProps {
   onSelectPlan: (planId?: string) => void;
@@ -12,6 +13,7 @@ interface LandingPricingProps {
 }
 
 export function LandingPricing({ onSelectPlan, packages }: LandingPricingProps) {
+  const t = useI18n("landing");
   const plans =
     packages && packages.length > 0
       ? packages.map((pkg, idx) => buildPlanFromPackage(pkg, idx, packages.length))
@@ -23,18 +25,17 @@ export function LandingPricing({ onSelectPlan, packages }: LandingPricingProps) 
       <Container size="xl">
         <div className={classes.sectionHeader}>
           <span className={classes.sectionTag}>
-            INVESTASI HEMAT · TANPA AUTO-DEBET KARTU KREDIT
+            {t("pricing.tag")}
           </span>
           <Title className={classes.sectionTitle} order={2}>
-            Pilihan Paket Transparan.
+            {t("pricing.title_line1")}
             <br />
             <span className={classes.heroTitleHighlight}>
-              Hasil Sekelas Studio Profesional.
+              {t("pricing.title_line2")}
             </span>
           </Title>
           <Text className={classes.sectionSubtitle}>
-            Tanpa ikatan langganan bulanan yang membengkak. Cukup isi saldo sparks saat kamu butuh mulai dari Rp 49.000.
-            Sparks-mu aman selamanya dan tidak pernah kedaluwarsa.
+            {t("pricing.subtitle")}
           </Text>
         </div>
 
@@ -55,7 +56,7 @@ export function LandingPricing({ onSelectPlan, packages }: LandingPricingProps) 
                 points={plan.points}
                 popular={plan.popular}
                 perks={plan.perks}
-                buttonLabel={`Pilih ${plan.name}`}
+                buttonLabel={t("pricing.btn_select_plan", { name: plan.name })}
                 onSelect={(id) => onSelectPlan(id)}
               />
             </Grid.Col>
@@ -64,7 +65,7 @@ export function LandingPricing({ onSelectPlan, packages }: LandingPricingProps) 
 
         <Stack align="center" ta="center" mt={48} gap="xs">
           <Text size="xs" c="dimmed">
-            Sparks otomatis bertambah setelah pembayaran terverifikasi. Saldo sparks berlaku selamanya tanpa batas kedaluwarsa.
+            {t("pricing.footer_notice")}
           </Text>
         </Stack>
       </Container>

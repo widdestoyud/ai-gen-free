@@ -2,6 +2,7 @@
 
 import { Button, Group, Menu, Text, UnstyledButton } from "@mantine/core";
 import { CheckIcon, ClockIcon, ResolutionIcon } from "./generate-icons";
+import { useI18n } from "@/lib/i18n";
 import classes from "./generate-studio.module.css";
 
 const DURATIONS: Array<"6s" | "10s" | "15s"> = ["6s", "10s", "15s"];
@@ -14,10 +15,11 @@ export function GenerateDurationMenu({
   value: "6s" | "10s" | "15s";
   onChange: (val: "6s" | "10s" | "15s") => void;
 }) {
+  const { t } = useI18n("generate");
   return (
     <Menu position="top-end" shadow="md" width={140}>
       <Menu.Target>
-        <UnstyledButton className={classes.menuBtn} aria-label="Durasi video">
+        <UnstyledButton className={classes.menuBtn} aria-label={t("aria.video_duration")}>
           <ClockIcon size={14} />
           <span>{value}</span>
         </UnstyledButton>
@@ -46,10 +48,11 @@ export function GenerateResolutionMenu({
   value: "480p" | "720p" | "1080p";
   onChange: (val: "480p" | "720p" | "1080p") => void;
 }) {
+  const { t } = useI18n("generate");
   return (
     <Menu position="top-end" shadow="md" width={140}>
       <Menu.Target>
-        <UnstyledButton className={classes.menuBtn} aria-label="Resolusi video">
+        <UnstyledButton className={classes.menuBtn} aria-label={t("aria.video_resolution")}>
           <ResolutionIcon size={14} />
           <span>{value}</span>
         </UnstyledButton>

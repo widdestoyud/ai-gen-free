@@ -1,6 +1,7 @@
 "use client";
 
 import { Button, Group, Modal, Paper, ScrollArea, Stack, Text } from "@mantine/core";
+import { useI18n } from "@/lib/i18n";
 
 export interface TermsConditionsModalProps {
   opened: boolean;
@@ -8,11 +9,13 @@ export interface TermsConditionsModalProps {
 }
 
 export function TermsConditionsModal({ opened, onClose }: TermsConditionsModalProps) {
+  const t = useI18n("modals");
+
   return (
     <Modal
       opened={opened}
       onClose={onClose}
-      title="Syarat & Ketentuan Layanan"
+      title={t("terms.title")}
       centered
       size="lg"
     >
@@ -21,45 +24,45 @@ export function TermsConditionsModal({ opened, onClose }: TermsConditionsModalPr
           <ScrollArea.Autosize mah={360} type="scroll">
             <Stack gap="sm">
               <Text size="sm" fw={600}>
-                Ketentuan Penggunaan Platform satulabs.id
+                {t("terms.heading")}
               </Text>
               <Text size="xs" c="dimmed">
-                Selamat datang di platform satulabs.id. Dengan mengakses dan menggunakan layanan kami, Anda menyetujui untuk terikat oleh Syarat dan Ketentuan berikut:
+                {t("terms.intro")}
               </Text>
               
               <Text size="xs" fw={600} mt="xs">
-                1. Penggunaan Layanan
+                {t("terms.sec_1_title")}
               </Text>
               <Text size="xs" c="dimmed">
-                Layanan ini menyediakan fasilitas pembuatan konten berbasis kecerdasan buatan (AI) untuk keperluan pribadi dan komersial yang sah sesuai dengan peraturan perundang-undangan Republik Indonesia.
+                {t("terms.sec_1_desc")}
               </Text>
 
               <Text size="xs" fw={600} mt="xs">
-                2. Akun & Keamanan
+                {t("terms.sec_2_title")}
               </Text>
               <Text size="xs" c="dimmed">
-                Setiap pengguna bertanggung jawab penuh atas kerahasiaan informasi akun, keamanan email, dan aktivitas yang terjadi di bawah akun mereka. Satu sesi login aktif diterapkan untuk menjaga keamanan akun.
+                {t("terms.sec_2_desc")}
               </Text>
 
               <Text size="xs" fw={600} mt="xs">
-                3. Sistem Sparks & Generasi
+                {t("terms.sec_3_title")}
               </Text>
               <Text size="xs" c="dimmed">
-                Generasi media menggunakan saldo Sparks. Sparks diperoleh melalui pembelian paket dengan pembayaran transfer manual terkurasi dan tidak memiliki masa kedaluwarsa. Sparks yang telah dibeli atau digunakan tidak dapat diuangkan kembali (non-refundable).
+                {t("terms.sec_3_desc")}
               </Text>
 
               <Text size="xs" fw={600} mt="xs">
-                4. Pembatasan Konten & Retensi Media
+                {t("terms.sec_4_title")}
               </Text>
               <Text size="xs" c="dimmed">
-                Dilarang menggunakan platform untuk memproduksi atau mengunggah konten yang melanggar hukum, eksploitasi seksual anak, kekerasan, atau pelanggaran hak cipta. Hasil generasi dan unggahan media disimpan selama 14 hari sebelum dihapus otomatis demi efisiensi penyimpanan, sementara riwayat teks prompt tetap disimpan.
+                {t("terms.sec_4_desc")}
               </Text>
 
               <Text size="xs" fw={600} mt="xs">
-                5. Batasan Tanggung Jawab
+                {t("terms.sec_5_title")}
               </Text>
               <Text size="xs" c="dimmed">
-                Platform disediakan sebagaimana adanya (&quot;as is&quot;). Kami berhak membatasi, menangguhkan, atau menghentikan akses akun yang melanggar ketentuan ini sewaktu-waktu. Untuk ketentuan lengkap, silakan kunjungi halaman Syarat &amp; Ketentuan.
+                {t("terms.sec_5_desc")}
               </Text>
             </Stack>
           </ScrollArea.Autosize>
@@ -72,7 +75,7 @@ export function TermsConditionsModal({ opened, onClose }: TermsConditionsModalPr
             onClick={onClose}
             size="sm"
           >
-            Setuju
+            {t("terms.btn_agree")}
           </Button>
         </Group>
       </Stack>

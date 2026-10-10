@@ -102,30 +102,31 @@ export class DokuPaymentProvider implements PaymentGatewayPort {
       const requestId = randomUUID();
       const requestTimestamp = this.getCurrentIsoTimestamp();
 
+      const backToMerchantUrl = input.cancelRedirectUrl || input.callbackUrl;
+      const successUrl = input.successRedirectUrl || input.callbackUrl;
+      const cancelUrl = input.cancelRedirectUrl || input.failureRedirectUrl || input.callbackUrl;
+
       const requestBody: DokuCheckoutRequest = {
         order: {
           amount,
           invoice_number: input.invoiceNumber,
           currency: "IDR",
           auto_redirect: true,
+          disable_retry_payment: true,
         },
         payment: {
           payment_due_date: paymentDueDate,
         },
       };
 
-      const successUrl = input.successRedirectUrl || input.callbackUrl;
-      const cancelUrl = input.cancelRedirectUrl || input.failureRedirectUrl || input.callbackUrl;
-      const resultUrl = input.callbackUrl || successUrl;
-
-      if (successUrl) {
-        requestBody.order.callback_url = successUrl;
+      if (backToMerchantUrl) {
+        requestBody.order.callback_url = backToMerchantUrl;
       }
       if (cancelUrl) {
         requestBody.order.callback_url_cancel = cancelUrl;
       }
-      if (resultUrl) {
-        requestBody.order.callback_url_result = resultUrl;
+      if (successUrl) {
+        requestBody.order.callback_url_result = successUrl;
       }
 
       const allowedMethods =

@@ -28,6 +28,8 @@ async function getForwardHeaders(): Promise<Record<string, string>> {
       "x-forwarded-for",
       "x-real-ip",
       "x-device-id",
+      "x-locale",
+      "accept-language",
     ];
     for (const key of forwardList) {
       const val = reqHeaders.get(key);

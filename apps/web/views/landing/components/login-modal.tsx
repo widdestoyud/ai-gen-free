@@ -2,6 +2,7 @@
 
 import { Anchor, Button, Divider, Group, Modal, PasswordInput, Stack, Text, TextInput } from "@mantine/core";
 import { FormEvent, useEffect, useState } from "react";
+import { useI18n } from "@/lib/i18n";
 import { initiateGoogleSignIn } from "@/lib/google-auth";
 import { AppLink } from "@/components/app-link";
 import { ErrorAlert } from "@/components/error-alert";
@@ -38,6 +39,7 @@ export function LoginModal({
   pending: boolean;
   onSubmit: (e: FormEvent) => void;
 }) {
+  const { t } = useI18n("auth");
   const [shake, setShake] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
 
@@ -80,7 +82,7 @@ export function LoginModal({
       closeOnClickOutside={!pending && !googleLoading}
       closeOnEscape={!pending && !googleLoading}
       withCloseButton={!pending && !googleLoading}
-      title="Masuk"
+      title={t("login.modal_title")}
       centered
       size="md"
       radius="md"
@@ -93,21 +95,21 @@ export function LoginModal({
           disabled={pending || googleLoading}
           onClick={handleGoogleSignIn}
         />
-        <Divider label="atau masuk dengan email" labelPosition="center" my={2} />
+        <Divider label={t("login.or_email")} labelPosition="center" my={2} />
       </Stack>
       <form onSubmit={handleSubmit} style={{ marginTop: 12 }}>
         <Stack gap="sm">
           <TextInput
-            label="Email"
+            label={t("login.email_label")}
             type="email"
-            placeholder="nama@email.com"
+            placeholder={t("login.email_placeholder")}
             required
             disabled={pending}
             value={email}
             onChange={(ev) => onEmailChange(ev.currentTarget.value)}
           />
           <PasswordInput
-            label="Kata sandi"
+            label={t("login.password_label")}
             required
             disabled={pending}
             value={password}
@@ -126,15 +128,15 @@ export function LoginModal({
                 }}
                 style={{ textAlign: "left", cursor: pending ? "not-allowed" : "pointer", textDecoration: "none" }}
               >
-                Lupa kata sandi?
+                {t("login.forgot_password")}
               </Anchor>
             ) : (
-              <AppLink href="/auth/password">Lupa kata sandi?</AppLink>
+              <AppLink href="/auth/password">{t("login.forgot_password")}</AppLink>
             )}
 
             {onRegister ? (
               <Text size="xs" c="dimmed">
-                Belum punya akun?{" "}
+                {t("login.no_account")}{" "}
                 <Anchor
                   component="button"
                   type="button"
@@ -147,7 +149,7 @@ export function LoginModal({
                   }}
                   underline="hover"
                 >
-                  Daftar
+                  {t("login.link_register")}
                 </Anchor>
               </Text>
             ) : null}
@@ -162,7 +164,7 @@ export function LoginModal({
             fullWidth
             size="md"
           >
-            {pending ? "Memproses…" : "Masuk"}
+            {pending ? t("login.processing") : t("login.btn_submit")}
           </Button>
         </Stack>
       </form>

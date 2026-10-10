@@ -12,6 +12,7 @@ import {
   Table,
   Text,
 } from "@mantine/core";
+import { useI18n } from "@/lib/i18n";
 import { ResponsiveTable } from "@/components/responsive-table";
 import { EmptyState } from "@/components/empty-state";
 import { requestJson } from "@/lib/api";
@@ -75,29 +76,31 @@ function formatCreditDate(isoString: string): string {
   }
 }
 
-function getSourceInfo(entry: LedgerRow): { source: string; isNegative: boolean; signedAmount: string } {
+function getSourceInfo(entry: LedgerRow, t: (key: string) => string): { source: string; rawType: string; isNegative: boolean; signedAmount: string } {
   const abs = Math.abs(entry.amount);
   if (entry.type === "capture") {
-    return { source: "Task Creation", isNegative: true, signedAmount: `-${abs}` };
+    return { source: t("source_task_creation"), rawType: "task_creation", isNegative: true, signedAmount: `-${abs}` };
   }
   if (entry.type === "release" || entry.type === "refund") {
-    return { source: "Refund", isNegative: false, signedAmount: `+${abs}` };
+    return { source: t("source_refund"), rawType: "refund", isNegative: false, signedAmount: `+${abs}` };
   }
   if (entry.type === "topup" || entry.type === "adjust") {
     const isNeg = entry.amount < 0;
     return {
-      source: "Top Up",
+      source: t("source_topup"),
+      rawType: "topup",
       isNegative: isNeg,
       signedAmount: isNeg ? `-${abs}` : `+${abs}`,
     };
   }
   if (entry.type === "hold") {
-    return { source: "Task Creation", isNegative: true, signedAmount: `-${abs}` };
+    return { source: t("source_task_creation"), rawType: "task_creation", isNegative: true, signedAmount: `-${abs}` };
   }
   // Fallback
   const isNeg = entry.amount < 0 || entry.label.toLowerCase().includes("kurang") || entry.label.toLowerCase().includes("pakai");
   return {
-    source: entry.label || "Transaction",
+    source: entry.label || t("source_transaction"),
+    rawType: "other",
     isNegative: isNeg,
     signedAmount: isNeg ? `-${abs}` : `+${abs}`,
   };
@@ -106,6 +109,7 @@ function getSourceInfo(entry: LedgerRow): { source: string; isNegative: boolean;
 export type ComputedLedgerItem = LedgerRow & {
   formattedDate: string;
   source: string;
+  rawType: string;
   isNegative: boolean;
   signedAmount: string;
   balance: number;
@@ -123,6 +127,7 @@ export function CreditHistory(props: {
   onPageChange?: (page: number) => void;
   isLoading?: boolean;
 }) {
+  const { t } = useI18n("billing");
   const [channelFilter, setChannelFilter] = useState<string | null>("all");
   const [typeFilter, setTypeFilter] = useState<string | null>("all");
   const [selectedEntry, setSelectedEntry] = useState<ComputedLedgerItem | null>(null);
@@ -152,7 +157,7 @@ export function CreditHistory(props: {
   const computedEntries: ComputedLedgerItem[] = useMemo(() => {
     let bal = props.currentBalance;
     return props.entries.map((entry) => {
-      const info = getSourceInfo(entry);
+      const info = getSourceInfo(entry, t);
       const balanceAfter = bal;
       // Kurangkan efek mutasi untuk mengetahui saldo sebelum entri ini
       const delta = info.isNegative ? -Math.abs(entry.amount) : Math.abs(entry.amount);
@@ -161,18 +166,19 @@ export function CreditHistory(props: {
         ...entry,
         formattedDate: formatCreditDate(entry.createdAt),
         source: info.source,
+        rawType: info.rawType,
         isNegative: info.isNegative,
         signedAmount: info.signedAmount,
         balance: balanceAfter,
       };
     });
-  }, [props.entries, props.currentBalance]);
+  }, [props.entries, props.currentBalance, t]);
 
   // Filter berdasarkan channel dan type
   const filteredEntries = useMemo(() => {
     return computedEntries.filter((item) => {
       if (channelFilter && channelFilter !== "all") {
-        if (item.source.toLowerCase() !== channelFilter.toLowerCase()) {
+        if (item.rawType !== channelFilter) {
           return false;
         }
       }
@@ -186,7 +192,7 @@ export function CreditHistory(props: {
 
   function exportCsv() {
     if (filteredEntries.length === 0) return;
-    const headers = ["Tanggal", "Aktivitas", "Sebanyak", "Saldo", "ID", "JobID", "InvoiceID"];
+    const headers = [t("th_date"), t("th_activity"), t("th_amount"), t("th_balance"), "ID", "JobID", "InvoiceID"];
     const rows = filteredEntries.map((e) => [
       `"${e.formattedDate}"`,
       `"${e.source}"`,
@@ -217,17 +223,17 @@ export function CreditHistory(props: {
           loaderProps={{ size: "sm" }}
         />
         <div className={classes.headerRow}>
-          <Text className={classes.title}>Riwayat Kredit</Text>
+          <Text className={classes.title}>{t("credit_history_title")}</Text>
           <div className={classes.controls}>
             <Select
               size="xs"
               value={channelFilter}
               onChange={setChannelFilter}
               data={[
-                { value: "all", label: "All channels" },
-                { value: "Task Creation", label: "Task Creation" },
-                { value: "Refund", label: "Refund" },
-                { value: "Top Up", label: "Top Up" },
+                { value: "all", label: t("filter_all_channels") },
+                { value: "task_creation", label: t("source_task_creation") },
+                { value: "refund", label: t("source_refund") },
+                { value: "topup", label: t("source_topup") },
               ]}
               className={classes.selectInput}
               allowDeselect={false}
@@ -237,9 +243,9 @@ export function CreditHistory(props: {
               value={typeFilter}
               onChange={setTypeFilter}
               data={[
-                { value: "all", label: "All types" },
-                { value: "deduction", label: "Deduction (-)" },
-                { value: "addition", label: "Addition (+)" },
+                { value: "all", label: t("filter_all_types") },
+                { value: "deduction", label: t("filter_deduction") },
+                { value: "addition", label: t("filter_addition") },
               ]}
               className={classes.selectInput}
               allowDeselect={false}
@@ -251,28 +257,28 @@ export function CreditHistory(props: {
               onClick={exportCsv}
               disabled={filteredEntries.length === 0}
             >
-              Export CSV
+              {t("btn_export_csv")}
             </Button>
           </div>
         </div>
 
         {filteredEntries.length === 0 ? (
-          <EmptyState minHeight={220}>Belum ada data riwayat transaksi.</EmptyState>
+          <EmptyState minHeight={220}>{t("empty_history")}</EmptyState>
         ) : (
           <ResponsiveTable
             data={filteredEntries}
             keyExtractor={(row) => row.id}
             renderHeader={() => (
               <Table.Tr className={classes.tableHeader}>
-                <Table.Th>Tanggal</Table.Th>
-                <Table.Th>Aktivitas</Table.Th>
-                <Table.Th>Sebanyak</Table.Th>
-                <Table.Th>Saldo</Table.Th>
+                <Table.Th>{t("th_date")}</Table.Th>
+                <Table.Th>{t("th_activity")}</Table.Th>
+                <Table.Th>{t("th_amount")}</Table.Th>
+                <Table.Th>{t("th_balance")}</Table.Th>
                 <Table.Th className={classes.actionCell}></Table.Th>
               </Table.Tr>
             )}
             renderRow={(row) => {
-              const canShowDetail = row.source !== "Refund" && row.source !== "Top Up";
+              const canShowDetail = row.rawType !== "refund" && row.rawType !== "topup";
 
               return (
                 <Table.Tr key={row.id} className={classes.tableRow}>
@@ -291,7 +297,7 @@ export function CreditHistory(props: {
                         color="gray"
                         size="sm"
                         onClick={() => setSelectedEntry(row)}
-                        aria-label="Detail transaksi"
+                        aria-label={t("aria_detail")}
                       >
                         <ExternalLinkIcon />
                       </ActionIcon>
@@ -301,7 +307,7 @@ export function CreditHistory(props: {
               );
             }}
             renderMobileCard={(row) => {
-              const canShowDetail = row.source !== "Refund" && row.source !== "Top Up";
+              const canShowDetail = row.rawType !== "refund" && row.rawType !== "topup";
 
               return (
                 <div
@@ -327,7 +333,7 @@ export function CreditHistory(props: {
                         rightSection={<ExternalLinkIcon />}
                         onClick={() => setSelectedEntry(row)}
                       >
-                        Detail
+                        {t("btn_detail")}
                       </Button>
                     )}
                   </div>
@@ -344,7 +350,7 @@ export function CreditHistory(props: {
                   >
                     <div>
                       <Text size="xs" c="dimmed">
-                        Aktivitas
+                        {t("mobile_activity")}
                       </Text>
                       <Text size="sm" fw={600}>
                         {row.source}
@@ -352,7 +358,7 @@ export function CreditHistory(props: {
                     </div>
                     <div style={{ textAlign: "right" }}>
                       <Text size="xs" c="dimmed">
-                        Mutasi Poin
+                        {t("mobile_mutation")}
                       </Text>
                       <span className={row.isNegative ? classes.amountNegative : classes.amountPositive}>
                         {row.signedAmount}
@@ -362,10 +368,10 @@ export function CreditHistory(props: {
 
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <Text size="xs" c="dimmed">
-                      Sisa Saldo
+                      {t("mobile_balance")}
                     </Text>
                     <Text size="sm" fw={600} c="blue.4">
-                      {row.balance} Poin
+                      {t("mobile_points_unit", { count: row.balance })}
                     </Text>
                   </div>
                 </div>
@@ -377,8 +383,11 @@ export function CreditHistory(props: {
         {props.pagination && props.pagination.total > 0 && (
           <Group justify="space-between" align="center" mt="md" wrap="wrap" gap="sm">
             <Text size="xs" c="dimmed">
-              Menampilkan <strong>{props.pagination.total === 0 ? 0 : (props.pagination.page - 1) * props.pagination.limit + 1}–{Math.min(props.pagination.page * props.pagination.limit, props.pagination.total)}</strong> dari{" "}
-              <strong>{props.pagination.total}</strong> riwayat transaksi
+              {t("pagination_showing", {
+                from: props.pagination.total === 0 ? 0 : (props.pagination.page - 1) * props.pagination.limit + 1,
+                to: Math.min(props.pagination.page * props.pagination.limit, props.pagination.total),
+                total: props.pagination.total,
+              })}
             </Text>
             {props.pagination.totalPages > 1 && props.onPageChange && (
               <Pagination

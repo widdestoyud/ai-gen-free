@@ -6,7 +6,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, type ReactNode } from "react";
 import { LogoutConfirmModal } from "./logout-confirm-modal";
+import { LanguageSwitcher } from "./language-switcher";
 import { useAdminLogoutConfirm } from "@/hooks/use-admin-logout-confirm";
+import { useI18n } from "@/lib/i18n";
 import classes from "./app-workspace.module.css";
 
 function InboxIcon({ size = 18 }: { size?: number }) {
@@ -110,21 +112,22 @@ function LogoutNavIcon({ size = 18 }: { size?: number }) {
   );
 }
 
-const ADMIN_NAV = [
-  { href: "/admin", label: "Kurasi", icon: InboxIcon, matchExact: true },
-  { href: "/admin/models", label: "Model AI", icon: CpuIcon, matchExact: false },
-  { href: "/admin/packages", label: "Paket Sparks", icon: PackageIcon, matchExact: false },
-  { href: "/admin/settings", label: "Cooldown", icon: SlidersIcon, matchExact: false },
-  { href: "/admin/users", label: "User", icon: UsersIcon, matchExact: false },
-  { href: "/admin/jobs", label: "Job", icon: ActivityIcon, matchExact: false },
-  { href: "http://localhost:5050", label: "Telemetry Log ↗", icon: ExternalLinkIcon, matchExact: false, external: true },
-  { href: "/admin/audit", label: "Audit", icon: ShieldCheckIcon, matchExact: false },
-];
-
 export function AdminWorkspace({ children }: { children: ReactNode }) {
+  const t = useI18n("admin");
   const pathname = usePathname();
   const [opened, { toggle, close }] = useDisclosure();
   const logout = useAdminLogoutConfirm();
+
+  const adminNav = [
+    { href: "/admin", label: t("nav.curation"), icon: InboxIcon, matchExact: true },
+    { href: "/admin/models", label: t("nav.models"), icon: CpuIcon, matchExact: false },
+    { href: "/admin/packages", label: t("nav.packages"), icon: PackageIcon, matchExact: false },
+    { href: "/admin/settings", label: t("nav.settings"), icon: SlidersIcon, matchExact: false },
+    { href: "/admin/users", label: t("nav.users"), icon: UsersIcon, matchExact: false },
+    { href: "/admin/jobs", label: t("nav.jobs"), icon: ActivityIcon, matchExact: false },
+    { href: "http://localhost:5050", label: t("nav.telemetry"), icon: ExternalLinkIcon, matchExact: false, external: true },
+    { href: "/admin/audit", label: t("nav.audit"), icon: ShieldCheckIcon, matchExact: false },
+  ];
 
   // Close mobile navbar on route changes
   useEffect(() => {
@@ -152,9 +155,12 @@ export function AdminWorkspace({ children }: { children: ReactNode }) {
                   satulabs.id
                 </Title>
                 <Badge size="xs" variant="light" color="blue">
-                  Admin
+                  {t("badge")}
                 </Badge>
               </Group>
+            </Group>
+            <Group gap="xs">
+              <LanguageSwitcher />
             </Group>
           </Group>
         </AppShell.Header>
@@ -162,7 +168,7 @@ export function AdminWorkspace({ children }: { children: ReactNode }) {
         <AppShell.Navbar className={classes.navbar} p="sm">
           <Stack justify="space-between" h="100%">
             <Stack gap={4}>
-              {ADMIN_NAV.map((item) => {
+              {adminNav.map((item) => {
                 const Icon = item.icon;
                 return (
                   <NavLink
@@ -182,7 +188,7 @@ export function AdminWorkspace({ children }: { children: ReactNode }) {
               })}
             </Stack>
             <NavLink
-              label="Logout"
+              label={t("nav.logout")}
               leftSection={<LogoutNavIcon size={18} />}
               className={classes.logout}
               onClick={(event) => {

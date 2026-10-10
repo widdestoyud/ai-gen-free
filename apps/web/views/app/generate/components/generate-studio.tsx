@@ -10,6 +10,7 @@ import { UploadPolicyModal } from "@/components/upload-policy-modal";
 import { WaitAlert } from "@/components/wait-alert";
 import { getRefTag, useGenerateStudio, type StudioRef, type StudioUpload } from "@/hooks/use-generate-studio";
 import { hasLiveOutput, type JobView } from "@/lib/job-status";
+import { useI18n } from "@/lib/i18n";
 import type { Model, DefaultGenerationModelsConfig } from "../types";
 import { GenerateAspectMenu } from "./generate-aspect-menu";
 import { GenerateLibraryModal } from "./generate-library-modal";
@@ -77,6 +78,7 @@ export function GenerateStudio(props?: {
   initialSpicyModeEnabled?: boolean;
   initialUploadPolicyAccepted?: boolean;
 }) {
+  const { t } = useI18n("generate");
   const ctrl = useGenerateStudio(props);
   const lastJob = ctrl.lastGeneratedJob;
   const [previewRef, setPreviewRef] = useState<StudioRef | null>(null);
@@ -113,7 +115,7 @@ export function GenerateStudio(props?: {
 
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData?.error?.message || "Gagal memperjelas prompt");
+        throw new Error(errorData?.error?.message || t("magic_prompt.error"));
       }
 
       const data = await res.json();
@@ -192,8 +194,9 @@ export function GenerateStudio(props?: {
             ) : null}
             {ctrl.cooldownLeft > 0 ? <CooldownText until={ctrl.cooldownUntil} /> : null}
             <EmptyState>
-              Tulis prompt di bawah untuk mulai generate gambar baru. Semua hasil render tersimpan di menu{" "}
-              <AppLink href="/app/library">Library</AppLink>.
+              {t("empty_state_prompt", { link: "___SPLIT___" }).split("___SPLIT___")[0]}
+              <AppLink href="/app/library">{t("library_link")}</AppLink>
+              {t("empty_state_prompt", { link: "___SPLIT___" }).split("___SPLIT___")[1] ?? ""}
             </EmptyState>
           </div>
         )}
@@ -210,17 +213,17 @@ export function GenerateStudio(props?: {
                     type="button"
                     className={`${classes.pillBtn} ${ctrl.spicyFilter === "normal" ? classes.pillBtnActive : ""}`}
                     onClick={() => ctrl.setSpicyFilter("normal")}
-                    aria-label="Filter Standard Models"
+                    aria-label={t("aria.filter_standard")}
                   >
-                    <span>Standard</span>
+                    <span>{t("mode_standard")}</span>
                   </button>
                   <button
                     type="button"
                     className={`${classes.pillBtn} ${ctrl.spicyFilter === "spicy" ? classes.pillBtnSpicyActive : ""}`}
                     onClick={() => ctrl.setSpicyFilter("spicy")}
-                    aria-label="Filter Spicy Models"
+                    aria-label={t("aria.filter_spicy")}
                   >
-                    <span>Spicy</span>
+                    <span>{t("mode_spicy")}</span>
                   </button>
                 </div>
               ) : null}
@@ -257,7 +260,7 @@ export function GenerateStudio(props?: {
                         type="button"
                         onClick={() => !item.uploading && setPreviewRef(item)}
                         className={classes.thumbInner}
-                        aria-label={`Lihat gambar ${tagLabel}`}
+                        aria-label={t("aria.view_ref_image", { tag: tagLabel })}
                       >
                         <img
                           src={item.url}
@@ -285,7 +288,7 @@ export function GenerateStudio(props?: {
                             ctrl.removeRef(item.id);
                           }}
                           className={classes.thumbCloseBtn}
-                          aria-label="Hapus gambar referensi"
+                          aria-label={t("aria.remove_ref_image")}
                         >
                           <CloseIcon size={10} />
                         </button>
@@ -299,7 +302,7 @@ export function GenerateStudio(props?: {
                     type="button"
                     className={classes.addRefCardMobile}
                     onClick={ctrl.openLibrary}
-                    aria-label="Tambah gambar referensi"
+                    aria-label={t("aria.add_ref_image")}
                   >
                     +
                   </button>
@@ -353,7 +356,7 @@ export function GenerateStudio(props?: {
                         e.stopPropagation();
                         void handleMagicPrompt();
                       }}
-                      aria-label="Magic Prompt"
+                      aria-label={t("aria.magic_prompt")}
                       disabled={isMagicPromptLoading}
                     >
                       <MagicWandIcon size={16} />
@@ -363,11 +366,11 @@ export function GenerateStudio(props?: {
                     <Group gap={6} mb={4} align="center">
                       <MagicWandIcon size={14} />
                       <Text size="xs" fw={700} c="violet.4">
-                        Magic Prompt
+                        {t("magic_prompt.title")}
                       </Text>
                     </Group>
                     <Text size="xs" c="dimmed" lh={1.4}>
-                      Perjelas dan tingkatkan kualitas prompt secara otomatis menggunakan AI agar hasil render lebih detail, estetik, dan sinematik.
+                      {t("magic_prompt.tooltip")}
                     </Text>
                   </HoverCard.Dropdown>
                 </HoverCard>
@@ -388,7 +391,7 @@ export function GenerateStudio(props?: {
               </div>
               <Textarea
                 ref={ctrl.textareaRef}
-                placeholder="Type to imagine"
+                placeholder={t("prompt.placeholder")}
                 value={ctrl.prompt}
                 disabled={isMagicPromptLoading}
                 onChange={(e) => {
@@ -439,7 +442,7 @@ export function GenerateStudio(props?: {
             <div className={classes.desktopControlsRow}>
               <Group justify="space-between" mt="sm" wrap="wrap" gap="xs">
                 <Group gap="xs" align="center">
-                  <ActionIcon type="button" variant="subtle" size="lg" onClick={ctrl.openLibrary} aria-label="Tambah gambar">
+                  <ActionIcon type="button" variant="subtle" size="lg" onClick={ctrl.openLibrary} aria-label={t("aria.add_image")}>
                     +
                   </ActionIcon>
                   <div className={classes.pillSegment}>
@@ -447,19 +450,19 @@ export function GenerateStudio(props?: {
                       type="button"
                       className={`${classes.pillBtn} ${ctrl.mediaType === "image" ? classes.pillBtnActive : classes.pillBtnIconOnly}`}
                       onClick={() => ctrl.setMediaType("image")}
-                      aria-label="Mode Image"
+                      aria-label={t("aria.mode_image")}
                     >
                       <ImageIcon size={15} />
-                      {ctrl.mediaType === "image" ? <span>Image</span> : null}
+                      {ctrl.mediaType === "image" ? <span>{t("mode_image")}</span> : null}
                     </button>
                     <button
                       type="button"
                       className={`${classes.pillBtn} ${ctrl.mediaType === "video" ? classes.pillBtnActive : classes.pillBtnIconOnly}`}
                       onClick={() => ctrl.setMediaType("video")}
-                      aria-label="Mode Video"
+                      aria-label={t("aria.mode_video")}
                     >
                       <VideoIcon size={15} />
-                      {ctrl.mediaType === "video" ? <span>Video</span> : null}
+                      {ctrl.mediaType === "video" ? <span>{t("mode_video")}</span> : null}
                     </button>
                   </div>
 
@@ -469,17 +472,17 @@ export function GenerateStudio(props?: {
                         type="button"
                         className={`${classes.pillBtn} ${ctrl.spicyFilter === "normal" ? classes.pillBtnActive : ""}`}
                         onClick={() => ctrl.setSpicyFilter("normal")}
-                        aria-label="Filter Standard Models"
+                        aria-label={t("aria.filter_standard")}
                       >
-                        <span>Standard</span>
+                        <span>{t("mode_standard")}</span>
                       </button>
                       <button
                         type="button"
                         className={`${classes.pillBtn} ${ctrl.spicyFilter === "spicy" ? classes.pillBtnSpicyActive : ""}`}
                         onClick={() => ctrl.setSpicyFilter("spicy")}
-                        aria-label="Filter Spicy Models"
+                        aria-label={t("aria.filter_spicy")}
                       >
-                        <span>Spicy</span>
+                        <span>{t("mode_spicy")}</span>
                       </button>
                     </div>
                   ) : null}
@@ -506,16 +509,16 @@ export function GenerateStudio(props?: {
                   />
 
                   <Text size="sm" c="dimmed" fw={500}>
-                    {ctrl.available} sparks
+                    {t("sparks_balance", { count: ctrl.available })}
                   </Text>
 
                   <button
                     type="submit"
                     className={classes.fancyGenerateBtn}
                     disabled={!ctrl.canSend || isMagicPromptLoading}
-                    aria-label="Generate"
+                    aria-label={t("aria.generate")}
                   >
-                    <span>Generate</span>
+                    <span>{t("btn_generate")}</span>
                     <span className={classes.generatePointBadge}>
                       <SparkleIcon size={13} />
                       <span>{ctrl.estimatedCost}</span>
@@ -535,7 +538,7 @@ export function GenerateStudio(props?: {
                       variant="subtle"
                       size="lg"
                       onClick={ctrl.openLibrary}
-                      aria-label="Tambah gambar referensi"
+                      aria-label={t("aria.add_ref_image")}
                       className={classes.mobileAddRefBtn}
                     >
                       +
@@ -546,7 +549,7 @@ export function GenerateStudio(props?: {
                       type="button"
                       className={`${classes.pillBtn} ${classes.pillBtnIconOnly} ${ctrl.mediaType === "image" ? classes.pillBtnActive : ""}`}
                       onClick={() => ctrl.setMediaType("image")}
-                      aria-label="Mode Image"
+                      aria-label={t("aria.mode_image")}
                     >
                       <ImageIcon size={15} />
                     </button>
@@ -554,14 +557,14 @@ export function GenerateStudio(props?: {
                       type="button"
                       className={`${classes.pillBtn} ${classes.pillBtnIconOnly} ${ctrl.mediaType === "video" ? classes.pillBtnActive : ""}`}
                       onClick={() => ctrl.setMediaType("video")}
-                      aria-label="Mode Video"
+                      aria-label={t("aria.mode_video")}
                     >
                       <VideoIcon size={15} />
                     </button>
                   </div>
                 </Group>
 
-                {/* Magic prompt button pada mobile / tablet (menggantikan gear icon) */}
+                {/* Magic prompt button pada mobile / tablet */}
                 {isComposerActive ? (
                   <button
                     type="button"
@@ -574,7 +577,7 @@ export function GenerateStudio(props?: {
                       e.stopPropagation();
                       void handleMagicPrompt();
                     }}
-                    aria-label="Magic Prompt"
+                    aria-label={t("aria.magic_prompt")}
                     disabled={isMagicPromptLoading || !hasText}
                   >
                     <MagicWandIcon size={18} />
@@ -586,9 +589,9 @@ export function GenerateStudio(props?: {
                 type="submit"
                 className={classes.mobileGenerateBtn}
                 disabled={!ctrl.canSend || isMagicPromptLoading}
-                aria-label="Generate"
+                aria-label={t("aria.generate")}
               >
-                <span>Generate</span>
+                <span>{t("btn_generate")}</span>
                 <span className={classes.generatePointBadge}>
                   <SparkleIcon size={13} />
                   <span>{ctrl.estimatedCost}</span>
@@ -596,12 +599,12 @@ export function GenerateStudio(props?: {
               </button>
 
               <Text size="xs" c="dimmed" ta="center" mt={4} fw={500}>
-                {ctrl.available} sparks
+                {t("sparks_balance", { count: ctrl.available })}
               </Text>
             </div>
           </Paper>
         </form>
-        {!ctrl.selected ? <EmptyState>Tidak ada model t2i aktif.</EmptyState> : null}
+        {!ctrl.selected ? <EmptyState>{t("no_active_model")}</EmptyState> : null}
       </div>
 
       <input
@@ -675,7 +678,7 @@ export function GenerateStudio(props?: {
           <Modal
             opened={Boolean(activePreviewRef)}
             onClose={() => setPreviewRef(null)}
-            title="Detail Media Referensi"
+            title={t("ref_detail_modal.title")}
             size="lg"
             centered
           >
@@ -684,7 +687,7 @@ export function GenerateStudio(props?: {
                 <div className={classes.zoomImageContainer}>
                   <img
                     src={activePreviewRef.url}
-                    alt={activePreviewRef.name ?? "Media Referensi"}
+                    alt={activePreviewRef.name ?? t("ref_detail_modal.title")}
                     className={classes.zoomImage}
                   />
                 </div>
@@ -693,7 +696,7 @@ export function GenerateStudio(props?: {
                   <Group justify="space-between" wrap="wrap" gap="sm">
                     <div>
                       <Text size="xs" c="dimmed">
-                        Sumber Media
+                        {t("ref_detail_modal.source_label")}
                       </Text>
                       <Group gap={6} mt={2}>
                         <Badge
@@ -701,23 +704,23 @@ export function GenerateStudio(props?: {
                           variant="light"
                           color={activePreviewRef.kind === "upload" ? "blue" : "violet"}
                         >
-                          {activePreviewRef.kind === "upload" ? "Upload Media" : "Hasil Generation"}
+                          {activePreviewRef.kind === "upload" ? t("ref_detail_modal.source_upload") : t("ref_detail_modal.source_generation")}
                         </Badge>
                       </Group>
                     </div>
 
                     <div>
                       <Text size="xs" c="dimmed">
-                        Tipe
+                        {t("ref_detail_modal.type_label")}
                       </Text>
                       <Text size="sm" fw={600}>
-                        Gambar (Image)
+                        {t("ref_detail_modal.type_image")}
                       </Text>
                     </div>
 
                     <div>
                       <Text size="xs" c="dimmed">
-                        Format
+                        {t("ref_detail_modal.format_label")}
                       </Text>
                       <Badge size="sm" variant="outline" color="gray">
                         {activePreviewRef.format ?? (activePreviewRef.url.split(".").pop()?.toUpperCase() || "WEBP")}
@@ -727,7 +730,7 @@ export function GenerateStudio(props?: {
                     {activePreviewRef.width && activePreviewRef.height ? (
                       <div>
                         <Text size="xs" c="dimmed">
-                          Resolusi
+                          {t("ref_detail_modal.resolution_label")}
                         </Text>
                         <Text size="sm" fw={600}>
                           {activePreviewRef.width} × {activePreviewRef.height} px
@@ -738,11 +741,7 @@ export function GenerateStudio(props?: {
                 </Paper>
 
                 <Text size="xs" c="dimmed">
-                  Gunakan tag{" "}
-                  <Text component="span" fw={600} c="green">
-                    {getRefTag(activePreviewRef)}
-                  </Text>{" "}
-                  pada prompt untuk mereferensikan gambar ini.
+                  {t("ref_detail_modal.hint_tag", { tag: getRefTag(activePreviewRef) })}
                 </Text>
               </Stack>
             ) : null}
@@ -752,4 +751,3 @@ export function GenerateStudio(props?: {
     </div>
   );
 }
-

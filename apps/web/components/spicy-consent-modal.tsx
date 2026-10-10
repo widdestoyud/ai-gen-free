@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Button, Checkbox, Group, Modal, Paper, ScrollArea, Stack, Text } from "@mantine/core";
 import { ErrorAlert } from "./error-alert";
+import { useI18n } from "@/lib/i18n";
 
 export interface SpicyConsentModalProps {
   opened: boolean;
@@ -21,6 +22,7 @@ export function SpicyConsentModal({
   error = null,
   readOnly = false,
 }: SpicyConsentModalProps) {
+  const t = useI18n("modals");
   const [agreed, setAgreed] = useState(false);
 
   const handleClose = () => {
@@ -43,7 +45,7 @@ export function SpicyConsentModal({
     <Modal
       opened={opened}
       onClose={handleClose}
-      title={readOnly ? "Ketentuan Spicy Mode" : "Aktivasi Spicy Mode"}
+      title={readOnly ? t("spicy.title_readonly") : t("spicy.title_active")}
       centered
       size="md"
       closeOnClickOutside={!loading}
@@ -54,19 +56,19 @@ export function SpicyConsentModal({
           <ScrollArea.Autosize mah={260} type="scroll">
             <Stack gap="xs">
               <Text size="sm" fw={600} c="red.4">
-                Peringatan Batasan Usia &amp; Konten (18+):
+                {t("spicy.warning_title")}
               </Text>
               <Text size="xs" c="dimmed">
-                1. <strong>Batasan Usia:</strong> Fitur Spicy Mode hanya diperuntukkan bagi pengguna yang telah berusia 18 (delapan belas) tahun ke atas dan telah melengkapi data tanggal lahir pada profil.
+                <strong>{t("spicy.rule_1_title")}</strong> {t("spicy.rule_1_desc")}
               </Text>
               <Text size="xs" c="dimmed">
-                2. <strong>Tanggung Jawab Pengguna:</strong> Anda bertanggung jawab penuh atas seluruh teks prompt dan gambar/video yang dihasilkan selama mode ini aktif.
+                <strong>{t("spicy.rule_2_title")}</strong> {t("spicy.rule_2_desc")}
               </Text>
               <Text size="xs" c="dimmed">
-                3. <strong>Larangan Mutlak:</strong> Dilarang keras memproduksi konten yang melibatkan anak di bawah umur (CSAM), kekerasan non-konsensual, atau konten ilegal lainnya. Pelanggaran akan berakibat pemblokiran akun permanen tanpa pengembalian dana.
+                <strong>{t("spicy.rule_3_title")}</strong> {t("spicy.rule_3_desc")}
               </Text>
               <Text size="xs" c="dimmed">
-                4. <strong>Fleksibilitas Pengaturan:</strong> Persetujuan ini dicatat pada akun Anda dan Anda dapat mengaktifkan atau menonaktifkan Spicy Mode sewaktu-waktu melalui halaman Pengaturan Profil.
+                <strong>{t("spicy.rule_4_title")}</strong> {t("spicy.rule_4_desc")}
               </Text>
             </Stack>
           </ScrollArea.Autosize>
@@ -77,7 +79,7 @@ export function SpicyConsentModal({
             <Checkbox
               checked={agreed}
               onChange={(e) => setAgreed(e.currentTarget.checked)}
-              label="Saya menyatakan telah berusia 18+ tahun dan menyetujui seluruh ketentuan aktivasi Spicy Mode."
+              label={t("spicy.checkbox_label")}
               size="xs"
               disabled={loading}
               color="red"
@@ -87,7 +89,7 @@ export function SpicyConsentModal({
 
             <Group justify="flex-end" gap="sm">
               <Button variant="default" onClick={handleClose} disabled={loading} size="sm">
-                Batal
+                {t("spicy.btn_cancel")}
               </Button>
               <Button
                 color="red"
@@ -96,14 +98,14 @@ export function SpicyConsentModal({
                 loading={loading}
                 size="sm"
               >
-                Setuju &amp; Aktifkan
+                {t("spicy.btn_confirm")}
               </Button>
             </Group>
           </>
         ) : (
           <Group justify="flex-end">
             <Button variant="default" onClick={handleClose} size="sm">
-              Tutup
+              {t("spicy.btn_close")}
             </Button>
           </Group>
         )}

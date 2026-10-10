@@ -27,6 +27,7 @@ test("DokuPaymentProvider: createPayment returns payment URL and tokens upon suc
   const provider = new DokuPaymentProvider(TEST_CONFIG);
 
   // Mock global fetch
+  // Mock global fetch
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async (url, init) => {
     assert.ok(String(url).includes("/checkout/v1/payment"));
@@ -34,6 +35,11 @@ test("DokuPaymentProvider: createPayment returns payment URL and tokens upon suc
     const headers = init?.headers as Record<string, string>;
     assert.equal(headers["Client-Id"], TEST_CONFIG.clientId);
     assert.ok(headers.Signature.startsWith("HMACSHA256="));
+
+    const parsedBody = JSON.parse(String(init?.body));
+    assert.equal(parsedBody.order.callback_url, "https://myapp.com/app/order");
+    assert.equal(parsedBody.order.callback_url_result, "https://myapp.com/payment/success");
+    assert.equal(parsedBody.order.disable_retry_payment, true);
 
     return new Response(
       JSON.stringify({
@@ -62,7 +68,9 @@ test("DokuPaymentProvider: createPayment returns payment URL and tokens upon suc
       customerEmail: "user@example.com",
       customerName: "Test User",
       customerPhone: "08123456789",
-      callbackUrl: "https://myapp.com/payment/success",
+      callbackUrl: "https://myapp.com/app/order",
+      cancelRedirectUrl: "https://myapp.com/app/order",
+      successRedirectUrl: "https://myapp.com/payment/success",
     });
 
     assert.equal(result.success, true);

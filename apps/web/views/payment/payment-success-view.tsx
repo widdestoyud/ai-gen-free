@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { requestJson } from "@/lib/api";
 import { formatDateId, formatIdr } from "@/lib/format";
+import { useI18n } from "@/lib/i18n";
 
 interface PaymentStatusResponse {
   invoiceId: string;
@@ -30,6 +31,7 @@ interface InvoiceInfoResponse {
 }
 
 export function PaymentSuccessView({ invoiceId }: { invoiceId?: string }) {
+  const { t } = useI18n("payment");
   const [loading, setLoading] = useState(Boolean(invoiceId));
   const [invoice, setInvoice] = useState<InvoiceInfoResponse | null>(null);
   const [statusInfo, setStatusInfo] = useState<PaymentStatusResponse | null>(null);
@@ -90,9 +92,9 @@ export function PaymentSuccessView({ invoiceId }: { invoiceId?: string }) {
           }
           setInvoice(infoRes.data);
         }
-      } catch (err) {
+      } catch {
         if (isMounted) {
-          setError("Gagal memuat rincian transaksi.");
+          setError(t("success.error_load"));
         }
       } finally {
         if (isMounted) {
@@ -106,7 +108,7 @@ export function PaymentSuccessView({ invoiceId }: { invoiceId?: string }) {
     return () => {
       isMounted = false;
     };
-  }, [invoiceId]);
+  }, [invoiceId, t]);
 
   return (
     <Container size="sm" py={60}>
@@ -142,10 +144,10 @@ export function PaymentSuccessView({ invoiceId }: { invoiceId?: string }) {
         {/* Title and Subtitle */}
         <Stack gap="xs" align="center" style={{ textAlign: "center" }}>
           <Title order={1} fz={{ base: "1.75rem", sm: "2.25rem" }} fw={900}>
-            Pembayaran Berhasil!
+            {t("success.title")}
           </Title>
           <Text c="dimmed" size="sm" maw={460}>
-            Terima kasih! Pembayaran paket Sparks Anda telah kami terima dan terverifikasi secara otomatis.
+            {t("success.subtitle")}
           </Text>
         </Stack>
 
@@ -154,7 +156,7 @@ export function PaymentSuccessView({ invoiceId }: { invoiceId?: string }) {
           <Paper p="xl" withBorder radius="md" style={{ width: "100%", textAlign: "center" }}>
             <Loader size="md" mb="sm" />
             <Text size="sm" c="dimmed">
-              Memverifikasi data transaksi...
+              {t("success.verifying")}
             </Text>
           </Paper>
         ) : invoice ? (
@@ -162,10 +164,10 @@ export function PaymentSuccessView({ invoiceId }: { invoiceId?: string }) {
             <Stack gap="md">
               <Group justify="space-between" align="center">
                 <Text size="sm" c="dimmed">
-                  Status Transaksi
+                  {t("success.status_label")}
                 </Text>
                 <Badge color="green" variant="light" size="lg">
-                  Lunas / Berhasil
+                  {t("success.status_paid")}
                 </Badge>
               </Group>
 
@@ -173,7 +175,7 @@ export function PaymentSuccessView({ invoiceId }: { invoiceId?: string }) {
 
               <Group justify="space-between">
                 <Text size="sm" c="dimmed">
-                  Nomor Tagihan (Invoice)
+                  {t("success.invoice_number")}
                 </Text>
                 <Text size="sm" fw={600}>
                   {invoice.uniqueCode || invoice.id}
@@ -182,16 +184,16 @@ export function PaymentSuccessView({ invoiceId }: { invoiceId?: string }) {
 
               <Group justify="space-between">
                 <Text size="sm" c="dimmed">
-                  Sparks Ditambahkan
+                  {t("success.sparks_added")}
                 </Text>
                 <Text size="sm" fw={700} c="green.4">
-                  +{invoice.points.toLocaleString()} Sparks
+                  {t("success.sparks_amount", { points: invoice.points.toLocaleString() })}
                 </Text>
               </Group>
 
               <Group justify="space-between">
                 <Text size="sm" c="dimmed">
-                  Total Pembayaran
+                  {t("success.total_paid")}
                 </Text>
                 <Text size="sm" fw={700}>
                   {formatIdr(invoice.amountIdr)}
@@ -201,7 +203,7 @@ export function PaymentSuccessView({ invoiceId }: { invoiceId?: string }) {
               {invoice.gateway?.paymentChannel || statusInfo?.paymentChannel ? (
                 <Group justify="space-between">
                   <Text size="sm" c="dimmed">
-                    Metode Pembayaran
+                    {t("success.payment_method")}
                   </Text>
                   <Text size="sm" fw={500}>
                     {invoice.gateway?.paymentChannel || statusInfo?.paymentChannel}
@@ -211,7 +213,7 @@ export function PaymentSuccessView({ invoiceId }: { invoiceId?: string }) {
 
               <Group justify="space-between">
                 <Text size="sm" c="dimmed">
-                  Waktu Transaksi
+                  {t("success.transaction_time")}
                 </Text>
                 <Text size="sm" c="gray.3" suppressHydrationWarning>
                   {invoice.paidAt ? formatDateId(invoice.paidAt) : formatDateId(new Date().toISOString())}
@@ -236,7 +238,7 @@ export function PaymentSuccessView({ invoiceId }: { invoiceId?: string }) {
               <line x1="12" y1="8" x2="12.01" y2="8" />
             </svg>
             <Text size="xs" c="gray.3" lh={1.5}>
-              Sparks Anda telah aktif dan siap digunakan untuk membuat gambar, video, serta musik AI di satulabs.id tanpa masa kedaluwarsa.
+              {t("success.sparks_ready_note")}
             </Text>
           </Group>
         </Paper>
@@ -251,7 +253,7 @@ export function PaymentSuccessView({ invoiceId }: { invoiceId?: string }) {
             size="md"
             fullWidth
           >
-            Mulai Buat Gambar / Video Sekarang
+            {t("success.btn_start_create")}
           </Button>
 
           <Button
@@ -261,7 +263,7 @@ export function PaymentSuccessView({ invoiceId }: { invoiceId?: string }) {
             size="md"
             fullWidth
           >
-            Lihat Saldo &amp; Riwayat Transaksi
+            {t("success.btn_view_billing")}
           </Button>
         </Stack>
       </Stack>

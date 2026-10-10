@@ -1,8 +1,11 @@
+"use client";
+
 import { Text } from "@mantine/core";
 import { AdminLoginForm } from "./components/admin-login-form";
 import { AdminPageShell } from "./components/admin-page-shell";
 import { AdminInbox } from "./components/admin-inbox";
 import type { AdminInvoiceItem, PaginationMeta } from "@/app/admin/page";
+import { useI18n } from "@/lib/i18n";
 
 export function AdminHomeView({
   me,
@@ -29,17 +32,18 @@ export function AdminHomeView({
     q?: string;
   };
 }) {
+  const t = useI18n("admin");
   if (!me) return <AdminLoginForm />;
 
   return (
-    <AdminPageShell title="Pesanan & Kurasi" home>
+    <AdminPageShell title={t("home.title")} home>
       <Text size="sm" c="dimmed" mb="xs">
-        Masuk sebagai <strong>{me.user.email}</strong> · Menunggu Kurasi:{" "}
-        <strong>{inbox.pendingCount}</strong> bukti · Pesanan Sedang Open:{" "}
-        <strong>{inbox.openCount}</strong> order.
+        {t("home.logged_as")} <strong>{me.user.email}</strong> · {t("home.waiting_curation")}{" "}
+        <strong>{inbox.pendingCount}</strong> {t("home.proof_unit")} · {t("home.open_orders")}{" "}
+        <strong>{inbox.openCount}</strong> {t("home.order_unit")}
       </Text>
       <Text size="sm" c="dimmed" mb="md">
-        Pantau pesanan open/aktif serta kurasi bukti pembayaran transfer manual di bawah ini.
+        {t("home.subtitle")}
       </Text>
       <AdminInbox
         items={inbox.items}

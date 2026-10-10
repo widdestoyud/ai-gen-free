@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import { Container } from "@mantine/core";
 import classes from "./landing.module.css";
+import { useI18n } from "@/lib/i18n";
 
 interface LandingModelsProps {
   onStartCreation?: () => void;
@@ -126,6 +127,7 @@ const INSPIRATION_ITEMS: InspirationItem[] = [
 ];
 
 export function LandingModels({ onStartCreation }: LandingModelsProps) {
+  const t = useI18n("landing");
   const [activeFilter, setActiveFilter] = useState<FilterTag>("all");
 
   const filteredItems = useMemo(() => {
@@ -147,13 +149,13 @@ export function LandingModels({ onStartCreation }: LandingModelsProps) {
                   className="m-0 mb-[4px] font-[600] text-[28px] leading-[35px] text-[rgba(255,255,255,1)]"
                   style={{ fontSize: "28px", fontWeight: 600, color: "#ffffff", margin: "0 0 4px 0" }}
                 >
-                  Inspiration
+                  {t("models.title")}
                 </h2>
                 <div
                   className="text-[12px] leading-[15px] text-[rgba(255,255,255,0.55)]"
                   style={{ fontSize: "12px", color: "rgba(255,255,255,0.55)" }}
                 >
-                  Fresh inspiration tailored for you
+                  {t("models.subtitle")}
                 </div>
               </div>
             </div>
@@ -167,7 +169,7 @@ export function LandingModels({ onStartCreation }: LandingModelsProps) {
                 }`}
                 onClick={() => setActiveFilter("all")}
               >
-                All
+                {t("models.tag_all")}
               </button>
               <button
                 type="button"
@@ -177,7 +179,7 @@ export function LandingModels({ onStartCreation }: LandingModelsProps) {
                 onClick={() => setActiveFilter("image")}
                 id="image-ai"
               >
-                Image
+                {t("models.tag_image")}
               </button>
               <button
                 type="button"
@@ -186,7 +188,7 @@ export function LandingModels({ onStartCreation }: LandingModelsProps) {
                 }`}
                 onClick={() => setActiveFilter("video")}
               >
-                Video
+                {t("models.tag_video")}
               </button>
             </div>
           </div>
@@ -199,7 +201,7 @@ export function LandingModels({ onStartCreation }: LandingModelsProps) {
                   className={classes.luminaCardCover}
                   role="button"
                   tabIndex={0}
-                  aria-label="View Details"
+                  aria-label={t("models.view_details")}
                   onClick={onStartCreation}
                 >
                   {item.video ? (
@@ -244,8 +246,8 @@ export function LandingModels({ onStartCreation }: LandingModelsProps) {
                             e.stopPropagation();
                             onStartCreation?.();
                           }}
-                          title="Like"
-                          aria-label="Like"
+                          title={t("models.use_prompt")}
+                          aria-label={t("models.use_prompt")}
                         >
                           <svg
                             xmlns="http://www.w3.org/2000/svg"
@@ -272,8 +274,8 @@ export function LandingModels({ onStartCreation }: LandingModelsProps) {
                             e.stopPropagation();
                             onStartCreation?.();
                           }}
-                          title="Use Prompt"
-                          aria-label="Use Prompt"
+                          title={t("models.use_prompt")}
+                          aria-label={t("models.use_prompt")}
                         >
                           <svg
                             width="16"
@@ -311,8 +313,8 @@ export function LandingModels({ onStartCreation }: LandingModelsProps) {
                             e.stopPropagation();
                             onStartCreation?.();
                           }}
-                          title="More options"
-                          aria-label="More options"
+                          title={t("models.more_options")}
+                          aria-label={t("models.more_options")}
                         >
                           <svg
                             width="14"

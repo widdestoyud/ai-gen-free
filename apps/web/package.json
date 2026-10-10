@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "next dev --port 3000",
     "build": "next build",
-    "start": "next start --port 3000"
+    "start": "next start --port 3000",
+    "test": "node --test --import tsx/esm lib/**/*.test.ts"
   },
   "dependencies": {
     "@mantine/core": "^8.3.18",
@@ -13,8 +14,11 @@
     "@tanstack/query-sync-storage-persister": "^5.104.0",
     "@tanstack/react-query": "^5.104.0",
     "@tanstack/react-query-persist-client": "^5.104.0",
+    "@types/negotiator": "^0.6.5",
+    "negotiator": "^1.1.0",
     "next": "^15.5.2",
     "next-auth": "5.0.0-beta.32",
+    "next-intl": "^4.14.9",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
   },

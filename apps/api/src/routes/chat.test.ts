@@ -72,9 +72,35 @@ test("POST /chat/magic-prompt: rejects unauthenticated requests", async () => {
 
 test("enhancePromptWithMagicPrompt unit test with [TEST:QA] prompt", async () => {
   const { enhancePromptWithMagicPrompt } = await import("../chat/magic-prompt.js");
-  const result = await enhancePromptWithMagicPrompt({
-    prompt: "[TEST:QA] seekor kucing astronot",
-  });
+  const mockFetch: typeof fetch = async () => {
+    return new Response(
+      JSON.stringify({
+        id: "chatcmpl-test",
+        object: "chat.completion",
+        created: Date.now(),
+        model: "gpt-5.6-sol",
+        choices: [
+          {
+            index: 0,
+            message: {
+              role: "assistant",
+              content:
+                "Cinematic shot of an astronaut cat floating in deep space with vibrant nebula reflections on helmet visor, 8k resolution",
+            },
+            finish_reason: "stop",
+          },
+        ],
+      }),
+      { status: 200, headers: { "Content-Type": "application/json" } },
+    );
+  };
+
+  const result = await enhancePromptWithMagicPrompt(
+    {
+      prompt: "[TEST:QA] seekor kucing astronot",
+    },
+    { fetchFn: mockFetch },
+  );
 
   assert.ok(result.enhancedPrompt, "Should return an enhanced prompt");
   assert.equal(result.originalPrompt, "[TEST:QA] seekor kucing astronot");

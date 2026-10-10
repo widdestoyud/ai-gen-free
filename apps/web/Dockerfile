@@ -12,6 +12,8 @@ COPY packages/providers-siray/package.json packages/providers-siray/
 COPY packages/providers-fal/package.json packages/providers-fal/
 COPY packages/providers-midtrans/package.json packages/providers-midtrans/
 COPY packages/providers-xendit/package.json packages/providers-xendit/
+COPY packages/providers-dana/package.json packages/providers-dana/
+COPY packages/providers-doku/package.json packages/providers-doku/
 COPY packages/storage/package.json packages/storage/
 COPY packages/wallet/package.json packages/wallet/
 RUN pnpm install --frozen-lockfile

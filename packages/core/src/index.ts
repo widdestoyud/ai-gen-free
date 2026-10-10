@@ -110,5 +110,7 @@ export {
   type DPoPProofHeader,
   type DPoPProofPayload,
 } from "./auth/dpop.js";
+export * from "./i18n/index.js";
+
 
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { Title, Text, Badge, Group, Stack, Button } from "@mantine/core";
+import { useI18n } from "@/lib/i18n";
 import classes from "./package-card.module.css";
 
 export interface PackageCardProps {
@@ -40,13 +41,14 @@ export function PackageCard({
   disabled = false,
   onSelect,
 }: PackageCardProps) {
-  const displayLabel = badgeText || label || (popular ? "Paling Populer" : "Starter");
-  const defaultButtonLabel = buttonLabel || `Pilih ${name}`;
+  const { t } = useI18n("packages");
+  const displayLabel = badgeText || label || (popular ? t("popular_badge") : t("starter_badge"));
+  const defaultButtonLabel = buttonLabel || t("select_package", { name });
   const defaultButtonVariant = buttonVariant || (popular ? "filled" : "light");
 
   return (
     <div className={`${classes.card} ${popular ? classes.cardPopular : ""}`}>
-      {popular && <div className={classes.ribbonBadge}>BEST VALUE</div>}
+      {popular && <div className={classes.ribbonBadge}>{t("best_value")}</div>}
 
       <div>
         <Group justify="space-between" mb="xs">

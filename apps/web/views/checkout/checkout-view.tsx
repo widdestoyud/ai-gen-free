@@ -13,6 +13,7 @@ import {
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useI18n } from "@/lib/i18n";
 import { requestJson } from "@/lib/api";
 import { formatIdr } from "@/lib/format";
 import { queryKeys } from "@/lib/query-keys";
@@ -27,6 +28,7 @@ import { ForgotPasswordModal } from "@/views/landing/components/forgot-password-
 import { OtpModal } from "@/components/otp-modal";
 import { SnapPaymentModal } from "@/components/snap-payment-modal";
 import { ErrorAlert } from "@/components/error-alert";
+import { LanguageSwitcher } from "@/components/language-switcher";
 import {
   ArrowLeftIcon,
   BankTransferLogo,
@@ -44,6 +46,7 @@ interface PaymentOption {
 }
 
 export function CheckoutView() {
+  const { t } = useI18n("checkout");
   const router = useRouter();
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
@@ -294,7 +297,7 @@ export function CheckoutView() {
             payRes.frontendConfig?.driver === "xendit" ||
             payRes.frontendConfig?.driver === "dana")
         ) {
-          window.location.href = payRes.paymentUrl;
+          window.location.replace(payRes.paymentUrl);
           return;
         }
 
@@ -429,8 +432,8 @@ export function CheckoutView() {
   return (
     <div className={classes.pageWrapper}>
       <div className={classes.checkoutContainer}>
-        {/* TOP BAR: Back button */}
-        <div className={classes.topBar}>
+        {/* TOP BAR: Back button & Language Switcher */}
+        <div className={classes.topBar} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <Button
             variant="subtle"
             color="gray"
@@ -439,15 +442,16 @@ export function CheckoutView() {
             onClick={handleClose}
             className={classes.backButton}
           >
-            {isAuthenticated ? "Kembali ke Order" : "Kembali ke Beranda"}
+            {isAuthenticated ? t("back_to_order") : t("back_to_home")}
           </Button>
+          <LanguageSwitcher />
         </div>
 
         <div className={classes.checkoutCard}>
           {/* LEFT PANEL: Payment Method */}
           <div className={classes.leftPanel}>
             <div className={classes.panelHeader}>
-              <span>💳 Payment Method</span>
+              <span>{t("payment_method_panel")}</span>
             </div>
 
             {/* Payment Method Cards */}
@@ -472,7 +476,7 @@ export function CheckoutView() {
             {/* Status / Notice info */}
             <div className={classes.manualInfoBox}>
               <Text size="xs" c="blue.2" fw={500}>
-                💡 Pembayaran diproses secara instan & aman. Saldo sparks langsung aktif setelah pembayaran sukses.
+                {t("instant_notice")}
               </Text>
             </div>
           </div>
@@ -480,7 +484,7 @@ export function CheckoutView() {
           {/* RIGHT PANEL: Order Details */}
           <div className={classes.rightPanel}>
             <div className={classes.panelHeader}>
-              <span>🛒 Order Details</span>
+              <span>{t("order_details_panel")}</span>
             </div>
 
             {error ? <ErrorAlert message={error} /> : null}
@@ -489,28 +493,28 @@ export function CheckoutView() {
             {/* Order Details List */}
             <div className={classes.orderDetailsList}>
               <div className={classes.orderDetailRow}>
-                <span>Product</span>
+                <span>{t("product_label")}</span>
                 <span className={classes.orderDetailValue}>
-                  {currentPackage ? currentPackage.name : (isLoadingPackages ? "Memuat..." : "Paket Sparks")}
+                  {currentPackage ? currentPackage.name : (isLoadingPackages ? t("loading_package") : t("default_package_name"))}
                 </span>
               </div>
 
               <div className={classes.orderDetailRow}>
-                <span>Item</span>
+                <span>{t("item_label")}</span>
                 <span className={classes.orderDetailValue}>
-                  {currentPackage ? `${currentPackage.points.toLocaleString("id-ID")} Sparks` : "—"}
+                  {currentPackage ? t("sparks_unit", { points: currentPackage.points.toLocaleString("id-ID") }) : "—"}
                 </span>
               </div>
 
               <div className={classes.orderDetailRow}>
-                <span>Price</span>
+                <span>{t("price_label")}</span>
                 <span className={classes.orderDetailValue}>
                   {currentPackage ? formatIdr(currentPackage.amountIdr) : "—"}
                 </span>
               </div>
 
               <div className={classes.orderDetailRow}>
-                <span>Payment Method</span>
+                <span>{t("payment_method_label")}</span>
                 <span className={classes.orderDetailValue}>{selectedMethodObj.label}</span>
               </div>
             </div>
@@ -519,7 +523,7 @@ export function CheckoutView() {
 
             {/* Total Payment Row */}
             <div className={classes.totalRow}>
-              <span className={classes.totalLabel}>Total payment</span>
+              <span className={classes.totalLabel}>{t("total_payment_label")}</span>
               <div className={classes.totalAmountBox}>
                 <span className={classes.totalMethod}>{selectedMethodObj.label.split(" ")[0]}</span>
                 <span className={classes.totalPrice}>
@@ -541,7 +545,7 @@ export function CheckoutView() {
               radius="md"
               mt="xs"
             >
-              Bayar
+              {t("btn_pay")}
             </Button>
           </div>
         </div>
@@ -581,7 +585,7 @@ export function CheckoutView() {
         title={
           <Group gap="xs">
             <Text fw={700} size="md" c="white">
-              Pembayaran QRIS & Bukti Transfer
+              {t("manual_qris_title")}
             </Text>
             {manualInvoice?.uniqueCode && (
               <Badge variant="light" color="blue" size="sm">
@@ -611,7 +615,7 @@ export function CheckoutView() {
             <Group justify="space-between" align="center">
               <div>
                 <Text size="xs" c="dimmed">
-                  Total Tagihan Pembayaran
+                  {t("total_bill")}
                 </Text>
                 <Text size="xl" fw={800} c="blue.4">
                   {manualInvoice ? formatIdr(manualInvoice.amountIdr) : "—"}
@@ -619,7 +623,7 @@ export function CheckoutView() {
               </div>
               <div style={{ textAlign: "right" }}>
                 <Text size="xs" c="dimmed">
-                  Sparks Diperoleh
+                  {t("sparks_earned")}
                 </Text>
                 <Text size="md" fw={700} c="green.4">
                   +{manualInvoice?.points?.toLocaleString()} Sparks
@@ -640,7 +644,7 @@ export function CheckoutView() {
             }}
           >
             <Text size="xs" fw={700} c="dark.7" mb={6} style={{ textTransform: "uppercase", letterSpacing: 0.5 }}>
-              Scan QRIS untuk Pembayaran
+              {t("scan_qris")}
             </Text>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
@@ -659,8 +663,8 @@ export function CheckoutView() {
           </div>
 
           <FileInput
-            label={<Text size="xs" fw={600} c="gray.3">Unggah Bukti Transfer</Text>}
-            placeholder="Pilih file gambar bukti pembayaran (JPG/PNG/WEBP)"
+            label={<Text size="xs" fw={600} c="gray.3">{t("upload_proof_label")}</Text>}
+            placeholder={t("upload_proof_placeholder")}
             accept="image/*"
             value={selectedFile}
             onChange={setSelectedFile}
@@ -675,7 +679,7 @@ export function CheckoutView() {
             color="blue"
             size="md"
           >
-            Kirim Bukti Pembayaran
+            {t("btn_submit_proof")}
           </Button>
         </Stack>
       </Modal>

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Button, Checkbox, Group, Modal, Paper, ScrollArea, Stack, Text } from "@mantine/core";
 import { ErrorAlert } from "./error-alert";
+import { useI18n } from "@/lib/i18n";
 
 export interface UploadPolicyModalProps {
   opened: boolean;
@@ -21,6 +22,7 @@ export function UploadPolicyModal({
   error = null,
   readOnly = false,
 }: UploadPolicyModalProps) {
+  const t = useI18n("modals");
   const [agreed, setAgreed] = useState(false);
 
   const handleClose = () => {
@@ -43,7 +45,7 @@ export function UploadPolicyModal({
     <Modal
       opened={opened}
       onClose={handleClose}
-      title="Kebijakan Unggah Media"
+      title={t("upload_policy.title")}
       centered
       size="md"
       closeOnClickOutside={!loading}
@@ -54,19 +56,19 @@ export function UploadPolicyModal({
           <ScrollArea.Autosize mah={260} type="scroll">
             <Stack gap="xs">
               <Text size="sm" fw={600}>
-                Ketentuan &amp; Tanggung Jawab Unggah Berkas:
+                {t("upload_policy.heading")}
               </Text>
               <Text size="xs" c="dimmed">
-                1. <strong>Kepemilikan Hak Cipta:</strong> Anda menyatakan bahwa berkas gambar yang Anda unggah adalah milik Anda sendiri atau Anda memiliki izin sah dari pemilik hak cipta untuk menggunakannya.
+                <strong>{t("upload_policy.rule_1_title")}</strong> {t("upload_policy.rule_1_desc")}
               </Text>
               <Text size="xs" c="dimmed">
-                2. <strong>Konten Terlarang:</strong> Dilarang keras mengunggah materi yang melanggar hukum, pornografi anak, eksploitasi, kekerasan ekstrem, ujaran kebencian, atau konten yang melanggar norma privasi orang lain tanpa persetujuan.
+                <strong>{t("upload_policy.rule_2_title")}</strong> {t("upload_policy.rule_2_desc")}
               </Text>
               <Text size="xs" c="dimmed">
-                3. <strong>Penyimpanan &amp; Retensi:</strong> Berkas unggahan akan disimpan untuk kebutuhan pemrosesan generasi AI dan tunduk pada kebijakan retensi platform.
+                <strong>{t("upload_policy.rule_3_title")}</strong> {t("upload_policy.rule_3_desc")}
               </Text>
               <Text size="xs" c="dimmed">
-                4. <strong>Persetujuan Permanen:</strong> Persetujuan atas kebijakan ini bersifat permanen untuk akun Anda dan diperlukan sebelum Anda dapat menggunakan fitur unggah atau memilih media sebagai referensi generate.
+                <strong>{t("upload_policy.rule_4_title")}</strong> {t("upload_policy.rule_4_desc")}
               </Text>
             </Stack>
           </ScrollArea.Autosize>
@@ -77,7 +79,7 @@ export function UploadPolicyModal({
             <Checkbox
               checked={agreed}
               onChange={(e) => setAgreed(e.currentTarget.checked)}
-              label="Saya telah membaca, memahami, dan menyetujui seluruh ketentuan kebijakan unggah media di atas."
+              label={t("upload_policy.checkbox_label")}
               size="xs"
               disabled={loading}
             />
@@ -86,7 +88,7 @@ export function UploadPolicyModal({
 
             <Group justify="flex-end" gap="sm">
               <Button variant="default" onClick={handleClose} disabled={loading} size="sm">
-                Batal
+                {t("upload_policy.btn_cancel")}
               </Button>
               <Button
                 variant="gradient"
@@ -96,14 +98,14 @@ export function UploadPolicyModal({
                 loading={loading}
                 size="sm"
               >
-                Setuju &amp; Lanjutkan
+                {t("upload_policy.btn_confirm")}
               </Button>
             </Group>
           </>
         ) : (
           <Group justify="flex-end">
             <Button variant="default" onClick={handleClose} size="sm">
-              Tutup
+              {t("upload_policy.btn_close")}
             </Button>
           </Group>
         )}

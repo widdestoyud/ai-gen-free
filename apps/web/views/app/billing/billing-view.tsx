@@ -5,6 +5,7 @@ import { Button, Group, Paper, Skeleton, Stack, Text, Title } from "@mantine/cor
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { useI18n } from "@/lib/i18n";
 import { requestJson } from "@/lib/api";
 import { queryKeys } from "@/lib/query-keys";
 import { CreditHistory } from "./components/credit-history";
@@ -20,6 +21,7 @@ export type BillingData = {
 };
 
 export function BillingPageView(props: { data?: BillingData }) {
+  const { t } = useI18n("billing");
   const searchParams = useSearchParams();
   const pathname = usePathname();
   const urlPage = Math.max(1, parseInt(searchParams.get("page") || "1", 10) || 1);
@@ -98,7 +100,7 @@ export function BillingPageView(props: { data?: BillingData }) {
 
   return (
     <div>
-      <Title order={2} mb="md">Billing</Title>
+      <Title order={2} mb="md">{t("title")}</Title>
 
       {isWalletLoading && !props.data ? (
         <Paper p="md" withBorder mb="lg">
@@ -115,14 +117,14 @@ export function BillingPageView(props: { data?: BillingData }) {
           <Group justify="space-between" align="center">
             <div>
               <Text size="xs" c="dimmed">
-                Saldo Sparks Saat Ini
+                {t("balance_title")}
               </Text>
               <Text size="xl" fw={700}>
-                {wallet.available} Sparks
+                {t("sparks_amount", { count: wallet.available })}
               </Text>
               {wallet.held > 0 ? (
                 <Text size="xs" c="yellow.6">
-                  ({wallet.held} Sparks sedang terkunci pada proses generate)
+                  {t("held_sparks", { count: wallet.held })}
                 </Text>
               ) : null}
             </div>
@@ -134,7 +136,7 @@ export function BillingPageView(props: { data?: BillingData }) {
               gradient={{ from: "#3b82f6", to: "#8b5cf6", deg: 135 }}
               size="sm"
             >
-              Topup Sparks
+              {t("btn_topup")}
             </Button>
           </Group>
         </Paper>

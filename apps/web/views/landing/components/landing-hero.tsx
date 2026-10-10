@@ -2,42 +2,42 @@
 
 import { useState, useRef } from "react";
 import classes from "./landing.module.css";
+import { useI18n } from "@/lib/i18n";
 
 interface LandingHeroProps {
   onStartCreation: () => void;
   onScrollTo: (id: string) => void;
 }
 
-
 const TEMPLATE_CAROUSEL_CARDS = [
   {
     id: "logos",
-    title: "Logos & Icons",
+    titleKey: "hero.card_logos",
     image: "/dreamina/carousel-logos.webp",
   },
   {
     id: "video",
-    title: "AI video generator",
+    titleKey: "hero.card_video",
     image: "/dreamina/carousel-video.webp",
   },
   {
     id: "trending",
-    title: "Trending effects",
+    titleKey: "hero.card_trending",
     image: "/dreamina/carousel-trending.webp",
   },
   {
     id: "photo",
-    title: "AI photo editor",
+    titleKey: "hero.card_photo",
     image: "/dreamina/carousel-photo.webp",
   },
   {
     id: "style",
-    title: "Style transfer",
+    titleKey: "hero.card_style",
     image: "/dreamina/carousel-style.webp",
   },
   {
     id: "poster",
-    title: "Poster design",
+    titleKey: "hero.card_poster",
     image: "/dreamina/carousel-poster.webp",
   },
 ];
@@ -53,6 +53,7 @@ export function LandingHero({
   onStartCreation,
   onScrollTo,
 }: LandingHeroProps) {
+  const t = useI18n("landing");
   const videoRef = useRef<HTMLVideoElement>(null);
   const templateSectionRef = useRef<HTMLElement>(null);
 
@@ -92,16 +93,16 @@ export function LandingHero({
         <div className={classes.heroCenterContent}>
           {/* Heading */}
           <h1 className={classes.heroGiantTitle}>
-            Create Without
+            {t("hero.giant_title_1")}
             <br />
-            Limits
+            {t("hero.giant_title_2")}
           </h1>
 
           {/* Subtitle */}
           <p className={classes.heroSubtitleText}>
-            Platform studio AI video dan photo
+            {t("hero.subtitle_line_1")}
             <br />
-            untuk kamu yang ingin kebebasan kreasi sesungguhnya
+            {t("hero.subtitle_line_2")}
           </p>
 
           {/* CTA Button with existing blue-purple gradient */}
@@ -110,7 +111,7 @@ export function LandingHero({
             className={classes.heroGradientCtaBtn}
             onClick={onStartCreation}
           >
-            <span>Coba Sekarang</span>
+            <span>{t("hero.btn_try_now")}</span>
             <svg
               width="18"
               height="18"
@@ -132,7 +133,7 @@ export function LandingHero({
           onClick={handleSwipeDown}
           role="button"
           tabIndex={0}
-          title="Scroll to templates"
+          title={t("hero.swipe_title")}
         >
           <svg
             className={classes.swipeArrowIcon}
@@ -164,10 +165,10 @@ export function LandingHero({
         <div className={classes.templateWindowHeader}>
           <h2 className={classes.templateTitleHeading}>
             <span className={classes.templateTitleLine1}>
-              Start with a Template.
+              {t("hero.template_title_line_1")}
             </span>
             <span className={classes.templateTitleLine2}>
-              Make <span className={classes.templateItalicWord}>Anything</span>, Any Style with AI
+              {t("hero.template_title_line_2")} <span className={classes.templateItalicWord}>{t("hero.template_italic_word")}</span>{t("hero.template_title_line_2_suffix")}
             </span>
           </h2>
         </div>
@@ -184,7 +185,7 @@ export function LandingHero({
                 >
                   <img
                     src={card.image}
-                    alt={card.title}
+                    alt={t(card.titleKey)}
                     className={classes.templateCardImg}
                     loading="lazy"
                     draggable={false}
@@ -192,7 +193,7 @@ export function LandingHero({
                   <div className={classes.templateCardTopGradient} />
                   <div className={classes.templateCardHeader}>
                     <span className={classes.templateCardTitle}>
-                      {card.title}
+                      {t(card.titleKey)}
                     </span>
                     <button
                       type="button"
@@ -202,7 +203,7 @@ export function LandingHero({
                         onStartCreation();
                       }}
                     >
-                      Try now
+                      {t("hero.btn_template_try")}
                       <svg
                         width="12"
                         height="12"

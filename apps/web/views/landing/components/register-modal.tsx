@@ -3,6 +3,7 @@
 import { Anchor, Button, Checkbox, Divider, Group, Modal, PasswordInput, Stack, Text, TextInput } from "@mantine/core";
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
+import { useI18n } from "@/lib/i18n";
 import { initiateGoogleSignIn } from "@/lib/google-auth";
 import { ErrorAlert } from "@/components/error-alert";
 import { GoogleAuthButton } from "@/components/google-auth-button";
@@ -42,6 +43,7 @@ export function RegisterModal({
   pending: boolean;
   onSubmit: (e: FormEvent) => void;
 }) {
+  const { t } = useI18n("auth");
   const [shake, setShake] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
 
@@ -84,7 +86,7 @@ export function RegisterModal({
       closeOnClickOutside={!pending && !googleLoading}
       closeOnEscape={!pending && !googleLoading}
       withCloseButton={!pending && !googleLoading}
-      title="Daftar Akun"
+      title={t("register.modal_title")}
       centered
       size="md"
       radius="md"
@@ -98,22 +100,22 @@ export function RegisterModal({
           showConsentText={true}
           onClick={handleGoogleSignIn}
         />
-        <Divider label="atau daftar dengan email" labelPosition="center" my={2} />
+        <Divider label={t("register.or_email")} labelPosition="center" my={2} />
       </Stack>
       <form onSubmit={handleSubmit} style={{ marginTop: 12 }}>
         <Stack gap="sm">
           <TextInput
-            label="Email"
+            label={t("register.email_label")}
             type="email"
-            placeholder="nama@gmail.com"
+            placeholder={t("register.email_placeholder")}
             required
             disabled={pending}
             value={email}
             onChange={(ev) => onEmailChange(ev.currentTarget.value)}
           />
           <PasswordInput
-            label="Kata sandi"
-            description="Minimal 8 karakter, 1 huruf kapital, 1 angka"
+            label={t("register.password_label")}
+            description={t("register.password_hint")}
             required
             disabled={pending}
             value={password}
@@ -126,7 +128,7 @@ export function RegisterModal({
             onChange={(ev) => onTermsAcceptedChange(ev.currentTarget.checked)}
             label={
               <Text size="xs" c="gray.3">
-                Saya berusia 18+ dan menyetujui{" "}
+                {t("register.terms_prefix")}
                 <Anchor
                   component={Link}
                   href="/terms"
@@ -136,9 +138,9 @@ export function RegisterModal({
                   c="blue.4"
                   underline="hover"
                 >
-                  Ketentuan
-                </Anchor>{" "}
-                &amp;{" "}
+                  {t("register.terms_terms")}
+                </Anchor>
+                {t("register.terms_and")}
                 <Anchor
                   component={Link}
                   href="/privacy"
@@ -148,7 +150,7 @@ export function RegisterModal({
                   c="blue.4"
                   underline="hover"
                 >
-                  Kebijakan Privasi
+                  {t("register.terms_privacy")}
                 </Anchor>
               </Text>
             }
@@ -166,13 +168,13 @@ export function RegisterModal({
             fullWidth
             size="md"
           >
-            {pending ? "Mendaftar…" : "Daftar"}
+            {pending ? t("register.processing") : t("register.btn_submit")}
           </Button>
 
           {onLogin ? (
             <Group justify="center" mt={4}>
               <Text size="xs" c="dimmed">
-                Sudah memiliki akun?{" "}
+                {t("register.has_account")}{" "}
                 <Anchor
                   component="button"
                   type="button"
@@ -185,7 +187,7 @@ export function RegisterModal({
                   }}
                   underline="hover"
                 >
-                  Masuk Sekarang
+                  {t("register.link_login")}
                 </Anchor>
               </Text>
             </Group>

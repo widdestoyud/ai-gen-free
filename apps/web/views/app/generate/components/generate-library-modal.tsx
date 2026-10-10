@@ -19,6 +19,7 @@ import {
 import { CheckIcon, PencilIcon, TrashIcon, ZoomIcon } from "./generate-icons";
 import { isJobImage, type JobView } from "@/lib/job-status";
 import type { StudioUpload } from "@/hooks/use-generate-studio";
+import { useI18n } from "@/lib/i18n";
 import classes from "./generate-studio.module.css";
 
 const UPLOADS_PER_PAGE = 15;
@@ -78,6 +79,7 @@ export function GenerateLibraryModal({
   onUpdateAlias?: (id: string, alias: string, kind?: "generation" | "upload") => Promise<boolean>;
   uploadPolicyAccepted?: boolean;
 }) {
+  const { t } = useI18n("generate");
   const [modalError, setModalError] = useState<string | null>(null);
   const [zoomedItem, setZoomedItem] = useState<ZoomableItem | null>(null);
   const [editingItem, setEditingItem] = useState<EditableItem | null>(null);
@@ -102,7 +104,7 @@ export function GenerateLibraryModal({
   function handleToggleGeneration(job: JobView) {
     const selected = isSelected(job.id);
     if (!selected && selectedCount >= maxSelected) {
-      setModalError(`Maksimal hanya ${maxSelected} gambar referensi yang dapat dipilih.`);
+      setModalError(t("library_modal.max_selected_error", { max: maxSelected }));
       return;
     }
     setModalError(null);
@@ -112,7 +114,7 @@ export function GenerateLibraryModal({
   function handleToggleUpload(item: StudioUpload) {
     const selected = isSelected(item.id);
     if (!selected && selectedCount >= maxSelected) {
-      setModalError(`Maksimal hanya ${maxSelected} gambar referensi yang dapat dipilih.`);
+      setModalError(t("library_modal.max_selected_error", { max: maxSelected }));
       return;
     }
     setModalError(null);
@@ -121,7 +123,7 @@ export function GenerateLibraryModal({
 
   function handleUploadClick() {
     if (selectedCount >= maxSelected) {
-      setModalError(`Maksimal hanya ${maxSelected} gambar referensi yang dapat dipilih.`);
+      setModalError(t("library_modal.max_selected_error", { max: maxSelected }));
       return;
     }
     setModalError(null);
@@ -152,10 +154,10 @@ export function GenerateLibraryModal({
         title={
           <Group gap="xs" align="center">
             <Text fw={700} size="md">
-              Pilih gambar
+              {t("library_modal.title")}
             </Text>
             <Badge size="sm" variant="light" color={selectedCount >= maxSelected ? "yellow" : "blue"}>
-              {selectedCount}/{maxSelected} terpilih
+              {t("library_modal.selected_count", { count: selectedCount, max: maxSelected })}
             </Badge>
           </Group>
         }
@@ -171,21 +173,21 @@ export function GenerateLibraryModal({
               className={`${classes.libraryTabBtn} ${tab === "generations" ? classes.libraryTabBtnActive : ""}`}
               onClick={() => onTab("generations")}
             >
-              Generations
+              {t("library_modal.tab_generations")}
             </button>
             <button
               type="button"
               className={`${classes.libraryTabBtn} ${tab === "uploads" ? classes.libraryTabBtnActive : ""}`}
               onClick={() => onTab("uploads")}
             >
-              Upload media
+              {t("library_modal.tab_uploads")}
             </button>
           </div>
 
           {/* Section Header */}
           <div className={classes.librarySectionHeader}>
             <Text fw={700} size="md" c="white" ta="center" className={classes.librarySectionTitle}>
-              {tab === "generations" ? "Generations" : "Upload media"}
+              {tab === "generations" ? t("library_modal.tab_generations") : t("library_modal.tab_uploads")}
             </Text>
             {tab === "uploads" ? (
               <Button
@@ -196,7 +198,7 @@ export function GenerateLibraryModal({
                 onClick={handleUploadClick}
                 className={classes.libraryUploadActionBtn}
               >
-                + Upload
+                {t("library_modal.btn_upload")}
               </Button>
             ) : null}
           </div>
@@ -217,10 +219,10 @@ export function GenerateLibraryModal({
             <Alert color="yellow" variant="light" radius="sm">
               <Group justify="space-between" align="center">
                 <Text size="xs">
-                  Anda harus menyetujui kebijakan unggah media sebelum dapat memilih berkas referensi.
+                  {t("library_modal.policy_required")}
                 </Text>
                 <Button size="compact-xs" color="yellow" variant="filled" onClick={handleUploadClick}>
-                  Setujui Sekarang
+                  {t("library_modal.policy_accept_now")}
                 </Button>
               </Group>
             </Alert>
@@ -230,7 +232,7 @@ export function GenerateLibraryModal({
           <div className={classes.libraryScrollArea}>
             {items.length === 0 ? (
               <Text c="dimmed" size="sm" ta="center" py="xl">
-                {tab === "generations" ? "Belum ada hasil generate gambar." : "Belum ada unggahan."}
+                {tab === "generations" ? t("library_modal.empty_generations") : t("library_modal.empty_uploads")}
               </Text>
             ) : tab === "generations" ? (
               <SimpleGrid cols={{ base: 2, sm: 2, md: 4 }} spacing="xs" className={classes.libraryGrid}>
@@ -265,7 +267,7 @@ export function GenerateLibraryModal({
                       ) : null}
 
                       <div className={classes.tileActionsOverlay}>
-                        <Tooltip label="Perbesar" withArrow position="top">
+                        <Tooltip label={t("library_modal.tooltip_zoom")} withArrow position="top">
                           <button
                             type="button"
                             className={classes.tileActionBtn}
@@ -281,13 +283,13 @@ export function GenerateLibraryModal({
                                 kind: "generation",
                               });
                             }}
-                            aria-label="Perbesar gambar"
+                            aria-label={t("library_modal.aria_zoom")}
                           >
                             <ZoomIcon size={13} />
                           </button>
                         </Tooltip>
 
-                        <Tooltip label="Ubah Alias (@)" withArrow position="top">
+                        <Tooltip label={t("library_modal.tooltip_edit_alias")} withArrow position="top">
                           <button
                             type="button"
                             className={classes.tileActionBtn}
@@ -300,7 +302,7 @@ export function GenerateLibraryModal({
                               });
                               setAliasInput(job.alias ?? "");
                             }}
-                            aria-label="Ubah alias gambar"
+                            aria-label={t("library_modal.aria_edit_alias")}
                           >
                             <PencilIcon size={13} />
                           </button>
@@ -359,7 +361,7 @@ export function GenerateLibraryModal({
 
                         {!item.uploading ? (
                           <div className={classes.tileActionsOverlay}>
-                            <Tooltip label="Perbesar" withArrow position="top">
+                            <Tooltip label={t("library_modal.tooltip_zoom")} withArrow position="top">
                               <button
                                 type="button"
                                 className={classes.tileActionBtn}
@@ -375,13 +377,13 @@ export function GenerateLibraryModal({
                                     kind: "upload",
                                   });
                                 }}
-                                aria-label="Perbesar gambar"
+                                aria-label={t("library_modal.aria_zoom")}
                               >
                                 <ZoomIcon size={13} />
                               </button>
                             </Tooltip>
 
-                            <Tooltip label="Ubah Alias (@)" withArrow position="top">
+                            <Tooltip label={t("library_modal.tooltip_edit_alias")} withArrow position="top">
                               <button
                                 type="button"
                                 className={classes.tileActionBtn}
@@ -394,13 +396,13 @@ export function GenerateLibraryModal({
                                   });
                                   setAliasInput(item.alias ?? "");
                                 }}
-                                aria-label="Ubah alias gambar"
+                                aria-label={t("library_modal.aria_edit_alias")}
                               >
                                 <PencilIcon size={13} />
                               </button>
                             </Tooltip>
 
-                            <Tooltip label="Hapus" withArrow position="top">
+                            <Tooltip label={t("library_modal.tooltip_delete")} withArrow position="top">
                               <button
                                 type="button"
                                 className={`${classes.tileActionBtn} ${classes.tileActionBtnDanger}`}
@@ -408,7 +410,7 @@ export function GenerateLibraryModal({
                                   e.stopPropagation();
                                   setDeletingItem(item);
                                 }}
-                                aria-label="Hapus gambar"
+                                aria-label={t("library_modal.aria_delete")}
                               >
                                 <TrashIcon size={13} />
                               </button>
@@ -442,8 +444,8 @@ export function GenerateLibraryModal({
         onClose={() => setZoomedItem(null)}
         title={
           zoomedItem?.alias
-            ? `@${zoomedItem.alias} — Pratinjau Gambar`
-            : zoomedItem?.name ?? "Pratinjau Gambar"
+            ? t("library_modal.preview_alias_title", { alias: zoomedItem.alias })
+            : zoomedItem?.name ?? t("library_modal.preview_title")
         }
         size="lg"
         centered
@@ -461,11 +463,11 @@ export function GenerateLibraryModal({
               <Text size="xs" c="dimmed">
                 {zoomedItem.width && zoomedItem.height
                   ? `${zoomedItem.width} × ${zoomedItem.height} px`
-                  : "Dimensi asli"}
+                  : t("library_modal.native_dimension")}
               </Text>
               {zoomedItem.alias ? (
                 <Text size="xs" c="green" fw={600}>
-                  Alias: @{zoomedItem.alias}
+                  {t("library_modal.alias_label", { alias: zoomedItem.alias })}
                 </Text>
               ) : null}
             </Group>
@@ -477,18 +479,18 @@ export function GenerateLibraryModal({
       <Modal
         opened={Boolean(editingItem)}
         onClose={() => !isSavingAlias && setEditingItem(null)}
-        title="Ubah Alias Gambar"
+        title={t("library_modal.edit_alias_title")}
         size="sm"
         centered
       >
         {editingItem ? (
           <Stack gap="md">
             <Text size="sm" c="dimmed">
-              Alias akan digunakan saat memanggil gambar dengan simbol <code>@</code> pada kolom prompt (contoh: <code>@{aliasInput.trim() || "nama_alias"}</code>).
+              {t("library_modal.edit_alias_desc", { alias: aliasInput.trim() || "nama_alias" })}
             </Text>
             <TextInput
-              label="Nama Alias"
-              placeholder="contoh: kerenjaya"
+              label={t("library_modal.alias_field_label")}
+              placeholder={t("library_modal.alias_field_placeholder")}
               value={aliasInput}
               onChange={(e) => setAliasInput(e.currentTarget.value)}
               onKeyDown={(e) => {
@@ -505,13 +507,13 @@ export function GenerateLibraryModal({
                 onClick={() => setEditingItem(null)}
                 disabled={isSavingAlias}
               >
-                Batal
+                {t("common.cancel")}
               </Button>
               <Button
                 onClick={() => void handleSaveAlias()}
                 loading={isSavingAlias}
               >
-                Simpan
+                {t("common.save")}
               </Button>
             </Group>
           </Stack>
@@ -522,14 +524,14 @@ export function GenerateLibraryModal({
       <Modal
         opened={Boolean(deletingItem)}
         onClose={() => !isDeleting && setDeletingItem(null)}
-        title="Hapus Gambar Unggahan"
+        title={t("library_modal.delete_title")}
         size="sm"
         centered
       >
         {deletingItem ? (
           <Stack gap="md">
             <Text size="sm">
-              Apakah Anda yakin ingin menghapus gambar ini? Gambar yang telah dihapus tidak dapat dipulihkan.
+              {t("library_modal.delete_desc")}
             </Text>
             <Group justify="flex-end" gap="xs">
               <Button
@@ -537,14 +539,14 @@ export function GenerateLibraryModal({
                 onClick={() => setDeletingItem(null)}
                 disabled={isDeleting}
               >
-                Batal
+                {t("common.cancel")}
               </Button>
               <Button
                 color="red"
                 onClick={() => void handleConfirmDelete()}
                 loading={isDeleting}
               >
-                Hapus
+                {t("common.delete")}
               </Button>
             </Group>
           </Stack>

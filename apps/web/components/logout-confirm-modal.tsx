@@ -2,6 +2,7 @@
 
 import { Button, Group, Modal, Text } from "@mantine/core";
 import { ErrorAlert } from "./error-alert";
+import { useI18n } from "@/lib/i18n";
 
 export function LogoutConfirmModal({
   opened,
@@ -16,16 +17,18 @@ export function LogoutConfirmModal({
   pending: boolean;
   error?: string | null;
 }) {
+  const t = useI18n("modals");
+
   return (
-    <Modal opened={opened} onClose={onClose} title="Keluar" centered size="xs">
-      <Text mb="md">Anda yakin ingin keluar dari akun?</Text>
+    <Modal opened={opened} onClose={onClose} title={t("logout.title")} centered size="xs">
+      <Text mb="md">{t("logout.message")}</Text>
       <ErrorAlert message={error} />
       <Group justify="flex-end" gap="sm">
         <Button type="button" variant="default" onClick={onClose} disabled={pending}>
-          Batal
+          {t("logout.btn_cancel")}
         </Button>
         <Button type="button" color="red" onClick={onConfirm} disabled={pending}>
-          {pending ? "Keluar…" : "Keluar"}
+          {pending ? t("logout.btn_confirming") : t("logout.btn_confirm")}
         </Button>
       </Group>
     </Modal>

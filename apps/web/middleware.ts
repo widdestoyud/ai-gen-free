@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { detectLocale } from "./lib/i18n/detector";
 
 /**
  * Constant-time string comparison to prevent timing side-channel attacks.
@@ -18,48 +19,74 @@ function safeCompare(a: string, b: string): boolean {
 }
 
 export function middleware(req: NextRequest) {
-  const user = process.env.ADMIN_BASIC_USER ?? "";
-  const pass = process.env.ADMIN_BASIC_PASSWORD ?? "";
-  const header = req.headers.get("authorization");
+  const { pathname } = req.nextUrl;
 
-  if (!header?.startsWith("Basic ")) {
-    return new NextResponse("Autentikasi admin diperlukan", {
-      status: 401,
-      headers: { "WWW-Authenticate": 'Basic realm="admin"' },
+  // 1. Admin & Admin API Route Gate (Strict Basic Auth)
+  if (pathname.startsWith("/admin") || pathname.startsWith("/api/admin")) {
+    const user = process.env.ADMIN_BASIC_USER ?? "";
+    const pass = process.env.ADMIN_BASIC_PASSWORD ?? "";
+    const header = req.headers.get("authorization");
+
+    if (!header?.startsWith("Basic ")) {
+      return new NextResponse("Autentikasi admin diperlukan", {
+        status: 401,
+        headers: { "WWW-Authenticate": 'Basic realm="admin"' },
+      });
+    }
+
+    let decoded = "";
+    try {
+      decoded = atob(header.slice(6));
+    } catch {
+      decoded = "";
+    }
+
+    const i = decoded.indexOf(":");
+    const u = i >= 0 ? decoded.slice(0, i) : "";
+    const p = i >= 0 ? decoded.slice(i + 1) : "";
+
+    if (!user || !pass || !safeCompare(u, user) || !safeCompare(p, pass)) {
+      return new NextResponse("Autentikasi admin gagal", {
+        status: 401,
+        headers: { "WWW-Authenticate": 'Basic realm="admin"' },
+      });
+    }
+
+    return NextResponse.next();
+  }
+
+  // 2. Client & Public Routes: I18n Locale Resolution & Header Forwarding
+  const locale = detectLocale(req.cookies, req.headers);
+  const requestHeaders = new Headers(req.headers);
+  requestHeaders.set("x-locale", locale);
+
+  const res = NextResponse.next({
+    request: {
+      headers: requestHeaders,
+    },
+  });
+
+  // Persist NEXT_LOCALE cookie if not yet set
+  if (!req.cookies.get("NEXT_LOCALE")) {
+    res.cookies.set("NEXT_LOCALE", locale, {
+      path: "/",
+      maxAge: 31536000,
+      sameSite: "lax",
     });
   }
 
-  let decoded = "";
-  try {
-    decoded = atob(header.slice(6));
-  } catch {
-    decoded = "";
-  }
-
-  const i = decoded.indexOf(":");
-  const u = i >= 0 ? decoded.slice(0, i) : "";
-  const p = i >= 0 ? decoded.slice(i + 1) : "";
-
-  if (!user || !pass) {
-    return new NextResponse("Autentikasi admin gagal", {
-      status: 401,
-      headers: { "WWW-Authenticate": 'Basic realm="admin"' },
-    });
-  }
-
-  const userValid = safeCompare(u, user);
-  const passValid = safeCompare(p, pass);
-
-  if (!userValid || !passValid) {
-    return new NextResponse("Autentikasi admin gagal", {
-      status: 401,
-      headers: { "WWW-Authenticate": 'Basic realm="admin"' },
-    });
-  }
-
-  return NextResponse.next();
+  return res;
 }
 
 export const config = {
-  matcher: ["/admin/:path*", "/api/admin/:path*"],
+  matcher: [
+    /*
+     * Match all request paths except:
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     * - public files (svg, png, jpg, etc.)
+     */
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+  ],
 };

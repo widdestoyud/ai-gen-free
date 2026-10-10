@@ -6,6 +6,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, type ReactNode } from "react";
+import { useI18n } from "@/lib/i18n";
+import { LanguageSwitcher } from "./language-switcher";
 import { LogoutConfirmModal } from "./logout-confirm-modal";
 import { useLogoutConfirm } from "@/hooks/use-logout-confirm";
 import { queryKeys } from "@/lib/query-keys";
@@ -72,7 +74,6 @@ function ProfileIcon({ size = 18 }: { size?: number }) {
   );
 }
 
-
 function BillingIcon({ size = 18 }: { size?: number }) {
   return (
     <svg
@@ -132,19 +133,20 @@ function LogoutIcon({ size = 18 }: { size?: number }) {
   );
 }
 
-const NAV = [
-  { href: "/app/generate", label: "Generate", icon: SparklesIcon },
-  { href: "/app/library", label: "Library", icon: LibraryIcon },
-  { href: "/app/profile", label: "Profile", icon: ProfileIcon },
-  { href: "/app/billing", label: "Billing", icon: BillingIcon },
-  { href: "/app/order", label: "Order", icon: OrderIcon },
-];
-
 export function AppWorkspace({ children }: { children: ReactNode }) {
+  const { t } = useI18n("nav");
   const pathname = usePathname();
   const [opened, { toggle, close }] = useDisclosure();
   const logout = useLogoutConfirm();
   const queryClient = useQueryClient();
+
+  const navItems = [
+    { href: "/app/generate", label: t("generate"), icon: SparklesIcon },
+    { href: "/app/library", label: t("library"), icon: LibraryIcon },
+    { href: "/app/profile", label: t("profile"), icon: ProfileIcon },
+    { href: "/app/billing", label: t("billing"), icon: BillingIcon },
+    { href: "/app/order", label: t("order"), icon: OrderIcon },
+  ];
 
   // Close mobile navbar on route changes
   useEffect(() => {
@@ -219,13 +221,17 @@ export function AppWorkspace({ children }: { children: ReactNode }) {
                 </Title>
               </Group>
             </Group>
+
+            <Group gap="xs">
+              <LanguageSwitcher />
+            </Group>
           </Group>
         </AppShell.Header>
 
         <AppShell.Navbar className={classes.navbar} p="sm">
           <Stack justify="space-between" h="100%">
             <Stack gap={4}>
-              {NAV.map((item) => {
+              {navItems.map((item) => {
                 const Icon = item.icon;
                 return (
                   <NavLink
@@ -242,7 +248,7 @@ export function AppWorkspace({ children }: { children: ReactNode }) {
               })}
             </Stack>
             <NavLink
-              label="Logout"
+              label={t("logout")}
               leftSection={<LogoutIcon size={18} />}
               className={classes.logout}
               onClick={(event) => {

@@ -5,7 +5,7 @@ import { loadCustomerProfile, loadPublicPackages } from "@/lib/server-api";
 import { LandingPageView } from "@/views/landing";
 
 export const metadata: Metadata = {
-  title: "Create Without Limits",
+  title: "Berkreasi Tanpa Batas",
   description:
     "Ciptakan materi visual dan video sinematik sekelas studio profesional dalam bahasa alami sehari-hari tanpa kartu kredit internasional.",
 };

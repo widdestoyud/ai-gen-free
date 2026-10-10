@@ -20,6 +20,7 @@ import {
 } from "./generate-icons";
 import { STUDIO_ASPECTS } from "@/lib/aspect-ratio";
 import type { StudioRef } from "@/hooks/use-generate-studio";
+import { useI18n } from "@/lib/i18n";
 import classes from "./generate-studio.module.css";
 
 const DURATIONS: Array<"6s" | "10s" | "15s"> = ["6s", "10s", "15s"];
@@ -58,6 +59,8 @@ export function GenerateSettingsModal({
   selectedRefs,
   onOpenLibrary,
 }: GenerateSettingsModalProps) {
+  const { t } = useI18n("generate");
+
   function handleAddRefClick() {
     onClose();
     onOpenLibrary();
@@ -67,7 +70,7 @@ export function GenerateSettingsModal({
     <Modal
       opened={opened}
       onClose={onClose}
-      title="Pengaturan Studio"
+      title={t("settings_modal.title")}
       size="md"
       radius="lg"
       centered
@@ -77,11 +80,11 @@ export function GenerateSettingsModal({
         <Stack gap="xs">
           <Group justify="space-between" align="center">
             <Text size="sm" fw={600} c="white">
-              Referensi Gambar
+              {t("settings_modal.ref_images")}
             </Text>
             {selectedRefs.length > 0 ? (
               <Badge size="sm" variant="light" color="blue">
-                {selectedRefs.length}/5 gambar terpilih
+                {t("settings_modal.selected_count", { count: selectedRefs.length })}
               </Badge>
             ) : null}
           </Group>
@@ -95,8 +98,8 @@ export function GenerateSettingsModal({
             onClick={handleAddRefClick}
           >
             {selectedRefs.length > 0
-              ? "Kelola Gambar Referensi"
-              : "+ Tambah Gambar Referensi"}
+              ? t("settings_modal.manage_refs")
+              : t("settings_modal.add_refs")}
           </Button>
         </Stack>
 
@@ -107,7 +110,7 @@ export function GenerateSettingsModal({
           <>
             <Stack gap="xs">
               <Text size="sm" fw={600} c="white">
-                Mode Model
+                {t("settings_modal.model_mode")}
               </Text>
               <div className={classes.settingsPillRow}>
                 <button
@@ -115,14 +118,14 @@ export function GenerateSettingsModal({
                   className={`${classes.settingsPillBtn} ${spicyFilter === "normal" ? classes.settingsPillBtnActive : ""}`}
                   onClick={() => onSpicyFilterChange("normal")}
                 >
-                  Standard
+                  {t("mode_standard")}
                 </button>
                 <button
                   type="button"
                   className={`${classes.settingsPillBtn} ${spicyFilter === "spicy" ? classes.settingsPillBtnSpicyActive : ""}`}
                   onClick={() => onSpicyFilterChange("spicy")}
                 >
-                  Spicy
+                  {t("mode_spicy")}
                 </button>
               </div>
             </Stack>
@@ -133,7 +136,7 @@ export function GenerateSettingsModal({
         {/* Aspek Rasio */}
         <Stack gap="xs">
           <Text size="sm" fw={600} c="white">
-            Aspek Rasio
+            {t("settings_modal.aspect_ratio")}
           </Text>
           <SimpleGrid cols={{ base: 2, sm: 3 }} spacing="xs">
             {STUDIO_ASPECTS.map((item) => {
@@ -178,7 +181,7 @@ export function GenerateSettingsModal({
             <Stack gap="md">
               <Stack gap="xs">
                 <Text size="sm" fw={600} c="white">
-                  Durasi Video
+                  {t("settings_modal.video_duration")}
                 </Text>
                 <div className={classes.settingsPillRow}>
                   {DURATIONS.map((dur) => (
@@ -197,7 +200,7 @@ export function GenerateSettingsModal({
 
               <Stack gap="xs">
                 <Text size="sm" fw={600} c="white">
-                  Resolusi Video
+                  {t("settings_modal.video_resolution")}
                 </Text>
                 <div className={classes.settingsPillRow}>
                   {RESOLUTIONS.map((res) => (
@@ -226,7 +229,7 @@ export function GenerateSettingsModal({
           onClick={onClose}
           mt="xs"
         >
-          Selesai
+          {t("settings_modal.btn_done")}
         </Button>
       </Stack>
     </Modal>

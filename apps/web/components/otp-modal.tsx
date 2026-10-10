@@ -4,6 +4,7 @@ import { Alert, Button, Group, Modal, Stack, Text, TextInput } from "@mantine/co
 import { FormEvent, useEffect, useState } from "react";
 import { ErrorAlert } from "./error-alert";
 import otpInput from "./otp-input.module.css";
+import { useI18n } from "@/lib/i18n";
 
 export function OtpModal({
   opened,
@@ -36,6 +37,7 @@ export function OtpModal({
   resendCooldown?: number;
   resendSuccessMessage?: string | null;
 }) {
+  const t = useI18n("auth");
   const [shake, setShake] = useState(false);
   const [submittedCode, setSubmittedCode] = useState("");
 
@@ -79,7 +81,7 @@ export function OtpModal({
       closeOnClickOutside={!pending}
       closeOnEscape={!pending}
       withCloseButton={!pending}
-      title="Verifikasi Masuk"
+      title={t("otp.modal_title")}
       centered
       size="md"
       radius="md"
@@ -88,18 +90,18 @@ export function OtpModal({
     >
       <Stack gap="xs" mb="md">
         <Text size="sm">
-          Kami telah mengirimkan kode verifikasi 6 digit ke <strong>{email}</strong>.
+          {t("otp.instruction_prefix")} <strong>{email}</strong>.
         </Text>
         <Text c="dimmed" size="xs">
-          Pastikan juga untuk memeriksa folder <strong>Spam / Promosi</strong> jika email tidak muncul di kotak masuk utama.
+          {t("otp.spam_hint_prefix")} <strong>{t("otp.spam_hint_bold")}</strong> {t("otp.spam_hint_suffix")}
         </Text>
       </Stack>
 
       <form onSubmit={handleSubmit}>
         <Stack gap="sm">
           <TextInput
-            label="Kode OTP"
-            placeholder="000000"
+            label={t("otp.code_label")}
+            placeholder={t("otp.code_placeholder")}
             inputMode="numeric"
             maxLength={6}
             required
@@ -127,7 +129,7 @@ export function OtpModal({
             fullWidth
             size="md"
           >
-            {pending ? "Memeriksa…" : "Masuk"}
+            {pending ? t("otp.btn_verifying") : t("otp.btn_verify")}
           </Button>
 
           {onResendOtp && (
@@ -141,8 +143,8 @@ export function OtpModal({
                 loading={resendPending}
               >
                 {resendCooldown > 0
-                  ? `Kirim ulang dalam ${resendCooldown}s`
-                  : "Belum menerima kode? Kirim Ulang OTP"}
+                  ? t("otp.resend_wait", { seconds: resendCooldown })
+                  : t("otp.resend_prompt")}
               </Button>
             </Group>
           )}

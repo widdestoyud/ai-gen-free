@@ -3,6 +3,7 @@
 import { Anchor, Button, Group, Modal, Paper, Stack, Text, TextInput } from "@mantine/core";
 import { FormEvent, useEffect, useState } from "react";
 import { ErrorAlert } from "@/components/error-alert";
+import { useI18n } from "@/lib/i18n";
 
 export function ForgotPasswordModal({
   opened,
@@ -29,6 +30,7 @@ export function ForgotPasswordModal({
   pending: boolean;
   onSubmit: (e: FormEvent) => void;
 }) {
+  const t = useI18n("auth");
   const [shake, setShake] = useState(false);
 
   useEffect(() => {
@@ -60,7 +62,7 @@ export function ForgotPasswordModal({
       closeOnClickOutside={!pending}
       closeOnEscape={!pending}
       withCloseButton={!pending}
-      title="Lupa Kata Sandi"
+      title={t("forgot_password.modal_title")}
       centered
       size="md"
       radius="md"
@@ -91,10 +93,10 @@ export function ForgotPasswordModal({
               </div>
               <div>
                 <Text size="sm" fw={600} c="green.4" mb={4}>
-                  Tautan Berhasil Dikirim
+                  {t("forgot_password.success_title")}
                 </Text>
                 <Text size="xs" c="gray.3" lh={1.5}>
-                  {success} Silakan periksa kotak masuk atau folder spam email Anda.
+                  {t("forgot_password.success_message", { message: success })}
                 </Text>
               </div>
             </Group>
@@ -110,11 +112,11 @@ export function ForgotPasswordModal({
                 onBackToLogin();
               }}
             >
-              Kembali ke Masuk
+              {t("forgot_password.btn_back_login")}
             </Button>
           ) : (
             <Button fullWidth onClick={onClose}>
-              Tutup
+              {t("forgot_password.btn_close")}
             </Button>
           )}
         </Stack>
@@ -122,12 +124,12 @@ export function ForgotPasswordModal({
         <form onSubmit={handleSubmit}>
           <Stack gap="sm">
             <Text size="xs" c="dimmed">
-              Masukkan alamat email akun Anda. Kami akan mengirimkan tautan untuk mengatur ulang kata sandi.
+              {t("forgot_password.instruction")}
             </Text>
             <TextInput
-              label="Email"
+              label={t("forgot_password.email_label")}
               type="email"
-              placeholder="nama@email.com"
+              placeholder={t("forgot_password.email_placeholder")}
               required
               value={email}
               onChange={(ev) => onEmailChange(ev.currentTarget.value)}
@@ -143,7 +145,7 @@ export function ForgotPasswordModal({
               fullWidth
               size="md"
             >
-              {pending ? "Mengirim Tautan…" : "Kirim Tautan Reset"}
+              {pending ? t("forgot_password.btn_sending") : t("forgot_password.btn_submit")}
             </Button>
 
             {onBackToLogin && (
@@ -162,7 +164,7 @@ export function ForgotPasswordModal({
                   }}
                   style={{ cursor: pending ? "not-allowed" : "pointer" }}
                 >
-                  ← Kembali ke Masuk
+                  {t("forgot_password.back_to_login_arrow")}
                 </Anchor>
               </Group>
             )}

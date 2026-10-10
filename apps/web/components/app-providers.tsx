@@ -6,6 +6,7 @@ import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client
 import { createSyncStoragePersister } from "@tanstack/query-sync-storage-persister";
 import { useEffect, useState, type ReactNode } from "react";
 import { theme } from "@/lib/theme";
+import { I18nProvider } from "@/lib/i18n";
 
 const WALLET_DISALLOWED_CACHE_KEYS = [
   "wallet",
@@ -86,7 +87,7 @@ export function AppProviders({ children }: { children: ReactNode }) {
       }}
     >
       <MantineProvider theme={theme} defaultColorScheme="dark">
-        {children}
+        <I18nProvider>{children}</I18nProvider>
       </MantineProvider>
     </PersistQueryClientProvider>
   );

@@ -1,6 +1,7 @@
 "use client";
 
 import { Button, type ButtonProps } from "@mantine/core";
+import { useI18n } from "@/lib/i18n";
 
 /**
  * Logo "G" resmi Google (4 warna) sesuai Google Identity Branding Guidelines.
@@ -38,16 +39,18 @@ type GoogleAuthButtonProps = Omit<ButtonProps, "children" | "leftSection" | "var
 /**
  * Tombol "[G] Lanjut dengan Google".
  * Satu tombol untuk login & daftar (Google flow = login-or-register).
- * Belum di-wire ke NextAuth Google provider — lihat assessment GOOGLE_LOGIN_ASSESSMENT.md.
  */
 export function GoogleAuthButton({
   onClick,
-  label = "Lanjut dengan Google",
+  label,
   showConsentText = false,
   loading,
   disabled,
   ...rest
 }: GoogleAuthButtonProps) {
+  const { t } = useI18n("auth");
+  const displayLabel = label || t("google_button.label");
+
   return (
     <div>
       <Button
@@ -68,7 +71,7 @@ export function GoogleAuthButton({
         }}
         {...rest}
       >
-        {label}
+        {displayLabel}
       </Button>
       {showConsentText && (
         <p
@@ -81,23 +84,23 @@ export function GoogleAuthButton({
             textAlign: "center",
           }}
         >
-          Dengan melanjutkan lewat Google, kamu menyatakan berusia 18+ dan menyetujui{" "}
+          {t("google_button.consent_prefix")}
           <a
             href="/terms"
             target="_blank"
             rel="noopener noreferrer"
             style={{ color: "var(--mantine-color-primary, #3b82f6)", textDecoration: "underline" }}
           >
-            Ketentuan
-          </a>{" "}
-          &{" "}
+            {t("google_button.terms")}
+          </a>
+          {t("google_button.and")}
           <a
             href="/privacy"
             target="_blank"
             rel="noopener noreferrer"
             style={{ color: "var(--mantine-color-primary, #3b82f6)", textDecoration: "underline" }}
           >
-            Kebijakan Privasi
+            {t("google_button.privacy")}
           </a>
           .
         </p>

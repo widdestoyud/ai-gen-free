@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Group, Menu, Stack, Text, UnstyledButton } from "@mantine/core";
 import { STUDIO_ASPECTS } from "@/hooks/use-generate-studio";
+import { useI18n } from "@/lib/i18n";
 import classes from "./generate-studio.module.css";
 
 export function GenerateAspectMenu({
@@ -14,6 +15,7 @@ export function GenerateAspectMenu({
   preview: string;
   onChange: (value: string) => void;
 }) {
+  const { t } = useI18n("generate");
   const [hoveredValue, setHoveredValue] = useState<string | null>(null);
 
   const activeAspect =
@@ -33,7 +35,7 @@ export function GenerateAspectMenu({
   return (
     <Menu position="top-end" shadow="md" width={280} onClose={() => setHoveredValue(null)}>
       <Menu.Target>
-        <UnstyledButton className={classes.menuBtn} aria-label="Rasio aspek">
+        <UnstyledButton className={classes.menuBtn} aria-label={t("aria.aspect_ratio")}>
           <span>{value}</span>
         </UnstyledButton>
       </Menu.Target>

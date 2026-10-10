@@ -2,49 +2,52 @@
 
 import { Container, Accordion, Title, Text } from "@mantine/core";
 import classes from "./landing.module.css";
-
-const FAQS = [
-  {
-    q: "Apa itu satulabs.id dan fitur apa saja yang tersedia?",
-    a: "satulabs.id adalah studio AI generatif terpadu yang memungkinkan kamu membuat gambar komersial beresolusi ultra-HD 4K, video sinematik dinamis 60fps dengan kontrol kamera halus, dan karakter digital berbicara dari prompt teks sederhana. Semua kebutuhan produksi visual tersedia dalam satu tempat tanpa perlu instalasi perangkat lunak tambahan.",
-  },
-  {
-    q: "Bagaimana cara mulai menggunakan platform ini?",
-    a: "Daftarkan akun dengan email kamu, verifikasi kode OTP singkat, lalu pilih paket sparks awal yang kamu butuhkan (mulai dari Rp 49.000). Saldo sparks langsung aktif dan bisa langsung digunakan untuk generate gambar atau video.",
-  },
-  {
-    q: "Apakah ada biaya langganan bulanan otomatis (recurring billing)?",
-    a: "Sama sekali tidak ada. Platform kami menerapkan sistem pay-as-you-go murni. Kamu hanya membeli saldo sparks saat kamu butuh, tanpa langganan kartu kredit otomatis atau tagihan tak terduga di akhir bulan.",
-  },
-  {
-    q: "Metode pembayaran apa saja yang didukung?",
-    a: "Kamu bisa membayar dengan sangat mudah menggunakan metode pembayaran lokal instan terlengkap: QRIS (GoPay, OVO, Dana, LinkAja, ShopeePay), transfer bank / Virtual Account (BCA, Mandiri, BRI, BNI), dan e-wallet.",
-  },
-  {
-    q: "Apakah sparks saya bisa hangus jika tidak segera digunakan?",
-    a: "Tidak. Sparks yang sudah kamu beli tersimpan aman di akunmu dan berlaku selamanya tanpa batas waktu kedaluwarsa.",
-  },
-  {
-    q: "Bagaimana jika proses generasi gagal di tengah jalan?",
-    a: "Saldo sparks-mu bergaransi aman 100%. Kami menerapkan sistem proteksi Hold-Capture-Release, di mana sparks hanya akan terpotong jika hasil karya sukses selesai dirender. Jika terjadi kendala sistem atau antrian GPU, sparks otomatis dikembalikan seutuhnya ke akunmu.",
-  },
-  {
-    q: "Apakah hasil karya saya bersifat privat atau dipublikasikan?",
-    a: "100% privat. Semua gambar dan video yang kamu buat tersimpan di Library privat akunmu selama 14 hari dan hanya bisa diakses serta diunduh oleh kamu sendiri. Karya kamu tidak dipajang di galeri publik.",
-  },
-];
+import { useI18n } from "@/lib/i18n";
 
 export function LandingFaq() {
+  const t = useI18n("landing");
+
+  const faqs = [
+    {
+      q: t("faq.q1"),
+      a: t("faq.a1"),
+    },
+    {
+      q: t("faq.q2"),
+      a: t("faq.a2"),
+    },
+    {
+      q: t("faq.q3"),
+      a: t("faq.a3"),
+    },
+    {
+      q: t("faq.q4"),
+      a: t("faq.a4"),
+    },
+    {
+      q: t("faq.q5"),
+      a: t("faq.a5"),
+    },
+    {
+      q: t("faq.q6"),
+      a: t("faq.a6"),
+    },
+    {
+      q: t("faq.q7"),
+      a: t("faq.a7"),
+    },
+  ];
+
   return (
     <section className={classes.faqSection} id="faq">
       <Container size="md">
         <div className={classes.sectionHeader}>
-          <span className={classes.sectionTag}>PERTANYAAN UMUM</span>
+          <span className={classes.sectionTag}>{t("faq.tag")}</span>
           <Title className={classes.sectionTitle} order={2}>
-            Yang Sering Ditanyakan.
+            {t("faq.title")}
           </Title>
           <Text className={classes.sectionSubtitle}>
-            Semua hal yang perlu kamu ketahui tentang sistem sparks, pembayaran, dan keamanan privasimu.
+            {t("faq.subtitle")}
           </Text>
         </div>
 
@@ -72,7 +75,7 @@ export function LandingFaq() {
             },
           }}
         >
-          {FAQS.map((faq) => (
+          {faqs.map((faq) => (
             <Accordion.Item key={faq.q} value={faq.q} mb="xs">
               <Accordion.Control>
                 <Text fw={600} size="sm">

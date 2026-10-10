@@ -24,6 +24,7 @@ import { UploadPolicyModal } from "@/components/upload-policy-modal";
 import { TermsConditionsModal } from "@/components/terms-conditions-modal";
 import { SpicyConsentModal } from "@/components/spicy-consent-modal";
 import { GoogleGIcon } from "@/components/google-auth-button";
+import { useI18n } from "@/lib/i18n";
 import Link from "next/link";
 import classes from "./account-settings.module.css";
 
@@ -54,14 +55,6 @@ function formatDateDisplay(dateStr?: string | null): string {
   } catch {
     return dateStr;
   }
-}
-
-function formatGenderDisplay(gender?: string | null): string {
-  if (!gender) return "Belum diatur";
-  const lower = gender.toLowerCase();
-  if (lower === "male" || lower === "laki-laki" || lower === "pria") return "Laki-laki";
-  if (lower === "female" || lower === "perempuan" || lower === "wanita") return "Perempuan";
-  return gender;
 }
 
 function PencilIcon({ size = 15 }: { size?: number }) {
@@ -146,9 +139,18 @@ function getOperatorColor(operator?: string): string {
 }
 
 export function AccountSettings({ profile: initialProfile }: { profile?: CustomerProfile | null }) {
+  const t = useI18n("profile");
   const ctrl = useAccountSettings(initialProfile);
   const [viewUploadPolicyOpened, setViewUploadPolicyOpened] = useState(false);
   const [viewSpicyPolicyOpened, setViewSpicyPolicyOpened] = useState(false);
+
+  const formatGenderDisplay = (gender?: string | null): string => {
+    if (!gender) return t("not_set");
+    const lower = gender.toLowerCase();
+    if (lower === "male" || lower === "laki-laki" || lower === "pria") return t("gender_male");
+    if (lower === "female" || lower === "perempuan" || lower === "wanita") return t("gender_female");
+    return gender;
+  };
 
   if (ctrl.isLoading) {
     return (
@@ -175,7 +177,7 @@ export function AccountSettings({ profile: initialProfile }: { profile?: Custome
       {ctrl.saveSuccessMessage ? (
         <Alert
           color="teal"
-          title="Berhasil"
+          title={t("alert_success_title")}
           withCloseButton
           onClose={ctrl.clearMessages}
           className={classes.alertBox}
@@ -187,7 +189,7 @@ export function AccountSettings({ profile: initialProfile }: { profile?: Custome
       {ctrl.saveErrorMessage ? (
         <Alert
           color="red"
-          title="Terjadi Kesalahan"
+          title={t("alert_error_title")}
           withCloseButton
           onClose={ctrl.clearMessages}
           className={classes.alertBox}
@@ -198,32 +200,32 @@ export function AccountSettings({ profile: initialProfile }: { profile?: Custome
 
       <div className={classes.cardWrapper}>
         <div className={classes.headerSection}>
-          <Text className={classes.title}>Account Settings</Text>
+          <Text className={classes.title}>{t("title")}</Text>
           <Text className={classes.subTitle}>
-            Kelola preferensi akun, identitas, nomor telepon, dan keamanan kata sandi Anda.
+            {t("subtitle")}
           </Text>
         </div>
 
         {/* 1. EMAIL (Read-Only) */}
         <div className={classes.rowItem}>
-          <Text className={classes.rowLabel}>Email</Text>
+          <Text className={classes.rowLabel}>{t("label_email")}</Text>
           <Text className={classes.rowValue}>{ctrl.profile.email}</Text>
         </div>
 
         {/* 2. USER ID */}
         <div className={classes.rowItem}>
-          <Text className={classes.rowLabel}>User ID</Text>
+          <Text className={classes.rowLabel}>{t("label_user_id")}</Text>
           <div className={classes.rowValueWrapper}>
             <Text className={classes.rowValue}>{ctrl.profile.id}</Text>
             <CopyButton value={ctrl.profile.id} timeout={2000}>
               {({ copied, copy }) => (
-                <Tooltip label={copied ? "Tersalin" : "Salin User ID"} withArrow position="right">
+                <Tooltip label={copied ? t("tooltip_copied") : t("tooltip_copy_id")} withArrow position="right">
                   <ActionIcon
                     variant="subtle"
                     size="sm"
                     color={copied ? "teal" : "gray"}
                     onClick={copy}
-                    aria-label="Salin User ID"
+                    aria-label={t("aria_copy_id")}
                   >
                     {copied ? <CheckIcon size={14} /> : <CopyIcon size={14} />}
                   </ActionIcon>
@@ -235,13 +237,13 @@ export function AccountSettings({ profile: initialProfile }: { profile?: Custome
 
         {/* 3. USERNAME / NAMA LENGKAP */}
         <div className={classes.rowItem}>
-          <Text className={classes.rowLabel}>Username</Text>
+          <Text className={classes.rowLabel}>{t("label_username")}</Text>
           {ctrl.editingField === "displayName" ? (
             <div className={classes.editFormWrapper}>
               <TextInput
                 value={ctrl.editValues.displayName}
                 onChange={(e) => ctrl.setFieldValue("displayName", e.currentTarget.value)}
-                placeholder="Nama Pengguna / Username"
+                placeholder={t("placeholder_username")}
                 error={ctrl.validationErrors.displayName}
                 size="sm"
                 maxLength={50}
@@ -255,7 +257,7 @@ export function AccountSettings({ profile: initialProfile }: { profile?: Custome
                   onClick={() => ctrl.saveField("displayName")}
                   loading={ctrl.saving}
                 >
-                  Simpan
+                  {t("btn_save")}
                 </Button>
                 <Button
                   size="xs"
@@ -264,7 +266,7 @@ export function AccountSettings({ profile: initialProfile }: { profile?: Custome
                   onClick={ctrl.cancelEdit}
                   disabled={ctrl.saving}
                 >
-                  Batal
+                  {t("btn_cancel")}
                 </Button>
               </Group>
             </div>
@@ -273,15 +275,15 @@ export function AccountSettings({ profile: initialProfile }: { profile?: Custome
               {ctrl.profile.displayName ? (
                 <Text className={classes.rowValue}>{ctrl.profile.displayName}</Text>
               ) : (
-                <Text className={classes.rowEmptyValue}>Belum diatur</Text>
+                <Text className={classes.rowEmptyValue}>{t("not_set")}</Text>
               )}
-              <Tooltip label="Ubah username" withArrow>
+              <Tooltip label={t("tooltip_edit_username")} withArrow>
                 <ActionIcon
                   variant="subtle"
                   size="sm"
                   onClick={() => ctrl.startEdit("displayName")}
                   className={classes.editButton}
-                  aria-label="Ubah Username"
+                  aria-label={t("aria_edit_username")}
                 >
                   <PencilIcon />
                 </ActionIcon>
@@ -292,16 +294,16 @@ export function AccountSettings({ profile: initialProfile }: { profile?: Custome
 
         {/* 4. JENIS KELAMIN */}
         <div className={classes.rowItem}>
-          <Text className={classes.rowLabel}>Jenis Kelamin</Text>
+          <Text className={classes.rowLabel}>{t("label_gender")}</Text>
           {ctrl.editingField === "gender" ? (
             <div className={classes.editFormWrapper}>
               <Select
                 value={ctrl.editValues.gender}
                 onChange={(val) => ctrl.setFieldValue("gender", val ?? "")}
-                placeholder="Pilih jenis kelamin"
+                placeholder={t("placeholder_gender")}
                 data={[
-                  { value: "male", label: "Laki-laki" },
-                  { value: "female", label: "Perempuan" },
+                  { value: "male", label: t("gender_male") },
+                  { value: "female", label: t("gender_female") },
                 ]}
                 error={ctrl.validationErrors.gender}
                 size="sm"
@@ -315,7 +317,7 @@ export function AccountSettings({ profile: initialProfile }: { profile?: Custome
                   onClick={() => ctrl.saveField("gender")}
                   loading={ctrl.saving}
                 >
-                  Simpan
+                  {t("btn_save")}
                 </Button>
                 <Button
                   size="xs"
@@ -324,7 +326,7 @@ export function AccountSettings({ profile: initialProfile }: { profile?: Custome
                   onClick={ctrl.cancelEdit}
                   disabled={ctrl.saving}
                 >
-                  Batal
+                  {t("btn_cancel")}
                 </Button>
               </Group>
             </div>
@@ -333,15 +335,15 @@ export function AccountSettings({ profile: initialProfile }: { profile?: Custome
               {ctrl.profile.gender ? (
                 <Text className={classes.rowValue}>{formatGenderDisplay(ctrl.profile.gender)}</Text>
               ) : (
-                <Text className={classes.rowEmptyValue}>Belum diatur</Text>
+                <Text className={classes.rowEmptyValue}>{t("not_set")}</Text>
               )}
-              <Tooltip label="Ubah jenis kelamin" withArrow>
+              <Tooltip label={t("tooltip_edit_gender")} withArrow>
                 <ActionIcon
                   variant="subtle"
                   size="sm"
                   onClick={() => ctrl.startEdit("gender")}
                   className={classes.editButton}
-                  aria-label="Ubah Jenis Kelamin"
+                  aria-label={t("aria_edit_gender")}
                 >
                   <PencilIcon />
                 </ActionIcon>
@@ -352,7 +354,7 @@ export function AccountSettings({ profile: initialProfile }: { profile?: Custome
 
         {/* 4.5 TANGGAL LAHIR */}
         <div className={classes.rowItem} id="profile-row-dateOfBirth">
-          <Text className={classes.rowLabel}>Tanggal Lahir</Text>
+          <Text className={classes.rowLabel}>{t("label_dob")}</Text>
           {ctrl.editingField === "dateOfBirth" ? (
             <div className={classes.editFormWrapper}>
               <TextInput
@@ -372,7 +374,7 @@ export function AccountSettings({ profile: initialProfile }: { profile?: Custome
                   onClick={() => ctrl.saveField("dateOfBirth")}
                   loading={ctrl.saving}
                 >
-                  Simpan
+                  {t("btn_save")}
                 </Button>
                 <Button
                   size="xs"
@@ -381,7 +383,7 @@ export function AccountSettings({ profile: initialProfile }: { profile?: Custome
                   onClick={ctrl.cancelEdit}
                   disabled={ctrl.saving}
                 >
-                  Batal
+                  {t("btn_cancel")}
                 </Button>
               </Group>
             </div>
@@ -396,20 +398,20 @@ export function AccountSettings({ profile: initialProfile }: { profile?: Custome
                       variant="light"
                       color={(calculateAge(ctrl.profile.dateOfBirth) ?? 0) >= 18 ? "teal" : "red"}
                     >
-                      {calculateAge(ctrl.profile.dateOfBirth)} tahun
+                      {t("age_years", { age: calculateAge(ctrl.profile.dateOfBirth) ?? 0 })}
                     </Badge>
                   )}
                 </Group>
               ) : (
-                <Text className={classes.rowEmptyValue}>Belum diatur</Text>
+                <Text className={classes.rowEmptyValue}>{t("not_set")}</Text>
               )}
-              <Tooltip label="Ubah tanggal lahir" withArrow>
+              <Tooltip label={t("tooltip_edit_dob")} withArrow>
                 <ActionIcon
                   variant="subtle"
                   size="sm"
                   onClick={() => ctrl.startEdit("dateOfBirth")}
                   className={classes.editButton}
-                  aria-label="Ubah Tanggal Lahir"
+                  aria-label={t("aria_edit_dob")}
                 >
                   <PencilIcon />
                 </ActionIcon>
@@ -420,13 +422,13 @@ export function AccountSettings({ profile: initialProfile }: { profile?: Custome
 
         {/* 5. NOMOR TELEPON */}
         <div className={classes.rowItem}>
-          <Text className={classes.rowLabel}>Nomor Telepon</Text>
+          <Text className={classes.rowLabel}>{t("label_phone")}</Text>
           {ctrl.editingField === "phoneNumber" ? (
             <div className={classes.editFormWrapper}>
               <TextInput
                 value={ctrl.editValues.phoneNumber}
                 onChange={(e) => ctrl.setFieldValue("phoneNumber", e.currentTarget.value)}
-                placeholder="Contoh: 08123456789"
+                placeholder={t("placeholder_phone")}
                 error={ctrl.validationErrors.phoneNumber}
                 size="sm"
                 autoFocus
@@ -458,7 +460,7 @@ export function AccountSettings({ profile: initialProfile }: { profile?: Custome
                   onClick={() => ctrl.saveField("phoneNumber")}
                   loading={ctrl.saving}
                 >
-                  Simpan
+                  {t("btn_save")}
                 </Button>
                 <Button
                   size="xs"
@@ -467,7 +469,7 @@ export function AccountSettings({ profile: initialProfile }: { profile?: Custome
                   onClick={ctrl.cancelEdit}
                   disabled={ctrl.saving}
                 >
-                  Batal
+                  {t("btn_cancel")}
                 </Button>
               </Group>
             </div>
@@ -487,15 +489,15 @@ export function AccountSettings({ profile: initialProfile }: { profile?: Custome
                   ) : null}
                 </Group>
               ) : (
-                <Text className={classes.rowEmptyValue}>Belum diatur</Text>
+                <Text className={classes.rowEmptyValue}>{t("not_set")}</Text>
               )}
-              <Tooltip label="Ubah nomor telepon" withArrow>
+              <Tooltip label={t("tooltip_edit_phone")} withArrow>
                 <ActionIcon
                   variant="subtle"
                   size="sm"
                   onClick={() => ctrl.startEdit("phoneNumber")}
                   className={classes.editButton}
-                  aria-label="Ubah Nomor Telepon"
+                  aria-label={t("aria_edit_phone")}
                 >
                   <PencilIcon />
                 </ActionIcon>
@@ -506,13 +508,13 @@ export function AccountSettings({ profile: initialProfile }: { profile?: Custome
 
         {/* 6. ALAMAT */}
         <div className={classes.rowItem}>
-          <Text className={classes.rowLabel}>Alamat</Text>
+          <Text className={classes.rowLabel}>{t("label_address")}</Text>
           {ctrl.editingField === "address" ? (
             <div className={classes.editFormWrapper}>
               <Textarea
                 value={ctrl.editValues.address}
                 onChange={(e) => ctrl.setFieldValue("address", e.currentTarget.value)}
-                placeholder="Alamat domisili lengkap"
+                placeholder={t("placeholder_address")}
                 error={ctrl.validationErrors.address}
                 size="sm"
                 rows={3}
@@ -527,7 +529,7 @@ export function AccountSettings({ profile: initialProfile }: { profile?: Custome
                   onClick={() => ctrl.saveField("address")}
                   loading={ctrl.saving}
                 >
-                  Simpan
+                  {t("btn_save")}
                 </Button>
                 <Button
                   size="xs"
@@ -536,7 +538,7 @@ export function AccountSettings({ profile: initialProfile }: { profile?: Custome
                   onClick={ctrl.cancelEdit}
                   disabled={ctrl.saving}
                 >
-                  Batal
+                  {t("btn_cancel")}
                 </Button>
               </Group>
             </div>
@@ -545,15 +547,15 @@ export function AccountSettings({ profile: initialProfile }: { profile?: Custome
               {ctrl.profile.address ? (
                 <Text className={classes.rowValue}>{ctrl.profile.address}</Text>
               ) : (
-                <Text className={classes.rowEmptyValue}>Belum diatur</Text>
+                <Text className={classes.rowEmptyValue}>{t("not_set")}</Text>
               )}
-              <Tooltip label="Ubah alamat" withArrow>
+              <Tooltip label={t("tooltip_edit_address")} withArrow>
                 <ActionIcon
                   variant="subtle"
                   size="sm"
                   onClick={() => ctrl.startEdit("address")}
                   className={classes.editButton}
-                  aria-label="Ubah Alamat"
+                  aria-label={t("aria_edit_address")}
                 >
                   <PencilIcon />
                 </ActionIcon>
@@ -564,7 +566,7 @@ export function AccountSettings({ profile: initialProfile }: { profile?: Custome
 
         {/* 7. PASSWORD (GANTI KATA SANDI / STATUS GOOGLE) */}
         <div className={classes.rowItem}>
-          <Text className={classes.rowLabel}>Kata Sandi</Text>
+          <Text className={classes.rowLabel}>{t("label_password")}</Text>
           {ctrl.profile.authProvider === "google" ? (
             <div className={classes.rowValueWrapper}>
               <Group gap="xs" align="center">
@@ -582,15 +584,15 @@ export function AccountSettings({ profile: initialProfile }: { profile?: Custome
                     },
                   }}
                 >
-                  Akun Anda terhubung dengan Google
+                  {t("google_connected")}
                 </Badge>
               </Group>
             </div>
           ) : ctrl.isChangingPassword ? (
             <div className={classes.editFormWrapper}>
               <PasswordInput
-                label="Kata Sandi Lama"
-                placeholder="Masukkan kata sandi saat ini"
+                label={t("label_current_password")}
+                placeholder={t("placeholder_current_password")}
                 value={ctrl.passwordForm.currentPassword}
                 onChange={(e) => ctrl.setPasswordFormField("currentPassword", e.currentTarget.value)}
                 error={ctrl.passwordErrors.currentPassword}
@@ -599,8 +601,8 @@ export function AccountSettings({ profile: initialProfile }: { profile?: Custome
                 disabled={ctrl.passwordSaving}
               />
               <PasswordInput
-                label="Kata Sandi Baru"
-                placeholder="Minimal 8 karakter, 1 kapital & 1 angka"
+                label={t("label_new_password")}
+                placeholder={t("placeholder_new_password")}
                 value={ctrl.passwordForm.newPassword}
                 onChange={(e) => ctrl.setPasswordFormField("newPassword", e.currentTarget.value)}
                 error={ctrl.passwordErrors.newPassword}
@@ -608,8 +610,8 @@ export function AccountSettings({ profile: initialProfile }: { profile?: Custome
                 disabled={ctrl.passwordSaving}
               />
               <PasswordInput
-                label="Konfirmasi Kata Sandi Baru"
-                placeholder="Ulangi kata sandi baru"
+                label={t("label_confirm_new_password")}
+                placeholder={t("placeholder_confirm_new_password")}
                 value={ctrl.passwordForm.confirmPassword}
                 onChange={(e) => ctrl.setPasswordFormField("confirmPassword", e.currentTarget.value)}
                 error={ctrl.passwordErrors.confirmPassword}
@@ -623,7 +625,7 @@ export function AccountSettings({ profile: initialProfile }: { profile?: Custome
                   onClick={ctrl.submitChangePassword}
                   loading={ctrl.passwordSaving}
                 >
-                  Simpan Kata Sandi
+                  {t("btn_save_password")}
                 </Button>
                 <Button
                   size="xs"
@@ -632,20 +634,20 @@ export function AccountSettings({ profile: initialProfile }: { profile?: Custome
                   onClick={ctrl.cancelChangePassword}
                   disabled={ctrl.passwordSaving}
                 >
-                  Batal
+                  {t("btn_cancel")}
                 </Button>
               </Group>
             </div>
           ) : (
             <div className={classes.rowValueWrapper}>
               <Text className={classes.rowValue}>••••••••</Text>
-              <Tooltip label="Ubah kata sandi" withArrow>
+              <Tooltip label={t("tooltip_edit_password")} withArrow>
                 <ActionIcon
                   variant="subtle"
                   size="sm"
                   onClick={ctrl.startChangePassword}
                   className={classes.editButton}
-                  aria-label="Ubah Kata Sandi"
+                  aria-label={t("aria_edit_password")}
                 >
                   <PencilIcon />
                 </ActionIcon>
@@ -657,14 +659,14 @@ export function AccountSettings({ profile: initialProfile }: { profile?: Custome
         {/* 8. KEBIJAKAN UNGGAH MEDIA */}
         <div className={classes.rowItem}>
           <Group gap={6} align="center" mb={4}>
-            <Text className={classes.rowLabel}>Kebijakan Upload</Text>
-            <Tooltip label="Lihat klausul kebijakan upload" withArrow>
+            <Text className={classes.rowLabel}>{t("label_upload_policy")}</Text>
+            <Tooltip label={t("tooltip_upload_policy")} withArrow>
               <ActionIcon
                 variant="subtle"
                 size="xs"
                 color="gray"
                 onClick={() => setViewUploadPolicyOpened(true)}
-                aria-label="Lihat klausul kebijakan upload"
+                aria-label={t("aria_upload_policy")}
               >
                 <InfoIcon size={14} />
               </ActionIcon>
@@ -674,7 +676,7 @@ export function AccountSettings({ profile: initialProfile }: { profile?: Custome
             {ctrl.profile.uploadPolicyAcceptedAt ? (
               <Group gap="xs">
                 <Badge color="teal" variant="light" size="sm">
-                  Disetujui
+                  {t("badge_agreed")}
                 </Badge>
                 <Text size="xs" c="dimmed">
                   {formatDateDisplay(ctrl.profile.uploadPolicyAcceptedAt)}
@@ -683,7 +685,7 @@ export function AccountSettings({ profile: initialProfile }: { profile?: Custome
             ) : (
               <Group gap="xs">
                 <Badge color="yellow" variant="light" size="sm">
-                  Belum Disetujui
+                  {t("badge_not_agreed")}
                 </Badge>
                 <Button
                   size="compact-xs"
@@ -691,7 +693,7 @@ export function AccountSettings({ profile: initialProfile }: { profile?: Custome
                   color="blue"
                   onClick={() => ctrl.setPolicyModalOpened(true)}
                 >
-                  Setujui Sekarang
+                  {t("btn_agree_now")}
                 </Button>
               </Group>
             )}
@@ -700,7 +702,7 @@ export function AccountSettings({ profile: initialProfile }: { profile?: Custome
 
         {/* 9. SYARAT & KETENTUAN */}
         <div className={classes.rowItem}>
-          <Text className={classes.rowLabel}>Ketentuan Layanan</Text>
+          <Text className={classes.rowLabel}>{t("label_terms")}</Text>
           <div className={classes.rowValueWrapper}>
             <Group gap="xs">
               <Button
@@ -726,7 +728,7 @@ export function AccountSettings({ profile: initialProfile }: { profile?: Custome
                   </svg>
                 }
               >
-                Buka Syarat &amp; Ketentuan (/terms)
+                {t("btn_open_terms")}
               </Button>
               <Button
                 size="compact-xs"
@@ -734,7 +736,7 @@ export function AccountSettings({ profile: initialProfile }: { profile?: Custome
                 color="gray"
                 onClick={() => ctrl.setTermsModalOpened(true)}
               >
-                Pratinjau
+                {t("btn_preview_terms")}
               </Button>
             </Group>
           </div>
@@ -745,21 +747,21 @@ export function AccountSettings({ profile: initialProfile }: { profile?: Custome
           <Group justify="space-between" align="center" wrap="nowrap">
             <div>
               <Group gap={6} align="center" mb={2}>
-                <Text className={classes.rowLabel}>Spicy Mode</Text>
-                <Tooltip label="Lihat klausul Spicy Mode" withArrow>
+                <Text className={classes.rowLabel}>{t("label_spicy_mode")}</Text>
+                <Tooltip label={t("tooltip_spicy_policy")} withArrow>
                   <ActionIcon
                     variant="subtle"
                     size="xs"
                     color="gray"
                     onClick={() => setViewSpicyPolicyOpened(true)}
-                    aria-label="Lihat klausul Spicy Mode"
+                    aria-label={t("aria_spicy_policy")}
                   >
                     <InfoIcon size={14} />
                   </ActionIcon>
                 </Tooltip>
               </Group>
               <Text size="xs" c="dimmed">
-                Buka akses ke model dan preset berorientasi dewasa. Memerlukan tanggal lahir (18+).
+                {t("spicy_desc")}
               </Text>
             </div>
             <Switch
@@ -768,7 +770,7 @@ export function AccountSettings({ profile: initialProfile }: { profile?: Custome
               disabled={ctrl.spicySaving}
               size="md"
               color="red"
-              aria-label="Toggle Spicy Mode"
+              aria-label={t("aria_toggle_spicy")}
             />
           </Group>
 
@@ -779,7 +781,7 @@ export function AccountSettings({ profile: initialProfile }: { profile?: Custome
               mt="xs"
               withCloseButton
               onClose={() => ctrl.clearMessages()}
-              title="Perhatian"
+              title={t("spicy_warning_title")}
             >
               <Group justify="space-between" align="center" wrap="wrap" gap="xs">
                 <Text size="xs" style={{ flex: 1 }}>{ctrl.spicyError}</Text>
@@ -796,7 +798,7 @@ export function AccountSettings({ profile: initialProfile }: { profile?: Custome
                       }
                     }}
                   >
-                    Isi Tanggal Lahir
+                    {t("btn_fill_dob")}
                   </Button>
                 ) : null}
               </Group>

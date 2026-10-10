@@ -6,6 +6,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { requestJson } from "@/lib/api";
 import { queryKeys } from "@/lib/query-keys";
+import { useI18n } from "@/lib/i18n";
 import { OrderClient } from "./components/order-client";
 import type { Invoice, Package } from "./types";
 
@@ -22,6 +23,7 @@ export type OrderData = {
 export function OrderPageView(props: {
   data?: OrderData;
 }) {
+  const { t } = useI18n("order");
   const searchParams = useSearchParams();
   const pathname = usePathname();
   const urlPage = Math.max(1, parseInt(searchParams.get("page") || "1", 10) || 1);
@@ -151,7 +153,7 @@ export function OrderPageView(props: {
   return (
     <>
       <Title order={2} mb="md">
-        Order Poin
+        {t("title")}
       </Title>
 
       {isPackagesLoading && !props.data ? (

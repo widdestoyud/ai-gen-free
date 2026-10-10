@@ -24,48 +24,50 @@ import {
   SearchIcon,
   VideoIcon,
 } from "./library-icons";
+import { useI18n } from "@/lib/i18n";
 import { MediaDetailModal } from "./media-detail-modal";
 import { InpaintEditorModal } from "./inpaint/inpaint-editor-modal";
 import { UploadPolicyModal } from "@/components/upload-policy-modal";
 import classes from "./library-view.module.css";
 
-const TABS: Array<{ label: string; value: LibraryTab }> = [
-  { label: "All", value: "all" },
-  { label: "Generations", value: "generations" },
-  { label: "Uploaded media", value: "uploads" },
-];
-
-function getMediaTitle(item: LibraryItem): string {
+function getMediaTitle(item: LibraryItem, t: (k: string) => string): string {
   if (item.alias) return item.alias.replace(/\.[^/.]+$/, "");
-  if (isUpscaledImage(item)) return "Upscaled Image";
+  if (isUpscaledImage(item)) return t("card.upscaled_image");
   if (item.prompt) {
     return item.kind === "video"
       ? `${item.prompt.slice(0, 32)}.mp4`
       : item.prompt;
   }
-  return item.kind === "video" ? "uploaded_video" : "uploaded_image";
+  return item.kind === "video" ? t("card.uploaded_video") : t("card.uploaded_image");
 }
 
 export function LibraryView(props?: {
   initialItems?: LibraryItem[];
   initialTotal?: number;
 }) {
+  const { t } = useI18n("library");
   const ctrl = useLibrary(props);
   const [inpaintItem, setInpaintItem] = useState<LibraryItem | null>(null);
+
+  const tabs: Array<{ label: string; value: LibraryTab }> = [
+    { label: t("tabs.all"), value: "all" },
+    { label: t("tabs.generations"), value: "generations" },
+    { label: t("tabs.uploads"), value: "uploads" },
+  ];
 
   return (
     <div className={classes.container}>
       {/* Top Bar: Tabs, Search, Filter Menu, Upload Button */}
       <div className={classes.topBar}>
         <div className={classes.tabsRow}>
-          {TABS.map((t) => (
+          {tabs.map((tabItem) => (
             <button
-              key={t.value}
+              key={tabItem.value}
               type="button"
-              className={`${classes.tabBtn} ${ctrl.tab === t.value ? classes.tabBtnActive : ""}`}
-              onClick={() => ctrl.setTab(t.value)}
+              className={`${classes.tabBtn} ${ctrl.tab === tabItem.value ? classes.tabBtnActive : ""}`}
+              onClick={() => ctrl.setTab(tabItem.value)}
             >
-              {t.label}
+              {tabItem.label}
             </button>
           ))}
         </div>
@@ -73,7 +75,7 @@ export function LibraryView(props?: {
         <div className={classes.actionsRow}>
           <div className={classes.searchFilterGroup}>
             <TextInput
-              placeholder="Search"
+              placeholder={t("toolbar.search_placeholder")}
               value={ctrl.search}
               onChange={(e) => ctrl.setSearch(e.currentTarget.value)}
               leftSection={<SearchIcon size={15} />}
@@ -83,7 +85,7 @@ export function LibraryView(props?: {
                     size="xs"
                     variant="subtle"
                     onClick={() => ctrl.setSearch("")}
-                    aria-label="Bersihkan pencarian"
+                    aria-label={t("toolbar.clear_search")}
                   >
                     <CloseIcon size={12} />
                   </ActionIcon>
@@ -98,85 +100,85 @@ export function LibraryView(props?: {
                 <button
                   type="button"
                   className={classes.iconBtn}
-                  aria-label="Opsi Tampilan dan Urutan"
+                  aria-label={t("toolbar.options_menu_label")}
                 >
                   <FilterSlidersIcon size={16} />
                 </button>
               </Menu.Target>
 
               <Menu.Dropdown>
-                <Menu.Label>View</Menu.Label>
+                <Menu.Label>{t("toolbar.view_label")}</Menu.Label>
                 <Menu.Item
                   onClick={() => ctrl.setViewMode("grid")}
                   rightSection={ctrl.viewMode === "grid" ? <CheckIcon size={13} /> : null}
                 >
-                  Grid
+                  {t("toolbar.view_grid")}
                 </Menu.Item>
                 <Menu.Item
                   onClick={() => ctrl.setViewMode("list")}
                   rightSection={ctrl.viewMode === "list" ? <CheckIcon size={13} /> : null}
                 >
-                  List
+                  {t("toolbar.view_list")}
                 </Menu.Item>
 
                 <Menu.Divider />
 
-                <Menu.Label>Sort by</Menu.Label>
+                <Menu.Label>{t("toolbar.sort_by")}</Menu.Label>
                 <Menu.Item
                   onClick={() => ctrl.setSortBy("date")}
                   rightSection={ctrl.sortBy === "date" ? <CheckIcon size={13} /> : null}
                 >
-                  Date created
+                  {t("toolbar.sort_date")}
                 </Menu.Item>
                 <Menu.Item
                   onClick={() => ctrl.setSortBy("name")}
                   rightSection={ctrl.sortBy === "name" ? <CheckIcon size={13} /> : null}
                 >
-                  Name
+                  {t("toolbar.sort_name")}
                 </Menu.Item>
                 <Menu.Item
                   onClick={() => ctrl.setSortBy("size")}
                   rightSection={ctrl.sortBy === "size" ? <CheckIcon size={13} /> : null}
                 >
-                  File size
+                  {t("toolbar.sort_size")}
                 </Menu.Item>
 
                 <Menu.Divider />
 
-                <Menu.Label>Order</Menu.Label>
+                <Menu.Label>{t("toolbar.order_label")}</Menu.Label>
                 <Menu.Item
                   onClick={() => ctrl.setSortOrder("newest")}
                   rightSection={ctrl.sortOrder === "newest" ? <CheckIcon size={13} /> : null}
                 >
-                  Newest
+                  {t("toolbar.order_newest")}
                 </Menu.Item>
                 <Menu.Item
                   onClick={() => ctrl.setSortOrder("oldest")}
                   rightSection={ctrl.sortOrder === "oldest" ? <CheckIcon size={13} /> : null}
                 >
-                  Oldest
+                  {t("toolbar.order_oldest")}
                 </Menu.Item>
 
                 <Menu.Divider />
 
-                <Menu.Label>Show Only</Menu.Label>
+                <Menu.Label>{t("toolbar.show_only")}</Menu.Label>
                 <Menu.Item
                   onClick={() => ctrl.setShowOnly("all")}
                   rightSection={ctrl.showOnly === "all" ? <CheckIcon size={13} /> : null}
                 >
-                  All
+                  {t("toolbar.show_all")}
                 </Menu.Item>
                 <Menu.Item
                   onClick={() => ctrl.setShowOnly("images")}
                   rightSection={ctrl.showOnly === "images" ? <CheckIcon size={13} /> : null}
                 >
-                  Images
+                  {t("toolbar.show_images")}
                 </Menu.Item>
                 <Menu.Item
                   onClick={() => ctrl.setShowOnly("videos")}
                   rightSection={ctrl.showOnly === "videos" ? <CheckIcon size={13} /> : null}
                 >
-                  Videos
+                  {t("toolbar.show_videos")}
                 </Menu.Item>
               </Menu.Dropdown>
             </Menu>
@@ -188,7 +190,7 @@ export function LibraryView(props?: {
             onClick={ctrl.openFilePicker}
             disabled={ctrl.isUploading}
           >
-            {ctrl.isUploading ? "Uploading..." : "Upload files"}
+            {ctrl.isUploading ? t("toolbar.uploading") : t("toolbar.upload_btn")}
           </button>
 
           <input
@@ -221,14 +223,14 @@ export function LibraryView(props?: {
           <Stack align="center" gap="xs">
             <Text c="dimmed">
               {ctrl.search
-                ? `Tidak ada media yang cocok dengan kata kunci "${ctrl.search}".`
+                ? t("empty.no_search_match", { search: ctrl.search })
                 : ctrl.tab === "uploads"
-                  ? "Belum ada berkas media yang diunggah."
-                  : "Belum ada media hasil generate."}
+                  ? t("empty.no_uploads")
+                  : t("empty.no_generations")}
             </Text>
             {ctrl.tab !== "uploads" && (
               <Button component={Link} href="/app/generate" prefetch={false} variant="light" size="xs">
-                Mulai Generate
+                {t("empty.cta_generate")}
               </Button>
             )}
           </Stack>
@@ -270,7 +272,7 @@ export function LibraryView(props?: {
                   {upload.name}
                 </div>
                 <div className={classes.cardSub}>
-                  Mengunggah... · {formatBytes(upload.file.size)}
+                  {t("toolbar.uploading")} · {formatBytes(upload.file.size)}
                 </div>
               </div>
             </div>
@@ -281,7 +283,7 @@ export function LibraryView(props?: {
               item.kind === "video" || item.mime_type.startsWith("video/");
             const timeStr = formatRelativeTime(item.created_at);
             const sizeStr = formatBytes(item.size_bytes);
-            const title = getMediaTitle(item);
+            const title = getMediaTitle(item, t);
 
             return (
               <div
@@ -376,7 +378,7 @@ export function LibraryView(props?: {
               item.kind === "video" || item.mime_type.startsWith("video/");
             const timeStr = formatRelativeTime(item.created_at);
             const sizeStr = formatBytes(item.size_bytes);
-            const title = getMediaTitle(item);
+            const title = getMediaTitle(item, t);
 
             return (
               <UnstyledButton

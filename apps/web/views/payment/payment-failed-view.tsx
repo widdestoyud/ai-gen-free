@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { requestJson } from "@/lib/api";
 import { formatIdr } from "@/lib/format";
+import { useI18n } from "@/lib/i18n";
 
 interface InvoiceInfoResponse {
   id: string;
@@ -17,6 +18,7 @@ interface InvoiceInfoResponse {
 }
 
 export function PaymentFailedView({ invoiceId }: { invoiceId?: string }) {
+  const { t } = useI18n("payment");
   const [loading, setLoading] = useState(Boolean(invoiceId));
   const [invoice, setInvoice] = useState<InvoiceInfoResponse | null>(null);
 
@@ -108,10 +110,10 @@ export function PaymentFailedView({ invoiceId }: { invoiceId?: string }) {
         {/* Title and Subtitle */}
         <Stack gap="xs" align="center" style={{ textAlign: "center" }}>
           <Title order={1} fz={{ base: "1.75rem", sm: "2.25rem" }} fw={900}>
-            Pembayaran Belum Berhasil
+            {t("failed.title")}
           </Title>
           <Text c="dimmed" size="sm" maw={460}>
-            Transaksi pembayaran Anda belum selesai, dibatalkan, atau telah kedaluwarsa. Saldo Anda belum terpotong.
+            {t("failed.subtitle")}
           </Text>
         </Stack>
 
@@ -120,7 +122,7 @@ export function PaymentFailedView({ invoiceId }: { invoiceId?: string }) {
           <Paper p="xl" withBorder radius="md" style={{ width: "100%", textAlign: "center" }}>
             <Loader size="md" mb="sm" />
             <Text size="sm" c="dimmed">
-              Memeriksa data transaksi...
+              {t("failed.checking")}
             </Text>
           </Paper>
         ) : invoice ? (
@@ -128,10 +130,10 @@ export function PaymentFailedView({ invoiceId }: { invoiceId?: string }) {
             <Stack gap="md">
               <Group justify="space-between" align="center">
                 <Text size="sm" c="dimmed">
-                  Status Tagihan
+                  {t("failed.status_label")}
                 </Text>
                 <Badge color="red" variant="light" size="lg">
-                  {invoice.statusLabel || "Belum Lunas / Batal"}
+                  {invoice.statusLabel || t("failed.status_unpaid")}
                 </Badge>
               </Group>
 
@@ -139,7 +141,7 @@ export function PaymentFailedView({ invoiceId }: { invoiceId?: string }) {
 
               <Group justify="space-between">
                 <Text size="sm" c="dimmed">
-                  Nomor Tagihan (Invoice)
+                  {t("failed.invoice_number")}
                 </Text>
                 <Text size="sm" fw={600}>
                   {invoice.uniqueCode || invoice.id}
@@ -148,16 +150,16 @@ export function PaymentFailedView({ invoiceId }: { invoiceId?: string }) {
 
               <Group justify="space-between">
                 <Text size="sm" c="dimmed">
-                  Paket Sparks
+                  {t("failed.package_label")}
                 </Text>
                 <Text size="sm" fw={600}>
-                  {invoice.points.toLocaleString()} Sparks
+                  {t("failed.sparks_amount", { points: invoice.points.toLocaleString() })}
                 </Text>
               </Group>
 
               <Group justify="space-between">
                 <Text size="sm" c="dimmed">
-                  Nominal
+                  {t("failed.amount_label")}
                 </Text>
                 <Text size="sm" fw={700}>
                   {formatIdr(invoice.amountIdr)}
@@ -177,7 +179,7 @@ export function PaymentFailedView({ invoiceId }: { invoiceId?: string }) {
             size="md"
             fullWidth
           >
-            Coba Pembayaran Ulang
+            {t("failed.btn_retry")}
           </Button>
 
           <Button
@@ -187,7 +189,7 @@ export function PaymentFailedView({ invoiceId }: { invoiceId?: string }) {
             size="md"
             fullWidth
           >
-            Kembali ke Halaman Billing
+            {t("failed.btn_back_billing")}
           </Button>
         </Stack>
       </Stack>

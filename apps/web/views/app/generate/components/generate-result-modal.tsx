@@ -18,6 +18,7 @@ import { extractReferenceImages, type JobView, type ReferenceImageItem } from "@
 import { resolveUploadUrl } from "@/lib/format";
 import { downloadMediaFile } from "@/lib/download-media";
 import { useImageViewer } from "@/hooks/use-image-viewer";
+import { useI18n } from "@/lib/i18n";
 import classes from "./generate-result-modal.module.css";
 
 function DownloadIcon({ size = 16 }: { size?: number }) {
@@ -155,14 +156,6 @@ function formatModalDateShort(iso?: string | null): string {
   return `${day} ${month} ${year}`;
 }
 
-function formatModeLabel(mode?: string): string {
-  if (!mode) return "Generated Image";
-  const m = mode.toLowerCase();
-  if (m === "t2i" || m === "i2i") return "Generated Image";
-  if (m === "t2v" || m === "i2v") return "Generated Video";
-  return "Generated Image";
-}
-
 export function GenerateResultModal({
   opened,
   onClose,
@@ -172,6 +165,7 @@ export function GenerateResultModal({
   onClose: () => void;
   job: JobView | null;
 }) {
+  const { t } = useI18n("generate");
   const [previewRef, setPreviewRef] = useState<ReferenceImageItem | null>(null);
   const [isDownloading, setIsDownloading] = useState(false);
   const viewer = useImageViewer({ resetKey: `${job?.id}-${opened}` });
@@ -201,12 +195,14 @@ export function GenerateResultModal({
     }
   };
 
+  const modeLabel = isVideo ? t("result_modal.mode_video") : t("result_modal.mode_image");
+
   return (
     <>
       <Modal
         opened={opened}
         onClose={handleModalClose}
-        title="Hasil Generate"
+        title={t("result_modal.title")}
         size="1040px"
         centered
         padding={0}
@@ -249,36 +245,36 @@ export function GenerateResultModal({
             {/* Kontrol Zoom (Hanya untuk Gambar) */}
             {!isVideo && job.output?.url ? (
               <div className={classes.zoomControlsBar}>
-                <Tooltip label="Perkecil (-)" withArrow position="top">
+                <Tooltip label={t("result_modal.zoom_out")} withArrow position="top">
                   <button
                     type="button"
                     onClick={viewer.zoomOut}
                     disabled={!viewer.canZoomOut}
                     className={classes.zoomBtn}
-                    aria-label="Zoom Out"
+                    aria-label={t("result_modal.zoom_out")}
                   >
                     <ZoomOutIcon size={15} />
                   </button>
                 </Tooltip>
                 <span className={classes.zoomPercent}>{viewer.zoomLevel}%</span>
-                <Tooltip label="Perbesar (+)" withArrow position="top">
+                <Tooltip label={t("result_modal.zoom_in")} withArrow position="top">
                   <button
                     type="button"
                     onClick={viewer.zoomIn}
                     disabled={!viewer.canZoomIn}
                     className={classes.zoomBtn}
-                    aria-label="Zoom In"
+                    aria-label={t("result_modal.zoom_in")}
                   >
                     <ZoomInIcon size={15} />
                   </button>
                 </Tooltip>
                 {viewer.isZoomed ? (
-                  <Tooltip label="Reset Ukuran" withArrow position="top">
+                  <Tooltip label={t("result_modal.zoom_reset")} withArrow position="top">
                     <button
                       type="button"
                       onClick={viewer.resetZoom}
                       className={classes.zoomBtn}
-                      aria-label="Reset Zoom"
+                      aria-label={t("result_modal.zoom_reset")}
                     >
                       <ZoomResetIcon size={13} />
                     </button>
@@ -295,10 +291,10 @@ export function GenerateResultModal({
                 {/* Status & Mode Badges */}
                 <Group justify="space-between" align="center">
                   <Badge variant="light" color="blue" size="md" radius="sm">
-                    {formatModeLabel(job.mode)}
+                    {modeLabel}
                   </Badge>
                   <Badge variant="light" color="green" size="md" radius="sm">
-                    Completed
+                    {t("result_modal.status_completed")}
                   </Badge>
                 </Group>
 
@@ -316,7 +312,7 @@ export function GenerateResultModal({
                     leftSection={<DownloadIcon size={18} />}
                     className={classes.primaryDownloadBtn}
                   >
-                    Download
+                    {t("result_modal.btn_download")}
                   </Button>
                 ) : null}
 
@@ -327,18 +323,18 @@ export function GenerateResultModal({
                   return (
                     <div className={classes.referenceImagesSection}>
                       <Text size="sm" fw={700} c="dimmed" tt="uppercase" lts={0.5} mb={8}>
-                        Reference Image{referenceImages.length > 1 ? "s" : ""}
+                        {referenceImages.length > 1 ? t("result_modal.ref_images") : t("result_modal.ref_image_single")}
                       </Text>
                       <div className={classes.referenceGrid}>
                         {referenceImages.map((ref, idx) => {
                           const imgUrl = resolveUploadUrl(ref.url);
                           return (
-                            <Tooltip key={idx} label={`Lihat referensi: ${ref.tag}`} withArrow position="top">
+                            <Tooltip key={idx} label={t("result_modal.ref_tooltip", { tag: ref.tag })} withArrow position="top">
                               <button
                                 type="button"
                                 onClick={() => setPreviewRef(ref)}
                                 className={classes.referenceCard}
-                                aria-label={`Lihat media referensi ${ref.tag}`}
+                                aria-label={t("result_modal.ref_aria", { tag: ref.tag })}
                               >
                                 <img
                                   src={imgUrl}
@@ -357,151 +353,151 @@ export function GenerateResultModal({
                   );
                 })()}
 
-              {/* Box Prompt */}
-              <div className={classes.promptSection}>
-                <Group justify="space-between" align="center" mb={6}>
-                  <Text size="sm" fw={700} c="dimmed" tt="uppercase" lts={0.5}>
-                    prompt
-                  </Text>
-                  <CopyButton value={job.prompt} timeout={2000}>
-                    {({ copied, copy }) => (
-                      <Tooltip label={copied ? "Tersalin" : "Salin prompt"} withArrow position="left">
-                        <ActionIcon
-                          variant="subtle"
-                          color={copied ? "teal" : "gray"}
-                          size="sm"
-                          onClick={copy}
-                          aria-label="Salin teks prompt"
-                        >
-                          {copied ? <CheckIcon size={14} /> : <CopyIcon size={14} />}
-                        </ActionIcon>
-                      </Tooltip>
-                    )}
-                  </CopyButton>
-                </Group>
-                <Text size="sm" className={classes.promptParagraph}>
-                  {job.prompt}
-                </Text>
-              </div>
-
-              {/* Spesifikasi & Metadata Gambar */}
-              <div className={classes.metaProperties}>
-                <div className={classes.metaRow}>
-                  <Text size="xs" c="dimmed">
-                    Biaya
-                  </Text>
-                  <Text size="xs" fw={600}>
-                    {job.cost} Sparks
+                {/* Box Prompt */}
+                <div className={classes.promptSection}>
+                  <Group justify="space-between" align="center" mb={6}>
+                    <Text size="sm" fw={700} c="dimmed" tt="uppercase" lts={0.5}>
+                      {t("result_modal.section_prompt")}
+                    </Text>
+                    <CopyButton value={job.prompt} timeout={2000}>
+                      {({ copied, copy }) => (
+                        <Tooltip label={copied ? t("common.copied") : t("result_modal.copy_prompt")} withArrow position="left">
+                          <ActionIcon
+                            variant="subtle"
+                            color={copied ? "teal" : "gray"}
+                            size="sm"
+                            onClick={copy}
+                            aria-label={t("result_modal.copy_prompt_aria")}
+                          >
+                            {copied ? <CheckIcon size={14} /> : <CopyIcon size={14} />}
+                          </ActionIcon>
+                        </Tooltip>
+                      )}
+                    </CopyButton>
+                  </Group>
+                  <Text size="sm" className={classes.promptParagraph}>
+                    {job.prompt}
                   </Text>
                 </div>
 
-                {job.createdAt ? (
+                {/* Spesifikasi & Metadata Gambar */}
+                <div className={classes.metaProperties}>
                   <div className={classes.metaRow}>
                     <Text size="xs" c="dimmed">
-                      Dibuat
+                      {t("result_modal.meta_cost")}
                     </Text>
-                    <Text size="xs" fw={500}>
-                      {formatModalDate(job.createdAt)}
-                    </Text>
-                  </div>
-                ) : null}
-
-                {job.output?.availableUntil ? (
-                  <div className={classes.metaRow}>
-                    <Text size="xs" c="dimmed">
-                      Masa Berlaku
-                    </Text>
-                    <Text size="xs" fw={500}>
-                      {formatModalDateShort(job.output.availableUntil)}
+                    <Text size="xs" fw={600}>
+                      {t("result_modal.sparks_cost", { cost: job.cost })}
                     </Text>
                   </div>
-                ) : null}
-              </div>
-            </Stack>
-          </ScrollArea>
 
-          {/* Footer ID */}
-          <div className={classes.sidebarFooter}>
-            <Group justify="space-between" align="center">
-              <Text size="xs" c="dimmed" ff="monospace" lineClamp={1}>
-                ID: {job.id}
-              </Text>
-              <CopyButton value={job.id} timeout={2000}>
-                {({ copied, copy }) => (
-                  <Tooltip label={copied ? "ID Tersalin" : "Salin ID"} withArrow position="left">
-                    <ActionIcon
-                      variant="subtle"
-                      color={copied ? "teal" : "gray"}
-                      size="xs"
-                      onClick={copy}
-                      aria-label="Salin ID job"
-                    >
-                      {copied ? <CheckIcon size={13} /> : <CopyIcon size={13} />}
-                    </ActionIcon>
-                  </Tooltip>
-                )}
-              </CopyButton>
-            </Group>
+                  {job.createdAt ? (
+                    <div className={classes.metaRow}>
+                      <Text size="xs" c="dimmed">
+                        {t("result_modal.meta_created")}
+                      </Text>
+                      <Text size="xs" fw={500}>
+                        {formatModalDate(job.createdAt)}
+                      </Text>
+                    </div>
+                  ) : null}
+
+                  {job.output?.availableUntil ? (
+                    <div className={classes.metaRow}>
+                      <Text size="xs" c="dimmed">
+                        {t("result_modal.meta_expires")}
+                      </Text>
+                      <Text size="xs" fw={500}>
+                        {formatModalDateShort(job.output.availableUntil)}
+                      </Text>
+                    </div>
+                  ) : null}
+                </div>
+              </Stack>
+            </ScrollArea>
+
+            {/* Footer ID */}
+            <div className={classes.sidebarFooter}>
+              <Group justify="space-between" align="center">
+                <Text size="xs" c="dimmed" ff="monospace" lineClamp={1}>
+                  ID: {job.id}
+                </Text>
+                <CopyButton value={job.id} timeout={2000}>
+                  {({ copied, copy }) => (
+                    <Tooltip label={copied ? t("result_modal.id_copied") : t("result_modal.copy_id")} withArrow position="left">
+                      <ActionIcon
+                        variant="subtle"
+                        color={copied ? "teal" : "gray"}
+                        size="xs"
+                        onClick={copy}
+                        aria-label={t("result_modal.copy_id_aria")}
+                      >
+                        {copied ? <CheckIcon size={13} /> : <CopyIcon size={13} />}
+                      </ActionIcon>
+                    </Tooltip>
+                  )}
+                </CopyButton>
+              </Group>
+            </div>
           </div>
         </div>
-      </div>
-    </Modal>
+      </Modal>
 
-    {/* Modal Detail Media Referensi saat diklik */}
-    <Modal
-      opened={Boolean(previewRef)}
-      onClose={() => setPreviewRef(null)}
-      title="Detail Media Referensi"
-      size="lg"
-      centered
-      zIndex={300}
-    >
-      {previewRef ? (
-        <Stack gap="md">
-          <div className={classes.zoomImageContainer}>
-            <img
-              src={resolveUploadUrl(previewRef.url)}
-              alt={previewRef.tag}
-              className={classes.zoomImage}
-            />
-          </div>
+      {/* Modal Detail Media Referensi saat diklik */}
+      <Modal
+        opened={Boolean(previewRef)}
+        onClose={() => setPreviewRef(null)}
+        title={t("result_modal.ref_detail_title")}
+        size="lg"
+        centered
+        zIndex={300}
+      >
+        {previewRef ? (
+          <Stack gap="md">
+            <div className={classes.zoomImageContainer}>
+              <img
+                src={resolveUploadUrl(previewRef.url)}
+                alt={previewRef.tag}
+                className={classes.zoomImage}
+              />
+            </div>
 
-          <Paper p="sm" withBorder radius="md">
-            <Group justify="space-between" wrap="wrap" gap="sm">
-              <div>
-                <Text size="xs" c="dimmed">
-                  Tag Referensi
-                </Text>
-                <Group gap={6} mt={2}>
-                  <Badge size="sm" variant="light" color="green">
-                    {previewRef.tag}
-                  </Badge>
-                </Group>
-              </div>
+            <Paper p="sm" withBorder radius="md">
+              <Group justify="space-between" wrap="wrap" gap="sm">
+                <div>
+                  <Text size="xs" c="dimmed">
+                    {t("result_modal.ref_tag")}
+                  </Text>
+                  <Group gap={6} mt={2}>
+                    <Badge size="sm" variant="light" color="green">
+                      {previewRef.tag}
+                    </Badge>
+                  </Group>
+                </div>
 
-              <div>
-                <Text size="xs" c="dimmed">
-                  Tipe
-                </Text>
-                <Text size="sm" fw={600}>
-                  Gambar (Image)
-                </Text>
-              </div>
+                <div>
+                  <Text size="xs" c="dimmed">
+                    {t("result_modal.meta_type")}
+                  </Text>
+                  <Text size="sm" fw={600}>
+                    {t("result_modal.type_image")}
+                  </Text>
+                </div>
+              </Group>
+            </Paper>
+
+            <Group justify="flex-end" align="center">
+              <Button
+                variant="default"
+                size="xs"
+                onClick={() => setPreviewRef(null)}
+              >
+                {t("result_modal.btn_close")}
+              </Button>
             </Group>
-          </Paper>
-
-          <Group justify="flex-end" align="center">
-            <Button
-              variant="default"
-              size="xs"
-              onClick={() => setPreviewRef(null)}
-            >
-              Tutup
-            </Button>
-          </Group>
-        </Stack>
-      ) : null}
-    </Modal>
-  </>
+          </Stack>
+        ) : null}
+      </Modal>
+    </>
   );
 }

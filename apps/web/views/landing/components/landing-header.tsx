@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useI18n } from "@/lib/i18n";
+import { LanguageSwitcher } from "@/components/language-switcher";
 import classes from "./landing.module.css";
 
 interface LandingHeaderProps {
@@ -14,6 +16,7 @@ export function LandingHeader({
   onStartCreation,
   onScrollTo,
 }: LandingHeaderProps) {
+  const { t } = useI18n("nav");
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
@@ -55,14 +58,16 @@ export function LandingHeader({
         </span>
       </div>
 
-      {/* Right Group: Sign In, Create Now */}
+      {/* Right Group: Language Switcher, Sign In, Create Now */}
       <div className={classes.headerRightGroup}>
+        <LanguageSwitcher />
+
         <button
           type="button"
           className={classes.signInBtn}
           onClick={onOpenLogin}
         >
-          Masuk
+          {t("login")}
         </button>
 
         <button
@@ -70,7 +75,7 @@ export function LandingHeader({
           className={classes.createNowBtn}
           onClick={onStartCreation}
         >
-          Daftar
+          {t("register")}
         </button>
       </div>
     </header>

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { requestJson } from "@/lib/api";
 import { formatDateId, formatIdr } from "@/lib/format";
+import { useI18n } from "@/lib/i18n";
 
 interface InvoiceInfoResponse {
   id: string;
@@ -18,6 +19,7 @@ interface InvoiceInfoResponse {
 }
 
 export function PaymentExpiredView({ invoiceId }: { invoiceId?: string }) {
+  const { t } = useI18n("payment");
   const [loading, setLoading] = useState(Boolean(invoiceId));
   const [invoice, setInvoice] = useState<InvoiceInfoResponse | null>(null);
 
@@ -101,10 +103,10 @@ export function PaymentExpiredView({ invoiceId }: { invoiceId?: string }) {
         {/* Title and Subtitle */}
         <Stack gap="xs" align="center" style={{ textAlign: "center" }}>
           <Title order={1} fz={{ base: "1.75rem", sm: "2.25rem" }} fw={900}>
-            Batas Waktu Pembayaran Berakhir
+            {t("expired.title")}
           </Title>
           <Text c="dimmed" size="sm" maw={460}>
-            Sesi transaksi pembayaran Anda telah kedaluwarsa (expired). Jangan khawatir, saldo rekening Anda tidak terpotong. Silakan buat pesanan baru untuk melanjutkan.
+            {t("expired.subtitle")}
           </Text>
         </Stack>
 
@@ -113,7 +115,7 @@ export function PaymentExpiredView({ invoiceId }: { invoiceId?: string }) {
           <Paper p="xl" withBorder radius="md" style={{ width: "100%", textAlign: "center" }}>
             <Loader size="md" mb="sm" />
             <Text size="sm" c="dimmed">
-              Memeriksa rincian tagihan...
+              {t("expired.checking")}
             </Text>
           </Paper>
         ) : invoice ? (
@@ -121,10 +123,10 @@ export function PaymentExpiredView({ invoiceId }: { invoiceId?: string }) {
             <Stack gap="md">
               <Group justify="space-between" align="center">
                 <Text size="sm" c="dimmed">
-                  Status Tagihan
+                  {t("expired.status_label")}
                 </Text>
                 <Badge color="yellow" variant="light" size="lg">
-                  Kedaluwarsa (Expired)
+                  {t("expired.status_expired")}
                 </Badge>
               </Group>
 
@@ -132,7 +134,7 @@ export function PaymentExpiredView({ invoiceId }: { invoiceId?: string }) {
 
               <Group justify="space-between">
                 <Text size="sm" c="dimmed">
-                  Nomor Tagihan (Invoice)
+                  {t("expired.invoice_number")}
                 </Text>
                 <Text size="sm" fw={600}>
                   {invoice.uniqueCode || invoice.id}
@@ -141,16 +143,16 @@ export function PaymentExpiredView({ invoiceId }: { invoiceId?: string }) {
 
               <Group justify="space-between">
                 <Text size="sm" c="dimmed">
-                  Paket Sparks
+                  {t("expired.package_label")}
                 </Text>
                 <Text size="sm" fw={600}>
-                  {invoice.points.toLocaleString()} Sparks
+                  {t("expired.sparks_amount", { points: invoice.points.toLocaleString() })}
                 </Text>
               </Group>
 
               <Group justify="space-between">
                 <Text size="sm" c="dimmed">
-                  Total Nominal
+                  {t("expired.total_amount")}
                 </Text>
                 <Text size="sm" fw={700}>
                   {formatIdr(invoice.amountIdr)}
@@ -159,7 +161,7 @@ export function PaymentExpiredView({ invoiceId }: { invoiceId?: string }) {
 
               <Group justify="space-between">
                 <Text size="sm" c="dimmed">
-                  Waktu Pembuatan
+                  {t("expired.created_at")}
                 </Text>
                 <Text size="sm" c="gray.4" suppressHydrationWarning>
                   {formatDateId(invoice.createdAt)}
@@ -180,7 +182,7 @@ export function PaymentExpiredView({ invoiceId }: { invoiceId?: string }) {
             radius="md"
             style={{ flex: 1, maxWidth: 220 }}
           >
-            Pesan Ulang Paket
+            {t("expired.btn_reorder")}
           </Button>
           <Button
             component={Link}
@@ -190,7 +192,7 @@ export function PaymentExpiredView({ invoiceId }: { invoiceId?: string }) {
             radius="md"
             style={{ flex: 1, maxWidth: 220 }}
           >
-            Masuk ke Studio
+            {t("expired.btn_studio")}
           </Button>
         </Group>
       </Stack>

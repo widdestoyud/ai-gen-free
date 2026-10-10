@@ -3,8 +3,11 @@
 import { Container, Group, Text, Anchor } from "@mantine/core";
 import Link from "next/link";
 import classes from "./landing.module.css";
+import { useI18n } from "@/lib/i18n";
 
 export function LandingFooter() {
+  const t = useI18n("landing");
+
   return (
     <footer className={classes.footer}>
       <Container size="xl">
@@ -32,19 +35,19 @@ export function LandingFooter() {
 
           <Group gap="xl">
             <Anchor component={Link} href="/#pricing" size="xs" c="dimmed" underline="hover">
-              Harga & Paket
+              {t("footer.pricing")}
             </Anchor>
             <Anchor component={Link} href="/terms" size="xs" c="dimmed" underline="hover">
-              Ketentuan Layanan
+              {t("footer.terms")}
             </Anchor>
             <Anchor component={Link} href="/privacy" size="xs" c="dimmed" underline="hover">
-              Kebijakan Privasi
+              {t("footer.privacy")}
             </Anchor>
             <Anchor href="https://discord.gg/AgRajbj2b" target="_blank" rel="noopener noreferrer" size="xs" c="dimmed" underline="hover">
-              Support
+              {t("footer.support")}
             </Anchor>
             <Text size="xs" c="dimmed">
-              &copy; {new Date().getFullYear()} satulabs.id
+              {t("footer.copyright", { year: new Date().getFullYear() })}
             </Text>
           </Group>
         </Group>

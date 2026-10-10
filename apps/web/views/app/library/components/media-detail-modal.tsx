@@ -26,6 +26,7 @@ import { requestJson } from "@/lib/api";
 import { queryKeys } from "@/lib/query-keys";
 import { ErrorAlert } from "@/components/error-alert";
 import { ImageCompareSlider } from "./image-compare-slider";
+import { useI18n } from "@/lib/i18n";
 import classes from "./media-detail-modal.module.css";
 
 function EditPencilIcon({ size = 14 }: { size?: number }) {
@@ -267,40 +268,35 @@ function TrashIcon({ size = 16 }: { size?: number }) {
   );
 }
 
-function formatModalDate(iso?: string | null): string {
+function formatModalDate(iso?: string | null, locale = "id"): string {
   if (!iso) return "-";
   const d = new Date(iso);
   if (isNaN(d.getTime())) return "-";
-  const day = d.getDate();
-  const monthNames = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
-  const month = monthNames[d.getMonth()] || "";
-  const year = d.getFullYear();
+  const loc = locale === "en" ? "en-US" : "id-ID";
+  const dateStr = d.toLocaleDateString(loc, { day: "numeric", month: "short", year: "numeric" });
   const hours = String(d.getHours()).padStart(2, "0");
   const mins = String(d.getMinutes()).padStart(2, "0");
-  return `${day} ${month} ${year}, ${hours}.${mins}`;
+  return `${dateStr}, ${hours}.${mins}`;
 }
 
-function formatModalDateShort(iso?: string | null): string {
+function formatModalDateShort(iso?: string | null, locale = "id"): string {
   if (!iso) return "-";
   const d = new Date(iso);
   if (isNaN(d.getTime())) return "-";
-  const day = d.getDate();
-  const monthNames = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
-  const month = monthNames[d.getMonth()] || "";
-  const year = d.getFullYear();
-  return `${day} ${month} ${year}`;
+  const loc = locale === "en" ? "en-US" : "id-ID";
+  return d.toLocaleDateString(loc, { day: "numeric", month: "short", year: "numeric" });
 }
 
-function getModeLabel(item: LibraryItem): string {
-  if (item.type === "upload") return "UPLOAD MEDIA";
-  if (isUpscaledImage(item)) return "UPSCALE IMAGE";
-  if (item.kind === "video") return "GENERATED VIDEO";
-  return "GENERATED IMAGE";
+function getModeLabel(item: LibraryItem, t: (k: string) => string): string {
+  if (item.type === "upload") return t("modal.mode_upload");
+  if (isUpscaledImage(item)) return t("modal.mode_upscale");
+  if (item.kind === "video") return t("modal.mode_video");
+  return t("modal.mode_image");
 }
 
-function getStatusLabel(item: LibraryItem): string {
-  if (item.type === "upload") return "READY";
-  if (item.status === "succeeded") return "COMPLETED";
+function getStatusLabel(item: LibraryItem, t: (k: string) => string): string {
+  if (item.type === "upload") return t("modal.status_ready");
+  if (item.status === "succeeded") return t("modal.status_completed");
   return item.status.toUpperCase();
 }
 
@@ -323,6 +319,7 @@ export function MediaDetailModal({
   onUpscaleSuccess?: () => void;
   onOpenInpaint?: (item: LibraryItem) => void;
 }) {
+  const { t, locale } = useI18n("library");
   const router = useRouter();
   const queryClient = useQueryClient();
   const [previewRef, setPreviewRef] = useState<ReferenceImageItem | null>(null);
@@ -516,8 +513,8 @@ export function MediaDetailModal({
                 <ImageCompareSlider
                   beforeUrl={originalImageUrl}
                   afterUrl={resolveUploadUrl(item.url)}
-                  beforeLabel="Sebelum (Original)"
-                  afterLabel="Sesudah (4x Upscale)"
+                  beforeLabel={t("modal.compare_before")}
+                  afterLabel={t("modal.compare_after")}
                 />
               ) : (
                 <img
@@ -534,7 +531,7 @@ export function MediaDetailModal({
                   type="button"
                   className={classes.navArrowLeft}
                   onClick={() => onSelectItem(items[currentIndex - 1]!)}
-                  aria-label="Media Sebelumnya"
+                  aria-label={t("modal.nav_prev")}
                 >
                   <ChevronLeftIcon size={18} />
                 </button>
@@ -545,7 +542,7 @@ export function MediaDetailModal({
                   type="button"
                   className={classes.navArrowRight}
                   onClick={() => onSelectItem(items[currentIndex + 1]!)}
-                  aria-label="Media Selanjutnya"
+                  aria-label={t("modal.nav_next")}
                 >
                   <ChevronRightIcon size={18} />
                 </button>
@@ -557,26 +554,26 @@ export function MediaDetailModal({
               <div className={classes.zoomControlsBar}>
                 {isCompareAvailable ? (
                   <div className={classes.viewModeToggle}>
-                    <Tooltip label="Bandingkan Before & After (Geser Garis)" withArrow position="top">
+                    <Tooltip label={t("modal.compare_mode_tooltip")} withArrow position="top">
                       <button
                         type="button"
                         className={`${classes.viewModeBtn} ${viewMode === "compare" ? classes.viewModeBtnActive : ""}`}
                         onClick={() => setViewMode("compare")}
-                        aria-label="Mode Pembanding"
+                        aria-label={t("modal.compare_btn")}
                       >
                         <SplitIcon size={13} />
-                        <span>Bandingkan</span>
+                        <span>{t("modal.compare_btn")}</span>
                       </button>
                     </Tooltip>
-                    <Tooltip label="Mode Zoom & Pan Gambar Tunggal" withArrow position="top">
+                    <Tooltip label={t("modal.single_mode_tooltip")} withArrow position="top">
                       <button
                         type="button"
                         className={`${classes.viewModeBtn} ${viewMode === "single" ? classes.viewModeBtnActive : ""}`}
                         onClick={() => setViewMode("single")}
-                        aria-label="Mode Gambar Tunggal"
+                        aria-label={t("modal.detail_btn")}
                       >
                         <SingleImageIcon size={13} />
-                        <span>Detail</span>
+                        <span>{t("modal.detail_btn")}</span>
                       </button>
                     </Tooltip>
                   </div>
@@ -584,7 +581,7 @@ export function MediaDetailModal({
 
                 {!isCompareAvailable || viewMode === "single" ? (
                   <>
-                    <Tooltip label="Perkecil (-)" withArrow position="top">
+                    <Tooltip label={t("modal.zoom_out")} withArrow position="top">
                       <button
                         type="button"
                         onClick={viewer.zoomOut}
@@ -596,7 +593,7 @@ export function MediaDetailModal({
                       </button>
                     </Tooltip>
                     <span className={classes.zoomPercent}>{viewer.zoomLevel}%</span>
-                    <Tooltip label="Perbesar (+)" withArrow position="top">
+                    <Tooltip label={t("modal.zoom_in")} withArrow position="top">
                       <button
                         type="button"
                         onClick={viewer.zoomIn}
@@ -608,7 +605,7 @@ export function MediaDetailModal({
                       </button>
                     </Tooltip>
                     {viewer.isZoomed ? (
-                      <Tooltip label="Reset Ukuran" withArrow position="top">
+                      <Tooltip label={t("modal.zoom_reset")} withArrow position="top">
                         <button
                           type="button"
                           onClick={viewer.resetZoom}
@@ -632,10 +629,10 @@ export function MediaDetailModal({
                 {/* Status & Mode Badges */}
                 <div className={classes.badgesRow}>
                   <Badge className={isUpscaled ? classes.modeBadgeUpscale : classes.modeBadge}>
-                    {getModeLabel(item)}
+                    {getModeLabel(item, t)}
                   </Badge>
                   <Badge className={classes.statusBadge}>
-                    {getStatusLabel(item)}
+                    {getStatusLabel(item, t)}
                   </Badge>
                 </div>
 
@@ -651,7 +648,7 @@ export function MediaDetailModal({
                         leftSection={<DownloadIcon size={16} />}
                         className={classes.primaryDownloadBtn}
                       >
-                        Download
+                        {t("modal.btn_download")}
                       </Button>
                       <div className={classes.actionButtonsRow}>
                         <Button
@@ -665,7 +662,7 @@ export function MediaDetailModal({
                           leftSection={<EditPencilIcon size={14} />}
                           className={classes.inpaintEditBtn}
                         >
-                          Edit
+                          {t("modal.btn_edit")}
                         </Button>
                         {!isUpscaled && upscaleEnabled ? (
                           <Button
@@ -678,7 +675,7 @@ export function MediaDetailModal({
                             leftSection={<SparkleIcon size={13} />}
                             className={classes.upscaleBtn}
                           >
-                            Upscale
+                            {t("modal.btn_upscale")}
                           </Button>
                         ) : null}
                       </div>
@@ -693,7 +690,7 @@ export function MediaDetailModal({
                         leftSection={<DownloadIcon size={16} />}
                         className={classes.primaryDownloadBtn}
                       >
-                        Download
+                        {t("modal.btn_download")}
                       </Button>
                     </div>
                   )
@@ -725,7 +722,7 @@ export function MediaDetailModal({
                     className={classes.dangerDeleteBtn}
                     onClick={() => setConfirmDelete(true)}
                   >
-                    Hapus Berkas
+                    {t("modal.btn_delete_file")}
                   </Button>
                 ) : null}
 
@@ -738,8 +735,8 @@ export function MediaDetailModal({
                       <div className={classes.referenceHeader}>
                         <span className={classes.promptHeading}>
                           {isUpscaled
-                            ? "REFERENSI GAMBAR ASLI"
-                            : `REFERENCE IMAGE${referenceImages.length > 1 ? "S" : ""}`}
+                            ? t("modal.ref_original_image")
+                            : t("modal.ref_images")}
                         </span>
                       </div>
                       <div className={classes.referenceGrid}>
@@ -749,7 +746,7 @@ export function MediaDetailModal({
                           return (
                             <Tooltip
                               key={idx}
-                              label={isUpscaled ? "Lihat gambar asli sebelum di-upscale" : `Lihat referensi: ${ref.tag}`}
+                              label={isUpscaled ? t("modal.ref_tooltip_upscale") : t("modal.ref_tooltip_tag", { tag: ref.tag })}
                               withArrow
                               position="top"
                             >
@@ -757,7 +754,7 @@ export function MediaDetailModal({
                                 type="button"
                                 onClick={() => setPreviewRef({ ...ref, tag: tagLabel })}
                                 className={classes.referenceCard}
-                                aria-label={isUpscaled ? "Lihat gambar asli" : `Lihat media referensi ${tagLabel}`}
+                                aria-label={isUpscaled ? t("modal.ref_tooltip_upscale") : t("modal.ref_tooltip_tag", { tag: tagLabel })}
                               >
                                 <img
                                   src={imgUrl}
@@ -780,16 +777,16 @@ export function MediaDetailModal({
               {isGenerated && item.prompt ? (
                 <div className={classes.promptSection}>
                   <div className={classes.promptHeader}>
-                    <span className={classes.promptHeading}>PROMPT</span>
+                    <span className={classes.promptHeading}>{t("modal.section_prompt")}</span>
                     <CopyButton value={item.prompt} timeout={2000}>
                       {({ copied, copy }) => (
-                        <Tooltip label={copied ? "Tersalin" : "Salin teks"} withArrow position="left">
+                        <Tooltip label={copied ? t("modal.copied") : t("modal.copy_text")} withArrow position="left">
                           <ActionIcon
                             variant="subtle"
                             color={copied ? "teal" : "gray"}
                             size="xs"
                             onClick={copy}
-                            aria-label="Salin teks prompt"
+                            aria-label={t("modal.copy_text")}
                           >
                             {copied ? <CheckIcon size={14} /> : <CopyIcon size={14} />}
                           </ActionIcon>
@@ -807,16 +804,16 @@ export function MediaDetailModal({
               {item.type === "upload" && (cleanAlias || item.id) ? (
                 <div className={classes.promptSection}>
                   <div className={classes.promptHeader}>
-                    <span className={classes.promptHeading}>NAMA BERKAS</span>
+                    <span className={classes.promptHeading}>{t("modal.section_filename")}</span>
                     <CopyButton value={cleanAlias || item.id} timeout={2000}>
                       {({ copied, copy }) => (
-                        <Tooltip label={copied ? "Tersalin" : "Salin nama berkas"} withArrow position="left">
+                        <Tooltip label={copied ? t("modal.copied") : t("modal.copy_filename")} withArrow position="left">
                           <ActionIcon
                             variant="subtle"
                             color={copied ? "teal" : "gray"}
                             size="xs"
                             onClick={copy}
-                            aria-label="Salin nama berkas"
+                            aria-label={t("modal.copy_filename")}
                           >
                             {copied ? <CheckIcon size={14} /> : <CopyIcon size={14} />}
                           </ActionIcon>
@@ -834,14 +831,14 @@ export function MediaDetailModal({
               <div className={classes.metaProperties}>
                 {isGenerated && typeof item.cost === "number" ? (
                   <div className={classes.metaRow}>
-                    <span className={classes.metaLabel}>Biaya</span>
+                    <span className={classes.metaLabel}>{t("modal.meta_cost")}</span>
                     <span className={classes.metaValueBold}>{item.cost} Sparks</span>
                   </div>
                 ) : null}
 
                 {item.width && item.height ? (
                   <div className={classes.metaRow}>
-                    <span className={classes.metaLabel}>Dimensi</span>
+                    <span className={classes.metaLabel}>{t("modal.meta_dimension")}</span>
                     <span className={classes.metaValue}>
                       {item.width} × {item.height} px
                     </span>
@@ -850,7 +847,7 @@ export function MediaDetailModal({
 
                 {item.size_bytes ? (
                   <div className={classes.metaRow}>
-                    <span className={classes.metaLabel}>Ukuran Berkas</span>
+                    <span className={classes.metaLabel}>{t("modal.meta_filesize")}</span>
                     <span className={classes.metaValue}>
                       {formatBytes(item.size_bytes)}
                     </span>
@@ -859,18 +856,18 @@ export function MediaDetailModal({
 
                 {item.created_at ? (
                   <div className={classes.metaRow}>
-                    <span className={classes.metaLabel}>Dibuat</span>
+                    <span className={classes.metaLabel}>{t("modal.meta_created")}</span>
                     <span className={classes.metaValue}>
-                      {formatModalDate(item.created_at)}
+                      {formatModalDate(item.created_at, locale)}
                     </span>
                   </div>
                 ) : null}
 
                 {item.expires_at ? (
                   <div className={classes.metaRow}>
-                    <span className={classes.metaLabel}>Masa Berlaku</span>
+                    <span className={classes.metaLabel}>{t("modal.meta_expires")}</span>
                     <span className={classes.metaValue}>
-                      {formatModalDateShort(item.expires_at)}
+                      {formatModalDateShort(item.expires_at, locale)}
                     </span>
                   </div>
                 ) : null}
@@ -885,13 +882,13 @@ export function MediaDetailModal({
             </span>
             <CopyButton value={item.id} timeout={2000}>
               {({ copied, copy }) => (
-                <Tooltip label={copied ? "ID Tersalin" : "Salin ID"} withArrow position="left">
+                <Tooltip label={copied ? t("modal.copied") : t("modal.copy_text")} withArrow position="left">
                   <ActionIcon
                     variant="subtle"
                     color={copied ? "teal" : "gray"}
                     size="xs"
                     onClick={copy}
-                    aria-label="Salin ID"
+                    aria-label={t("modal.copy_text")}
                   >
                     {copied ? <CheckIcon size={13} /> : <CopyIcon size={13} />}
                   </ActionIcon>
@@ -907,7 +904,7 @@ export function MediaDetailModal({
     <Modal
       opened={Boolean(previewRef)}
       onClose={() => setPreviewRef(null)}
-      title={isUpscaled ? "Detail Gambar Asli (Sebelum Upscale)" : "Detail Media Referensi"}
+      title={isUpscaled ? t("modal.ref_original_image") : t("modal.ref_images")}
       size="lg"
       centered
       zIndex={300}
@@ -926,7 +923,7 @@ export function MediaDetailModal({
             <Group justify="space-between" wrap="wrap" gap="sm">
               <div>
                 <Text size="xs" c="dimmed">
-                  {isUpscaled ? "Keterangan" : "Tag Referensi"}
+                  {isUpscaled ? "Original" : "Tag"}
                 </Text>
                 <Group gap={6} mt={2}>
                   <Badge size="sm" variant="light" color={isUpscaled ? "violet" : "green"}>
@@ -937,10 +934,10 @@ export function MediaDetailModal({
 
               <div>
                 <Text size="xs" c="dimmed">
-                  Tipe
+                  Type
                 </Text>
                 <Text size="sm" fw={600}>
-                  Gambar (Image)
+                  Image
                 </Text>
               </div>
             </Group>
@@ -952,7 +949,7 @@ export function MediaDetailModal({
               size="xs"
               onClick={() => setPreviewRef(null)}
             >
-              Tutup
+              {t("modal.btn_cancel") || "Tutup"}
             </Button>
           </Group>
         </Stack>
@@ -965,24 +962,24 @@ export function MediaDetailModal({
       onClose={() => {
         if (!isUpscaling) setConfirmUpscale(false);
       }}
-      title="Tingkatkan Resolusi Gambar (Upscale)"
+      title={t("modal.confirm_upscale_title")}
       size="md"
       centered
       zIndex={350}
     >
       <Stack gap="md">
         <Text size="sm" c="dimmed">
-          Tingkatkan kualitas dan ketajaman gambar hingga 4x lipat lebih tinggi menggunakan AI Image Upscaler.
+          {t("modal.confirm_upscale_msg")}
         </Text>
 
         <Paper p="sm" withBorder radius="md" bg="rgba(255, 255, 255, 0.03)">
           <Group justify="space-between">
             <div>
               <Text size="xs" c="dimmed">
-                Biaya Poin
+                {t("modal.confirm_upscale_cost")}
               </Text>
               <Text size="sm" fw={600}>
-                Layanan AI Upscale
+                {t("modal.mode_upscale")}
               </Text>
             </div>
             <Badge color="violet" size="lg" variant="light" leftSection={<SparkleIcon size={12} />}>
@@ -1000,7 +997,7 @@ export function MediaDetailModal({
             disabled={isUpscaling}
             onClick={() => setConfirmUpscale(false)}
           >
-            Batal
+            {t("modal.btn_cancel") || "Batal"}
           </Button>
           <Button
             className={classes.upscaleBtn}
@@ -1009,7 +1006,7 @@ export function MediaDetailModal({
             leftSection={<SparkleIcon size={14} />}
             onClick={() => void handleUpscale()}
           >
-            Mulai Upscale
+            {t("modal.confirm_upscale_btn")}
           </Button>
         </Group>
       </Stack>
@@ -1021,14 +1018,14 @@ export function MediaDetailModal({
       onClose={() => {
         if (!isDeleting) setConfirmDelete(false);
       }}
-      title="Hapus Berkas Media"
+      title={t("modal.confirm_delete_title")}
       size="sm"
       centered
       zIndex={360}
     >
       <Stack gap="md">
         <Text size="sm">
-          Apakah Anda yakin ingin menghapus berkas <strong>{displayLabel}</strong>? Tindakan ini permanen dan tidak dapat dibatalkan.
+          {t("modal.confirm_delete_msg")}
         </Text>
 
         <Group justify="flex-end" gap="xs" mt="xs">
@@ -1038,7 +1035,7 @@ export function MediaDetailModal({
             disabled={isDeleting}
             onClick={() => setConfirmDelete(false)}
           >
-            Batal
+            {t("modal.btn_cancel") || "Batal"}
           </Button>
           <Button
             color="red"
@@ -1048,7 +1045,7 @@ export function MediaDetailModal({
             leftSection={<TrashIcon size={14} />}
             onClick={() => void handleDeleteUpload()}
           >
-            Ya, Hapus
+            {t("modal.confirm_delete_btn")}
           </Button>
         </Group>
       </Stack>

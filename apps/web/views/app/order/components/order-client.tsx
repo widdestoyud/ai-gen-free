@@ -21,6 +21,7 @@ import {
 } from "@mantine/core";
 import { useRouter } from "next/navigation";
 import { useState, useMemo, useCallback, useEffect } from "react";
+import { useI18n } from "@/lib/i18n";
 import { ResponsiveTable } from "@/components/responsive-table";
 import { EmptyState } from "@/components/empty-state";
 import { ErrorAlert } from "@/components/error-alert";
@@ -83,6 +84,7 @@ export function OrderClient(props: {
   onPageChange?: (page: number) => void;
   isLoading?: boolean;
 }) {
+  const { t } = useI18n("order");
   const router = useRouter();
   const [search, setSearch] = useState("");
   const [error, setError] = useState("");
@@ -187,7 +189,7 @@ export function OrderClient(props: {
     if (!manualEnabled && onlineEnabled) {
       const payRes = await initiatePayment(invoiceId);
       if (payRes?.paymentUrl) {
-        window.location.href = payRes.paymentUrl;
+        window.location.replace(payRes.paymentUrl);
         return;
       }
       setBusy(false);
@@ -238,7 +240,7 @@ export function OrderClient(props: {
       setPayingInvoiceId(invoiceId);
       const payRes = await initiatePayment(invoiceId);
       if (payRes?.paymentUrl) {
-        window.location.href = payRes.paymentUrl;
+        window.location.replace(payRes.paymentUrl);
         return;
       }
       setPayingInvoiceId(null);
@@ -308,7 +310,7 @@ export function OrderClient(props: {
           <Group justify="space-between" align="center">
             <div>
               <Text size="xs" tt="uppercase" fw={700} c="dimmed" lts="0.05em">
-                Saldo Sparks Anda Saat Ini
+                {t("wallet_balance_title")}
               </Text>
               <Group gap="xs" align="baseline">
                 <Text size="xl" fw={800} c="#60a5fa">
@@ -316,7 +318,7 @@ export function OrderClient(props: {
                 </Text>
                 {props.wallet.held > 0 ? (
                   <Text size="xs" c="dimmed">
-                    ({props.wallet.held.toLocaleString()} terkunci dalam antrian proses render)
+                    {t("wallet_held_hint", { count: props.wallet.held.toLocaleString() })}
                   </Text>
                 ) : null}
               </Group>
@@ -325,10 +327,10 @@ export function OrderClient(props: {
         </Paper>
       ) : null}
 
-      <Text className={classes.sectionTitle}>Pilih Paket Poin</Text>
+      <Text className={classes.sectionTitle}>{t("select_package_title")}</Text>
 
       <Text className={classes.sectionSubtitle}>
-        Pilih paket poin di bawah ini, lakukan pembayaran transfer bank / QRIS sesuai invoice yang diterbitkan, lalu unggah bukti transfer. Poin akan langsung diproses dan ditambahkan ke saldo Anda.
+        {t("select_package_subtitle")}
       </Text>
 
       <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing="lg" className={classes.packagesGrid}>
@@ -347,7 +349,7 @@ export function OrderClient(props: {
               points={plan.points}
               popular={plan.popular}
               perks={plan.perks}
-              buttonLabel={`Pilih ${plan.name}`}
+              buttonLabel={t("btn_select_package", { name: plan.name })}
               disabled={busy}
               onSelect={(id) => {
                 router.push(`/checkout?packageId=${id}`);
@@ -368,16 +370,16 @@ export function OrderClient(props: {
         />
         <div className={classes.tableHeaderRow}>
           <Stack gap={2}>
-            <Text className={classes.sectionTitle}>Riwayat Invoice</Text>
+            <Text className={classes.sectionTitle}>{t("history_title")}</Text>
             <Text className={classes.sectionSubtitle}>
-              Daftar tagihan dan status verifikasi pemesanan poin generate Anda.
+              {t("history_subtitle")}
             </Text>
           </Stack>
 
           <Group gap="xs">
             <TextInput
               size="xs"
-              placeholder="Cari kode invoice..."
+              placeholder={t("search_placeholder")}
               value={search}
               onChange={(e) => setSearch(e.currentTarget.value)}
               leftSection={<SearchIcon />}
@@ -389,7 +391,7 @@ export function OrderClient(props: {
               onClick={exportCsv}
               disabled={filteredInvoices.length === 0}
             >
-              Export CSV
+              {t("btn_export_csv")}
             </Button>
           </Group>
         </div>
@@ -397,8 +399,8 @@ export function OrderClient(props: {
         {filteredInvoices.length === 0 ? (
           <EmptyState minHeight={180}>
             {search
-              ? `Tidak ada invoice yang cocok dengan pencarian "${search}".`
-              : "Belum ada riwayat invoice pemesanan poin."}
+              ? t("empty_search", { search })
+              : t("empty_history")}
           </EmptyState>
         ) : (
           <ResponsiveTable
@@ -406,11 +408,11 @@ export function OrderClient(props: {
             keyExtractor={(inv) => inv.id}
             renderHeader={() => (
               <Table.Tr className={classes.tableHeader}>
-                <Table.Th>Kode Invoice</Table.Th>
-                <Table.Th>Nominal & Poin</Table.Th>
-                <Table.Th>Status</Table.Th>
-                <Table.Th>Tanggal Dibuat</Table.Th>
-                <Table.Th className={classes.actionCell}>Aksi / Pembayaran</Table.Th>
+                <Table.Th>{t("th_code")}</Table.Th>
+                <Table.Th>{t("th_amount_points")}</Table.Th>
+                <Table.Th>{t("th_status")}</Table.Th>
+                <Table.Th>{t("th_date")}</Table.Th>
+                <Table.Th className={classes.actionCell}>{t("th_action")}</Table.Th>
               </Table.Tr>
             )}
             renderRow={(inv) => {
@@ -460,7 +462,7 @@ export function OrderClient(props: {
                   <Table.Td>
                     <div className={classes.amountCell}>
                       <span className={classes.amountValue}>{formatIdr(inv.amountIdr)}</span>
-                      <span className={classes.pointsValue}>+{inv.points} Poin</span>
+                      <span className={classes.pointsValue}>{t("points_added", { count: inv.points })}</span>
                     </div>
                   </Table.Td>
 
@@ -483,7 +485,7 @@ export function OrderClient(props: {
                           radius="sm"
                           variant={isCanceled || isExpired ? "outline" : "light"}
                         >
-                          {isExpired ? "Kedaluwarsa" : inv.statusLabel}
+                          {isExpired ? t("status_expired") : inv.statusLabel}
                         </Badge>
                       </Group>
                       {isRejected && (
@@ -497,7 +499,7 @@ export function OrderClient(props: {
                           }}
                         >
                           <Text size="xs" c="red.3" fw={500}>
-                            {inv.reviewNote ? `Alasan: ${inv.reviewNote}` : "Bukti ditolak. Silakan unggah ulang bukti yang valid."}
+                            {inv.reviewNote ? t("proof_rejected_reason", { reason: inv.reviewNote }) : t("proof_rejected_default")}
                           </Text>
                         </div>
                       )}
@@ -508,7 +510,7 @@ export function OrderClient(props: {
                     {inv.createdAt ? formatDateId(inv.createdAt) : "-"}
                     {inv.paidAt && isPaid ? (
                       <Text size="xs" c="teal" suppressHydrationWarning>
-                        Lunas: {formatDateId(inv.paidAt)}
+                        {t("paid_at", { date: formatDateId(inv.paidAt) })}
                         {inv.gateway?.paymentChannel ? ` (${inv.gateway.paymentChannel})` : ""}
                       </Text>
                     ) : null}
@@ -527,10 +529,10 @@ export function OrderClient(props: {
                             onClick={() => handlePayGateway(inv.id, inv.uniqueCode)}
                           >
                             {isPaying
-                              ? "Memproses..."
+                              ? t("processing")
                               : hasGatewaySession && !gatewayExpired
-                                ? "Lanjut Bayar Online"
-                                : `Bayar Online (${onlineGatewayLabel})`}
+                                ? t("continue_online")
+                                : t("btn_pay_online", { gateway: onlineGatewayLabel })}
                           </Button>
                         ) : null}
 
@@ -545,7 +547,7 @@ export function OrderClient(props: {
                             }}
                             disabled={busy}
                           >
-                            {isRejected ? "Unggah Ulang Bukti" : "Unggah Bukti"}
+                            {isRejected ? t("btn_reupload_proof") : t("btn_upload_proof")}
                           </Button>
                         ) : null}
 
@@ -556,24 +558,24 @@ export function OrderClient(props: {
                           disabled={busy || isPaying}
                           onClick={() => setCancelingInvoice(inv)}
                         >
-                          Batalkan
+                          {t("btn_cancel_invoice")}
                         </Button>
                       </Group>
                     ) : isAwaiting ? (
                       <Text size="xs" c="dimmed">
-                        Menunggu kurasi admin
+                        {t("status_awaiting")}
                       </Text>
                     ) : isPaid ? (
                       <Text size="xs" c="teal">
-                        Poin sudah ditambahkan
+                        {t("status_paid")}
                       </Text>
                     ) : isCanceled ? (
                       <Text size="xs" c="dimmed">
-                        Pesanan dibatalkan
+                        {t("status_canceled")}
                       </Text>
                     ) : isExpired ? (
                       <Text size="xs" c="dimmed">
-                        Pesanan kedaluwarsa
+                        {t("status_expired_note")}
                       </Text>
                     ) : null}
                   </Table.Td>
@@ -643,7 +645,7 @@ export function OrderClient(props: {
                         radius="sm"
                         variant={isCanceled || isExpired ? "outline" : "light"}
                       >
-                        {isExpired ? "Kedaluwarsa" : inv.statusLabel}
+                        {isExpired ? t("status_expired") : inv.statusLabel}
                       </Badge>
                     </Group>
                   </div>
@@ -651,7 +653,7 @@ export function OrderClient(props: {
                   <div className={classes.mobileInvoiceMiddle}>
                     <div>
                       <Text size="xs" c="dimmed">
-                        Nominal
+                        {t("upload_modal.total_amount")}
                       </Text>
                       <Text fw={700} size="sm">
                         {formatIdr(inv.amountIdr)}
@@ -659,7 +661,7 @@ export function OrderClient(props: {
                     </div>
                     <div style={{ textAlign: "right" }}>
                       <Text size="xs" c="teal.4" fw={600}>
-                        +{inv.points} Poin
+                        {t("points_added", { count: inv.points })}
                       </Text>
                       <Text size="xs" c="dimmed" suppressHydrationWarning>
                         {inv.createdAt ? formatDateId(inv.createdAt) : "-"}
@@ -677,17 +679,17 @@ export function OrderClient(props: {
                       }}
                     >
                       <Text size="xs" fw={700} c="red.4" mb={2}>
-                        ⚠️ Bukti Pembayaran Ditolak Admin:
+                        {t("upload_modal.rejection_title")}
                       </Text>
                       <Text size="xs" c="red.2">
-                        {inv.reviewNote || "Bukti ditolak. Silakan unggah ulang bukti transfer yang valid."}
+                        {inv.reviewNote ? t("proof_rejected_reason", { reason: inv.reviewNote }) : t("proof_rejected_default")}
                       </Text>
                     </div>
                   )}
 
                   {inv.paidAt && isPaid ? (
                     <Text size="xs" c="teal.4" suppressHydrationWarning>
-                      Lunas: {formatDateId(inv.paidAt)}
+                      {t("paid_at", { date: formatDateId(inv.paidAt) })}
                       {inv.gateway?.paymentChannel ? ` (${inv.gateway.paymentChannel})` : ""}
                     </Text>
                   ) : null}
@@ -704,7 +706,7 @@ export function OrderClient(props: {
                             leftSection={isPaying ? <Loader size="xs" /> : null}
                             onClick={() => handlePayGateway(inv.id, inv.uniqueCode)}
                           >
-                            {isPaying ? "Memproses..." : `Bayar Online (${onlineGatewayLabel})`}
+                            {isPaying ? t("processing") : t("btn_pay_online", { gateway: onlineGatewayLabel })}
                           </Button>
                         ) : null}
 
@@ -719,7 +721,7 @@ export function OrderClient(props: {
                             }}
                             disabled={busy}
                           >
-                            {isRejected ? "Unggah Ulang Bukti" : "Unggah Bukti"}
+                            {isRejected ? t("btn_reupload_proof") : t("btn_upload_proof")}
                           </Button>
                         ) : null}
 
@@ -730,24 +732,24 @@ export function OrderClient(props: {
                           disabled={busy || isPaying}
                           onClick={() => setCancelingInvoice(inv)}
                         >
-                          Batalkan
+                          {t("btn_cancel_invoice")}
                         </Button>
                       </Group>
                     ) : isAwaiting ? (
                       <Text size="xs" c="dimmed">
-                        Menunggu kurasi admin
+                        {t("status_awaiting")}
                       </Text>
                     ) : isPaid ? (
                       <Text size="xs" c="teal.4">
-                        Poin sudah ditambahkan
+                        {t("status_paid")}
                       </Text>
                     ) : isCanceled ? (
                       <Text size="xs" c="dimmed">
-                        Pesanan dibatalkan
+                        {t("status_canceled")}
                       </Text>
                     ) : isExpired ? (
                       <Text size="xs" c="dimmed">
-                        Pesanan kedaluwarsa
+                        {t("status_expired_note")}
                       </Text>
                     ) : null}
                   </div>
@@ -760,8 +762,11 @@ export function OrderClient(props: {
         {props.pagination && props.pagination.total > 0 && (
           <Group justify="space-between" align="center" mt="md" wrap="wrap" gap="sm">
             <Text size="xs" c="dimmed">
-              Menampilkan <strong>{props.pagination.total === 0 ? 0 : (props.pagination.page - 1) * props.pagination.limit + 1}–{Math.min(props.pagination.page * props.pagination.limit, props.pagination.total)}</strong> dari{" "}
-              <strong>{props.pagination.total}</strong> riwayat invoice
+              {t("pagination_showing", {
+                from: props.pagination.total === 0 ? 0 : (props.pagination.page - 1) * props.pagination.limit + 1,
+                to: Math.min(props.pagination.page * props.pagination.limit, props.pagination.total),
+                total: props.pagination.total,
+              })}
             </Text>
             {props.pagination.totalPages > 1 && props.onPageChange && (
               <Pagination
@@ -789,8 +794,8 @@ export function OrderClient(props: {
           <Group gap="xs">
             <Text fw={700} size="md">
               {uploadInvoice?.status === "rejected"
-                ? "Unggah Ulang Bukti Pembayaran"
-                : "Pembayaran QRIS & Bukti Transfer"}
+                ? t("upload_modal.title_reupload")
+                : t("upload_modal.title")}
             </Text>
             {uploadInvoice?.uniqueCode && (
               <Badge variant="light" color={uploadInvoice?.status === "rejected" ? "red" : "blue"} size="sm">
@@ -816,12 +821,12 @@ export function OrderClient(props: {
               }}
             >
               <Text size="xs" fw={700} c="red.3" mb={2}>
-                ⚠️ Bukti Sebelumnya Ditolak Admin:
+                {t("upload_modal.rejection_title")}
               </Text>
               <Text size="xs" c="red.2">
                 {uploadInvoice.reviewNote
                   ? uploadInvoice.reviewNote
-                  : "Bukti transfer tidak valid atau tidak sesuai. Pastikan mengunggah struk / tangkapan layar transfer yang jelas dan valid."}
+                  : t("upload_modal.rejection_default")}
               </Text>
             </div>
           )}
@@ -831,7 +836,7 @@ export function OrderClient(props: {
             <Group justify="space-between" align="center">
               <div>
                 <Text size="xs" c="dimmed">
-                  Total Tagihan Pembayaran
+                  {t("upload_modal.total_amount")}
                 </Text>
                 <Text size="xl" fw={800} c="blue.4">
                   {uploadInvoice ? formatIdr(uploadInvoice.amountIdr) : "—"}
@@ -839,10 +844,10 @@ export function OrderClient(props: {
               </div>
               <div style={{ textAlign: "right" }}>
                 <Text size="xs" c="dimmed">
-                  Sparks Diperoleh
+                  {t("upload_modal.sparks_earned")}
                 </Text>
                 <Text size="md" fw={700} c="green.4">
-                  +{uploadInvoice?.points?.toLocaleString()} Sparks
+                  {t("upload_modal.sparks_unit", { count: uploadInvoice?.points?.toLocaleString() ?? 0 })}
                 </Text>
               </div>
             </Group>
@@ -851,7 +856,7 @@ export function OrderClient(props: {
           {/* QRIS Card Section */}
           <div className={classes.qrisSection}>
             <Text size="xs" fw={700} c="dark.7" mb={6} style={{ textTransform: "uppercase", letterSpacing: 0.5 }}>
-              Scan QRIS untuk Pembayaran
+              {t("upload_modal.scan_qris")}
             </Text>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
@@ -877,42 +882,40 @@ export function OrderClient(props: {
               color="dark"
               mt={6}
             >
-              Lihat / Perbesar Gambar QRIS ↗
+              {t("upload_modal.view_qris")}
             </Button>
           </div>
 
           {/* Step-by-Step Instructions */}
           <div className={classes.instructionBox}>
             <Text size="xs" fw={700} c="blue.3" mb="xs">
-              Instruksi Pembayaran Manual:
+              {t("upload_modal.instruction_title")}
             </Text>
             <Stack gap="xs">
               <div className={classes.instructionStep}>
                 <div className={classes.stepNumber}>1</div>
                 <Text size="xs" c="gray.3">
-                  <strong>Pindai (Scan) QRIS</strong> di atas menggunakan e-wallet (GoPay, OVO, DANA, ShopeePay, LinkAja) atau aplikasi Mobile Banking (BCA, Mandiri, BRI, BNI, Jago, dll).
+                  {t("upload_modal.instruction_step1")}
                 </Text>
               </div>
               <div className={classes.instructionStep}>
                 <div className={classes.stepNumber}>2</div>
                 <Text size="xs" c="gray.3">
-                  <strong>Masukkan nominal manual</strong> tepat sebesar{" "}
-                  <strong style={{ color: "#60a5fa" }}>
-                    {uploadInvoice ? formatIdr(uploadInvoice.amountIdr) : ""}
-                  </strong>{" "}
-                  (sesuai harga paket).
+                  {t("upload_modal.instruction_step2", {
+                    amount: uploadInvoice ? formatIdr(uploadInvoice.amountIdr) : "",
+                  })}
                 </Text>
               </div>
               <div className={classes.instructionStep}>
                 <div className={classes.stepNumber}>3</div>
                 <Text size="xs" c="gray.3">
-                  Selesaikan transaksi dan <strong>simpan struk atau tangkapan layar (screenshot) bukti pembayaran</strong> Anda.
+                  {t("upload_modal.instruction_step3")}
                 </Text>
               </div>
               <div className={classes.instructionStep}>
                 <div className={classes.stepNumber}>4</div>
                 <Text size="xs" c="gray.3">
-                  <strong>Unggah bukti pembayaran</strong> pada formulir di bawah ini, lalu klik tombol <strong>Kirim Bukti Pembayaran</strong>.
+                  {t("upload_modal.instruction_step4")}
                 </Text>
               </div>
             </Stack>
@@ -920,9 +923,9 @@ export function OrderClient(props: {
 
           {/* File Input */}
           <FileInput
-            label="Unggah File Bukti Pembayaran"
-            description="Format yang didukung: JPG, PNG, WebP, atau PDF (maks. 5MB)"
-            placeholder="Pilih foto / tangkapan layar bukti transfer..."
+            label={t("upload_modal.file_label")}
+            description={t("upload_modal.file_desc")}
+            placeholder={t("upload_modal.file_placeholder")}
             accept="image/jpeg,image/png,image/webp,application/pdf"
             value={selectedFile}
             onChange={setSelectedFile}
@@ -942,7 +945,7 @@ export function OrderClient(props: {
               }}
               disabled={busy}
             >
-              Tutup
+              {t("upload_modal.btn_close")}
             </Button>
             <Button
               variant="gradient"
@@ -952,7 +955,7 @@ export function OrderClient(props: {
               loading={busy}
               fw={700}
             >
-              Kirim Bukti Pembayaran
+              {t("upload_modal.btn_submit")}
             </Button>
           </Group>
         </Stack>
@@ -967,7 +970,7 @@ export function OrderClient(props: {
         title={
           <Group gap="xs">
             <Text fw={700} size="md" c="red.4">
-              Batalkan Pesanan?
+              {t("cancel_modal.title")}
             </Text>
             {cancelingInvoice?.uniqueCode && (
               <Badge variant="light" color="red" size="sm">
@@ -985,7 +988,7 @@ export function OrderClient(props: {
           <div className={classes.cancelModalCard}>
             <Group justify="space-between" mb="xs">
               <Text size="xs" c="dimmed">
-                Nomor Tagihan
+                {t("cancel_modal.invoice_number")}
               </Text>
               <Text size="sm" fw={600}>
                 {cancelingInvoice?.uniqueCode}
@@ -993,7 +996,7 @@ export function OrderClient(props: {
             </Group>
             <Group justify="space-between" mb="xs">
               <Text size="xs" c="dimmed">
-                Total Nominal
+                {t("cancel_modal.total_amount")}
               </Text>
               <Text size="sm" fw={700} c="red.4">
                 {cancelingInvoice ? formatIdr(cancelingInvoice.amountIdr) : ""}
@@ -1001,16 +1004,16 @@ export function OrderClient(props: {
             </Group>
             <Group justify="space-between">
               <Text size="xs" c="dimmed">
-                Jumlah Paket
+                {t("cancel_modal.package_amount")}
               </Text>
               <Text size="sm" fw={600}>
-                +{cancelingInvoice?.points} Sparks
+                {t("cancel_modal.sparks_unit", { count: cancelingInvoice?.points ?? 0 })}
               </Text>
             </Group>
           </div>
 
           <Text size="xs" c="dimmed">
-            Setelah dibatalkan, tagihan ini tidak dapat diproses lagi dan Anda dapat membuat pesanan baru kapan saja.
+            {t("cancel_modal.notice")}
           </Text>
 
           <Group justify="flex-end" mt="xs" gap="sm">
@@ -1019,7 +1022,7 @@ export function OrderClient(props: {
               onClick={() => setCancelingInvoice(null)}
               disabled={busy}
             >
-              Kembali
+              {t("cancel_modal.btn_back")}
             </Button>
             <Button
               color="red"
@@ -1028,7 +1031,7 @@ export function OrderClient(props: {
               loading={busy}
               fw={600}
             >
-              Ya, Batalkan Pesanan
+              {t("cancel_modal.btn_confirm")}
             </Button>
           </Group>
         </Stack>
@@ -1043,7 +1046,7 @@ export function OrderClient(props: {
         title={
           <Group gap="xs">
             <Text fw={700} size="md">
-              Pilih Metode Pembayaran
+              {t("choice_modal.title")}
             </Text>
             {choiceInvoice?.uniqueCode && (
               <Badge variant="light" color="blue" size="sm">
@@ -1062,7 +1065,7 @@ export function OrderClient(props: {
             <Group justify="space-between" align="center">
               <div>
                 <Text size="xs" c="dimmed">
-                  Total Tagihan Pembayaran
+                  {t("choice_modal.total_amount")}
                 </Text>
                 <Text size="xl" fw={800} c="blue.4">
                   {choiceInvoice ? formatIdr(choiceInvoice.amountIdr) : "—"}
@@ -1070,17 +1073,17 @@ export function OrderClient(props: {
               </div>
               <div style={{ textAlign: "right" }}>
                 <Text size="xs" c="dimmed">
-                  Sparks Diperoleh
+                  {t("choice_modal.sparks_earned")}
                 </Text>
                 <Text size="md" fw={700} c="green.4">
-                  +{choiceInvoice?.points?.toLocaleString()} Sparks
+                  {t("choice_modal.sparks_unit", { count: choiceInvoice?.points?.toLocaleString() ?? 0 })}
                 </Text>
               </div>
             </Group>
           </div>
 
           <Text size="xs" c="dimmed">
-            Pilih cara pembayaran yang Anda inginkan untuk menyelesaikan pesanan:
+            {t("choice_modal.description")}
           </Text>
 
           {/* Opsi 1: Online Gateway (Xendit / Midtrans) */}
@@ -1099,7 +1102,7 @@ export function OrderClient(props: {
               setBusy(true);
               const payRes = await initiatePayment(choiceInvoice.id);
               if (payRes?.paymentUrl) {
-                window.location.href = payRes.paymentUrl;
+                window.location.replace(payRes.paymentUrl);
                 return;
               }
               setBusy(false);
@@ -1109,17 +1112,28 @@ export function OrderClient(props: {
               <Stack gap={2}>
                 <Group gap="xs">
                   <Text fw={700} size="sm" c="blue.4">
-                    Bayar Online Otomatis ({activeGateway === "midtrans" ? "Midtrans" : "Xendit"})
+                    {t("choice_modal.option_online_title", {
+                      gateway:
+                        activeGateway === "midtrans"
+                          ? "Midtrans"
+                          : activeGateway === "doku"
+                            ? "DOKU"
+                            : activeGateway === "dana"
+                              ? "DANA"
+                              : activeGateway === "xendit"
+                                ? "Xendit"
+                                : "Online",
+                    })}
                   </Text>
                   <Badge color="blue" size="xs" variant="filled">
-                    Instan
+                    {t("choice_modal.badge_instant")}
                   </Badge>
                 </Group>
                 <Text size="xs" c="dimmed">
-                  QRIS, Virtual Account (BCA, Mandiri, BNI, BRI), E-Wallet (GoPay, DANA, OVO, ShopeePay).
+                  {t("choice_modal.option_online_desc")}
                 </Text>
                 <Text size="xs" c="blue.3" fw={500} mt={2}>
-                  Masa berlaku: 10 menit
+                  {t("choice_modal.online_expiry")}
                 </Text>
               </Stack>
               <Button
@@ -1128,7 +1142,7 @@ export function OrderClient(props: {
                 gradient={{ from: "#3b82f6", to: "#8b5cf6", deg: 135 }}
                 loading={busy}
               >
-                Bayar Online →
+                {t("choice_modal.btn_pay_online")}
               </Button>
             </Group>
           </Paper>
@@ -1161,17 +1175,17 @@ export function OrderClient(props: {
               <Stack gap={2}>
                 <Group gap="xs">
                   <Text fw={700} size="sm">
-                    Transfer Manual (QRIS Satulabs)
+                    {t("choice_modal.option_manual_title")}
                   </Text>
                   <Badge color="gray" size="xs" variant="light">
-                    Verifikasi Admin
+                    {t("choice_modal.badge_admin_review")}
                   </Badge>
                 </Group>
                 <Text size="xs" c="dimmed">
-                  Pindai QRIS merchant WAY2ND, GAMING dan unggah bukti transfer.
+                  {t("choice_modal.option_manual_desc")}
                 </Text>
                 <Text size="xs" c="dimmed" fw={500} mt={2}>
-                  Masa berlaku: 1 jam (60 menit)
+                  {t("choice_modal.manual_expiry")}
                 </Text>
               </Stack>
               <Button
@@ -1179,7 +1193,7 @@ export function OrderClient(props: {
                 variant="light"
                 color="blue"
               >
-                Pilih Manual →
+                {t("choice_modal.btn_select_manual")}
               </Button>
             </Group>
           </Paper>
@@ -1192,7 +1206,7 @@ export function OrderClient(props: {
               onClick={() => setChoiceInvoice(null)}
               disabled={busy}
             >
-              Tutup
+              {t("choice_modal.btn_close")}
             </Button>
           </Group>
         </Stack>
