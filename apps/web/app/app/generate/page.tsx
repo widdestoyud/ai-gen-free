@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { fetchUserApi } from "@/lib/server-api";
 import type { JobsListView, JobView } from "@/lib/job-status";
-import { type Model, GeneratePageView } from "@/views/app/generate";
+import { type Model, GeneratePageView, GenerateSkeleton } from "@/views/app/generate";
 
 export const metadata: Metadata = {
   title: "AI Studio — Generate Image & Video",
@@ -37,21 +37,27 @@ async function load() {
   };
 }
 
-export default async function AppGeneratePage() {
+async function GeneratePageContent() {
   const data = await load();
   if (!data) redirect("/");
   return (
-    <Suspense fallback={null}>
-      <GeneratePageView
-        available={data.wallet.available}
-        held={data.wallet.held}
-        models={data.models}
-        defaults={data.defaults}
-        jobs={data.jobs}
-        nextGenerateAt={data.nextGenerateAt}
-        initialSpicyModeEnabled={data.spicyModeEnabled}
-        initialUploadPolicyAccepted={data.uploadPolicyAccepted}
-      />
+    <GeneratePageView
+      available={data.wallet.available}
+      held={data.wallet.held}
+      models={data.models}
+      defaults={data.defaults}
+      jobs={data.jobs}
+      nextGenerateAt={data.nextGenerateAt}
+      initialSpicyModeEnabled={data.spicyModeEnabled}
+      initialUploadPolicyAccepted={data.uploadPolicyAccepted}
+    />
+  );
+}
+
+export default function AppGeneratePage() {
+  return (
+    <Suspense fallback={<GenerateSkeleton aspectRatio="1:1" />}>
+      <GeneratePageContent />
     </Suspense>
   );
 }

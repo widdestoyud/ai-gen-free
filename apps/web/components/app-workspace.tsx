@@ -321,6 +321,7 @@ export function AppWorkspace({ children }: { children: ReactNode }) {
                     key={item.href}
                     component={Link}
                     href={item.href}
+                    prefetch={true}
                     label={item.label}
                     leftSection={<Icon size={18} />}
                     active={pathname === item.href}
@@ -371,6 +372,7 @@ export function AppWorkspace({ children }: { children: ReactNode }) {
                   <Menu.Item
                     component={Link}
                     href="/app/profile"
+                    prefetch={true}
                     leftSection={<ProfileIcon size={16} />}
                     className={classes.menuItem}
                     onClick={() => close()}
@@ -382,6 +384,7 @@ export function AppWorkspace({ children }: { children: ReactNode }) {
                   <Menu.Item
                     component={Link}
                     href="/app/order"
+                    prefetch={true}
                     leftSection={<OrderIcon size={16} />}
                     className={classes.menuItem}
                     onClick={() => close()}

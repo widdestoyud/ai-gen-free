@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { LibraryPageView } from "@/views/app/library";
 
 export const metadata: Metadata = {
@@ -8,5 +9,9 @@ export const metadata: Metadata = {
 };
 
 export default function AppLibraryPage() {
-  return <LibraryPageView />;
+  return (
+    <Suspense fallback={null}>
+      <LibraryPageView />
+    </Suspense>
+  );
 }

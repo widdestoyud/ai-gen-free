@@ -18,7 +18,7 @@ export function GenerateSkeleton({
   aspectRatio = "1:1",
   progress,
 }: {
-  aspectRatio: string;
+  aspectRatio?: string;
   progress?: number;
   mediaType?: "image" | "video";
 }) {

@@ -298,6 +298,7 @@ export function LibraryView(props?: {
                     <video
                       src={resolveUploadUrl(item.url)}
                       className={classes.video}
+                      preload="none"
                       muted
                       playsInline
                       loop
@@ -309,6 +310,7 @@ export function LibraryView(props?: {
                       src={resolveUploadUrl(item.url)}
                       alt={item.prompt || item.alias || title}
                       loading="lazy"
+                      decoding="async"
                       className={classes.image}
                     />
                   )}
@@ -391,6 +393,7 @@ export function LibraryView(props?: {
                     <video
                       src={resolveUploadUrl(item.url)}
                       className={classes.listThumb}
+                      preload="none"
                       muted
                       playsInline
                     />
@@ -399,6 +402,7 @@ export function LibraryView(props?: {
                       src={resolveUploadUrl(item.url)}
                       alt={item.prompt || item.alias || title}
                       loading="lazy"
+                      decoding="async"
                       className={classes.listThumb}
                     />
                   )}
