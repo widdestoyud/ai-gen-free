@@ -18,7 +18,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, type ReactNode } from "react";
 import { useI18n } from "@/lib/i18n";
-import { LanguageSwitcher } from "./language-switcher";
 import { LogoutConfirmModal } from "./logout-confirm-modal";
 import { useLogoutConfirm } from "@/hooks/use-logout-confirm";
 import { useWallet } from "@/hooks/use-wallet";
@@ -208,6 +207,7 @@ export function AppWorkspace({ children }: { children: ReactNode }) {
   const { t, locale, setLocale } = useI18n("nav");
   const pathname = usePathname();
   const [opened, { toggle, close }] = useDisclosure();
+  const [langExpanded, setLangExpanded] = useState(false);
   const logout = useLogoutConfirm();
   const queryClient = useQueryClient();
   const wallet = useWallet();
@@ -308,10 +308,6 @@ export function AppWorkspace({ children }: { children: ReactNode }) {
                 </Title>
               </Group>
             </Group>
-
-            <Group gap="xs">
-              <LanguageSwitcher />
-            </Group>
           </Group>
         </AppShell.Header>
 
@@ -346,6 +342,7 @@ export function AppWorkspace({ children }: { children: ReactNode }) {
                 shadow="xl"
                 withinPortal
                 transitionProps={{ transition: "pop", duration: 150 }}
+                onClose={() => setLangExpanded(false)}
               >
                 <Menu.Target>
                   <UnstyledButton
@@ -393,29 +390,49 @@ export function AppWorkspace({ children }: { children: ReactNode }) {
                   </Menu.Item>
 
                   {/* 3. Bahasa */}
-                  <Menu.Sub>
-                    <Menu.Sub.Target>
-                      <Menu.Item
-                        leftSection={<GlobeIcon size={16} />}
-                        rightSection={
-                          <Text size="xs" c="dimmed" fw={600}>
-                            {locale.toUpperCase()} ❯
-                          </Text>
-                        }
-                        className={classes.menuItem}
-                      >
-                        {locale === "id" ? "Bahasa" : "Language"}
-                      </Menu.Item>
-                    </Menu.Sub.Target>
-                    <Menu.Sub.Dropdown className={classes.menuDropdown}>
+                  <Menu.Item
+                    leftSection={<GlobeIcon size={16} />}
+                    rightSection={
+                      <Group gap={4} wrap="nowrap" align="center">
+                        <Text size="xs" c="dimmed" fw={600}>
+                          {locale === "id" ? "ID" : "EN"}
+                        </Text>
+                        <span
+                          style={{
+                            fontSize: "10px",
+                            color: "#94a3b8",
+                            transform: langExpanded ? "rotate(180deg)" : "rotate(0deg)",
+                            transition: "transform 0.2s ease",
+                            display: "inline-block",
+                          }}
+                        >
+                          ▼
+                        </span>
+                      </Group>
+                    }
+                    className={classes.menuItem}
+                    closeMenuOnClick={false}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setLangExpanded((prev) => !prev);
+                    }}
+                  >
+                    {locale === "id" ? "Bahasa" : "Language"}
+                  </Menu.Item>
+
+                  {langExpanded ? (
+                    <div style={{ paddingLeft: 8, paddingRight: 4, paddingTop: 2, paddingBottom: 2 }}>
                       <Menu.Item
                         leftSection={<span style={{ fontSize: "1.1rem" }}>🇮🇩</span>}
                         rightSection={locale === "id" ? <CheckIcon size={14} /> : null}
-                        onClick={() => setLocale("id")}
+                        onClick={() => {
+                          setLocale("id");
+                          setLangExpanded(false);
+                        }}
                         fw={locale === "id" ? 700 : 400}
                         className={classes.menuItem}
                         style={{
-                          color: locale === "id" ? "#38bdf8" : "#e2e8f0",
+                          color: locale === "id" ? "#38bdf8" : "inherit",
                           backgroundColor: locale === "id" ? "rgba(56, 189, 248, 0.12)" : "transparent",
                         }}
                       >
@@ -424,18 +441,21 @@ export function AppWorkspace({ children }: { children: ReactNode }) {
                       <Menu.Item
                         leftSection={<span style={{ fontSize: "1.1rem" }}>🇬🇧</span>}
                         rightSection={locale === "en" ? <CheckIcon size={14} /> : null}
-                        onClick={() => setLocale("en")}
+                        onClick={() => {
+                          setLocale("en");
+                          setLangExpanded(false);
+                        }}
                         fw={locale === "en" ? 700 : 400}
                         className={classes.menuItem}
                         style={{
-                          color: locale === "en" ? "#38bdf8" : "#e2e8f0",
+                          color: locale === "en" ? "#38bdf8" : "inherit",
                           backgroundColor: locale === "en" ? "rgba(56, 189, 248, 0.12)" : "transparent",
                         }}
                       >
                         English
                       </Menu.Item>
-                    </Menu.Sub.Dropdown>
-                  </Menu.Sub>
+                    </div>
+                  ) : null}
 
                   <Menu.Divider style={{ borderColor: "rgba(255, 255, 255, 0.1)" }} />
 

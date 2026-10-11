@@ -508,10 +508,6 @@ export function GenerateStudio(props?: {
                     onChange={ctrl.setAspectRatio}
                   />
 
-                  <Text size="sm" c="dimmed" fw={500}>
-                    {t("sparks_balance", { count: ctrl.available })}
-                  </Text>
-
                   <button
                     type="submit"
                     className={classes.fancyGenerateBtn}
@@ -597,10 +593,6 @@ export function GenerateStudio(props?: {
                   <span>{ctrl.estimatedCost}</span>
                 </span>
               </button>
-
-              <Text size="xs" c="dimmed" ta="center" mt={4} fw={500}>
-                {t("sparks_balance", { count: ctrl.available })}
-              </Text>
             </div>
           </Paper>
         </form>
