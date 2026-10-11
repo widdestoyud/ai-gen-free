@@ -14,6 +14,11 @@
     "download": "Download",
     "copy": "Copy",
     "copied": "Copied!",
+    "cooldown": {
+      "prefix": "Next generation cooldown",
+      "until": "until",
+      "text": "Next generation cooldown: {duration} (until {time})."
+    },
     "status": {
       "queued": "Queued",
       "running": "In Progress",
@@ -105,6 +110,7 @@
       "cancel_upload": "Cancel"
     },
     "modal": {
+      "btn_cancel": "Cancel",
       "mode_upload": "UPLOADED MEDIA",
       "mode_upscale": "UPSCALE IMAGE",
       "mode_video": "GENERATED VIDEO",
@@ -160,6 +166,8 @@
     }
   },
   "generate": {
+    "btn_generate": "Generate",
+    "cooldown_text": "Next generation cooldown: {duration} (until {time}).",
     "title": "AI Generate Studio",
     "subtitle": "Create high-fidelity visuals and generative artwork in seconds.",
     "empty_state_prompt": "Write a prompt below to start generating new images. All render outputs are saved in the {link} menu.",

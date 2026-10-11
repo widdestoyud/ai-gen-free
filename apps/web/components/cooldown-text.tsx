@@ -2,32 +2,45 @@
 
 import { Text } from "@mantine/core";
 import { useEffect, useState } from "react";
-import { formatDateId, formatDurationId, remainingSeconds } from "@/lib/format";
+import { formatDate, formatDuration, remainingSeconds } from "@/lib/format";
+import { useI18n } from "@/lib/i18n";
 
 export function CooldownText({
   until,
-  prefix = "Jeda generate berikutnya",
+  prefix,
 }: {
   until?: string | null;
   prefix?: string;
 }) {
-  const [mounted, setMounted] = useState(false);
+  const { t, locale } = useI18n("common");
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
-    setMounted(true);
     if (!until) return;
+    setNow(Date.now());
     const id = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(id);
   }, [until]);
 
-  if (!mounted || !until) return null;
+  if (!until) return null;
   const remaining = remainingSeconds(until, now);
   if (remaining <= 0) return null;
 
+  const defaultPrefix = t("cooldown.prefix");
+  const activePrefix =
+    prefix ||
+    (defaultPrefix !== "cooldown.prefix"
+      ? defaultPrefix
+      : locale === "en"
+        ? "Next generation cooldown"
+        : "Jeda generate berikutnya");
+  const durationText = formatDuration(remaining, locale);
+  const dateText = formatDate(until, locale);
+  const untilText = locale === "en" ? `until ${dateText}` : `sampai ${dateText}`;
+
   return (
     <Text suppressHydrationWarning>
-      {prefix}: <strong>{formatDurationId(remaining)}</strong> (sampai {formatDateId(until)}).
+      {activePrefix}: <strong>{durationText}</strong> ({untilText}).
     </Text>
   );
 }

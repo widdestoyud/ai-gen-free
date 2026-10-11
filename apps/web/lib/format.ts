@@ -2,18 +2,25 @@ export function formatIdr(amount: number): string {
   return `Rp${amount.toLocaleString("id-ID")}`;
 }
 
-const MONTH_NAMES_SHORT = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
+const MONTH_NAMES_SHORT_ID = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
+const MONTH_NAMES_SHORT_EN = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const MONTH_NAMES_SHORT = MONTH_NAMES_SHORT_ID;
 
-export function formatDateId(iso?: string | null): string {
+export function formatDate(iso?: string | null, locale = "id"): string {
   if (!iso) return "-";
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "-";
   const day = d.getDate();
-  const month = MONTH_NAMES_SHORT[d.getMonth()] || "";
+  const months = locale === "en" ? MONTH_NAMES_SHORT_EN : MONTH_NAMES_SHORT_ID;
+  const month = months[d.getMonth()] || "";
   const year = d.getFullYear();
   const hours = String(d.getHours()).padStart(2, "0");
   const minutes = String(d.getMinutes()).padStart(2, "0");
   return `${day} ${month} ${year}, ${hours}:${minutes}`;
+}
+
+export function formatDateId(iso?: string | null): string {
+  return formatDate(iso, "id");
 }
 
 export function formatCooldownHours(seconds: number): number {
@@ -27,15 +34,25 @@ export function remainingSeconds(iso: string | null | undefined, now = Date.now(
   return Math.max(0, Math.ceil((t - now) / 1000));
 }
 
-export function formatDurationId(totalSeconds: number): string {
+export function formatDuration(totalSeconds: number, locale = "id"): string {
   const s = Math.max(0, Math.ceil(totalSeconds));
   const h = Math.floor(s / 3600);
   const m = Math.floor((s % 3600) / 60);
   const sec = s % 60;
+  if (locale === "en") {
+    if (h > 0 && m > 0) return `${h}h ${m}m`;
+    if (h > 0) return `${h}h`;
+    if (m > 0) return `${m}m`;
+    return `${sec}s`;
+  }
   if (h > 0 && m > 0) return `${h} jam ${m} menit`;
   if (h > 0) return `${h} jam`;
   if (m > 0) return `${m} menit`;
   return `${sec} detik`;
+}
+
+export function formatDurationId(totalSeconds: number): string {
+  return formatDuration(totalSeconds, "id");
 }
 
 export function resolveUploadUrl(url: string | null | undefined, id?: string): string {

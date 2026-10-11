@@ -14,6 +14,11 @@
     "download": "Unduh",
     "copy": "Salin",
     "copied": "Tersalin!",
+    "cooldown": {
+      "prefix": "Jeda generate berikutnya",
+      "until": "sampai",
+      "text": "Jeda generate berikutnya: {duration} (sampai {time})."
+    },
     "status": {
       "queued": "Antrean",
       "running": "Sedang Proses",
@@ -105,6 +110,7 @@
       "cancel_upload": "Batalkan"
     },
     "modal": {
+      "btn_cancel": "Batal",
       "mode_upload": "UNGGAHAN MEDIA",
       "mode_upscale": "PENINGKATAN RESOLUSI",
       "mode_video": "HASIL KREASI VIDEO",
@@ -160,6 +166,8 @@
     }
   },
   "generate": {
+    "btn_generate": "Buat Visual",
+    "cooldown_text": "Jeda generate berikutnya: {duration} (sampai {time}).",
     "title": "Studio Kreasi AI",
     "subtitle": "Kreasikan gambar dan visual berkualitas tinggi dalam hitungan detik.",
     "empty_state_prompt": "Tulis deskripsi ide di bawah untuk mulai membuat gambar baru. Semua hasil kreasi tersimpan di menu {link}.",

@@ -41,6 +41,46 @@ function interpolate(template: string, params?: TranslationParams): string {
   });
 }
 
+function resolveTranslation(
+  locale: Locale,
+  key: string,
+  namespace?: string,
+): string | undefined {
+  const dict = DICTIONARIES[locale] || DICTIONARIES[DEFAULT_LOCALE];
+  const fallbackDict = DICTIONARIES[DEFAULT_LOCALE];
+
+  // 1. Try namespace.key if namespace provided
+  if (namespace) {
+    const scopedKey = `${namespace}.${key}`;
+    const scopedVal = getNestedValue(dict, scopedKey) ?? (locale !== DEFAULT_LOCALE ? getNestedValue(fallbackDict, scopedKey) : undefined);
+    if (scopedVal !== undefined) return scopedVal;
+  }
+
+  // 2. Fallback to direct key at root
+  const directVal = getNestedValue(dict, key) ?? (locale !== DEFAULT_LOCALE ? getNestedValue(fallbackDict, key) : undefined);
+  if (directVal !== undefined) return directVal;
+
+  return undefined;
+}
+
+function hasTranslation(
+  locale: Locale,
+  key: string,
+  namespace?: string,
+): boolean {
+  const dict = DICTIONARIES[locale] || DICTIONARIES[DEFAULT_LOCALE];
+  const fallbackDict = DICTIONARIES[DEFAULT_LOCALE];
+
+  if (namespace) {
+    const scopedKey = `${namespace}.${key}`;
+    if (getNestedValue(dict, scopedKey) !== undefined || getNestedValue(fallbackDict, scopedKey) !== undefined) {
+      return true;
+    }
+  }
+
+  return getNestedValue(dict, key) !== undefined || getNestedValue(fallbackDict, key) !== undefined;
+}
+
 const I18nContext = createContext<I18nContextValue | null>(null);
 
 export interface I18nProviderProps {
@@ -72,26 +112,14 @@ export function I18nProvider({ initialLocale = DEFAULT_LOCALE, children }: I18nP
   const createTranslator = useCallback(
     (namespace?: string): I18nTranslator => {
       const translator: I18nTranslator = (key: string, params?: TranslationParams) => {
-        const fullKey = namespace ? `${namespace}.${key}` : key;
-        const dict = DICTIONARIES[locale] || DICTIONARIES[DEFAULT_LOCALE];
-        let text = getNestedValue(dict, fullKey);
-
-        if (!text && locale !== DEFAULT_LOCALE) {
-          text = getNestedValue(DICTIONARIES[DEFAULT_LOCALE], fullKey);
-        }
-
+        const text = resolveTranslation(locale, key, namespace);
         if (!text) {
-          return fullKey;
+          return namespace ? `${namespace}.${key}` : key;
         }
-
         return interpolate(text, params);
       };
 
-      translator.has = (key: string) => {
-        const fullKey = namespace ? `${namespace}.${key}` : key;
-        const dict = DICTIONARIES[locale] || DICTIONARIES[DEFAULT_LOCALE];
-        return getNestedValue(dict, fullKey) !== undefined;
-      };
+      translator.has = (key: string) => hasTranslation(locale, key, namespace);
 
       return translator;
     },
@@ -121,26 +149,14 @@ export function useI18n(namespace?: string): I18nHookResult {
 
   const scopedT = useMemo<I18nTranslator>(() => {
     const translator: I18nTranslator = (key: string, params?: TranslationParams) => {
-      const fullKey = namespace ? `${namespace}.${key}` : key;
-      const dict = DICTIONARIES[activeLocale] || DICTIONARIES[DEFAULT_LOCALE];
-      let text = getNestedValue(dict, fullKey);
-
-      if (!text && activeLocale !== DEFAULT_LOCALE) {
-        text = getNestedValue(DICTIONARIES[DEFAULT_LOCALE], fullKey);
-      }
-
+      const text = resolveTranslation(activeLocale, key, namespace);
       if (!text) {
-        return fullKey;
+        return namespace ? `${namespace}.${key}` : key;
       }
-
       return interpolate(text, params);
     };
 
-    translator.has = (key: string) => {
-      const fullKey = namespace ? `${namespace}.${key}` : key;
-      const dict = DICTIONARIES[activeLocale] || DICTIONARIES[DEFAULT_LOCALE];
-      return getNestedValue(dict, fullKey) !== undefined;
-    };
+    translator.has = (key: string) => hasTranslation(activeLocale, key, namespace);
 
     return translator;
   }, [activeLocale, namespace]);
@@ -160,22 +176,15 @@ export function useI18n(namespace?: string): I18nHookResult {
  * Server Component i18n translation resolver
  */
 export function getI18n(namespace?: string, locale: Locale = DEFAULT_LOCALE): { t: I18nTranslator; locale: Locale } {
-  const dict = DICTIONARIES[locale] || DICTIONARIES[DEFAULT_LOCALE];
-
   const t: I18nTranslator = (key: string, params?: TranslationParams) => {
-    const fullKey = namespace ? `${namespace}.${key}` : key;
-    let text = getNestedValue(dict, fullKey);
-    if (!text && locale !== DEFAULT_LOCALE) {
-      text = getNestedValue(DICTIONARIES[DEFAULT_LOCALE], fullKey);
+    const text = resolveTranslation(locale, key, namespace);
+    if (!text) {
+      return namespace ? `${namespace}.${key}` : key;
     }
-    if (!text) return fullKey;
     return interpolate(text, params);
   };
 
-  t.has = (key: string) => {
-    const fullKey = namespace ? `${namespace}.${key}` : key;
-    return getNestedValue(dict, fullKey) !== undefined;
-  };
+  t.has = (key: string) => hasTranslation(locale, key, namespace);
 
   return { t, locale };
 }

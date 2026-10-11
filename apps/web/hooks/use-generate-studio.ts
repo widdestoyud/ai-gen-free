@@ -315,7 +315,12 @@ export function useGenerateStudio(props?: {
       }
     }
     if (jobsQuery.data?.nextGenerateAt !== undefined) {
-      setCooldownUntil(jobsQuery.data.nextGenerateAt);
+      const serverUntil = jobsQuery.data.nextGenerateAt;
+      if (serverUntil && remainingSeconds(serverUntil, Date.now()) > 0) {
+        setCooldownUntil(serverUntil);
+      } else {
+        setCooldownUntil(null);
+      }
     }
   }, [jobsQuery.data]);
 
@@ -395,7 +400,7 @@ export function useGenerateStudio(props?: {
   const active = activeJob ?? jobs.find((j) => isJobActive(j.status));
   const isGenerating = busy || Boolean(activeJobId) || Boolean(active);
   const gallery = jobs.filter((j) => j.status === "succeeded" && hasLiveOutput(j.output) && isJobImage(j));
-  const cooldownLeft = remainingSeconds(cooldownUntil, now);
+  const cooldownLeft = cooldownUntil ? remainingSeconds(cooldownUntil, now) : 0;
   const waiting = errorCode === "JOB_IN_PROGRESS" || errorCode === "COOLDOWN";
   const signedKey = jobs
     .filter((j) => hasLiveOutput(j.output) && j.output.signedExpiresAt)
@@ -503,7 +508,12 @@ export function useGenerateStudio(props?: {
       }
     }
     if (props?.nextGenerateAt !== undefined) {
-      setCooldownUntil(props.nextGenerateAt);
+      const serverUntil = props.nextGenerateAt;
+      if (serverUntil && remainingSeconds(serverUntil, Date.now()) > 0) {
+        setCooldownUntil(serverUntil);
+      } else {
+        setCooldownUntil(null);
+      }
     }
   }, [props?.jobs, props?.nextGenerateAt]);
 
@@ -528,14 +538,21 @@ export function useGenerateStudio(props?: {
 
   useEffect(() => {
     if (!cooldownUntil) return;
-    const initialLeft = remainingSeconds(cooldownUntil, Date.now());
-    if (initialLeft <= 0) return;
-
-    setNow(Date.now());
-    const tick = window.setInterval(() => {
-      const current = Date.now();
+    const current = Date.now();
+    const initialLeft = remainingSeconds(cooldownUntil, current);
+    if (initialLeft <= 0) {
+      setCooldownUntil(null);
       setNow(current);
-      if (remainingSeconds(cooldownUntil, current) <= 0) {
+      return;
+    }
+
+    setNow(current);
+    const tick = window.setInterval(() => {
+      const nowMs = Date.now();
+      const left = remainingSeconds(cooldownUntil, nowMs);
+      setNow(nowMs);
+      if (left <= 0) {
+        setCooldownUntil(null);
         window.clearInterval(tick);
       }
     }, 1000);
@@ -565,7 +582,11 @@ export function useGenerateStudio(props?: {
         if (hasLiveOutput(data.output)) {
           setLastGeneratedJob(data);
         }
-        setCooldownUntil(data.nextGenerateAt ?? null);
+        if (data.nextGenerateAt && remainingSeconds(data.nextGenerateAt, Date.now()) > 0) {
+          setCooldownUntil(data.nextGenerateAt);
+        } else {
+          setCooldownUntil(null);
+        }
         setActiveJobId(null);
         setActiveJob(null);
         setJobs((prev) => [data, ...prev.filter((j) => j.id !== data.id)]);
@@ -644,7 +665,11 @@ export function useGenerateStudio(props?: {
         const result = await requestJson<JobsListView>("/api/generate");
         if (result.ok && result.data?.jobs) {
           setJobs(result.data.jobs);
-          setCooldownUntil(result.data.nextGenerateAt ?? null);
+          if (result.data.nextGenerateAt && remainingSeconds(result.data.nextGenerateAt, Date.now()) > 0) {
+            setCooldownUntil(result.data.nextGenerateAt);
+          } else {
+            setCooldownUntil(null);
+          }
         }
       })();
     }, delay);

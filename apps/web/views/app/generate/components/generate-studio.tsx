@@ -152,7 +152,7 @@ export function GenerateStudio(props?: {
           />
         ) : hasLiveJobOutput(lastJob) ? (
           <div className={classes.previewContainerFull}>
-            {ctrl.cooldownLeft > 0 ? (
+            {ctrl.cooldownUntil && ctrl.cooldownLeft > 0 ? (
               <Alert color="yellow" variant="light" radius="md" className={classes.stageAlert}>
                 <CooldownText until={ctrl.cooldownUntil} />
               </Alert>
@@ -192,7 +192,11 @@ export function GenerateStudio(props?: {
                 </div>
               )
             ) : null}
-            {ctrl.cooldownLeft > 0 ? <CooldownText until={ctrl.cooldownUntil} /> : null}
+            {ctrl.cooldownUntil && ctrl.cooldownLeft > 0 ? (
+              <Alert color="yellow" variant="light" radius="md" className={classes.stageAlert}>
+                <CooldownText until={ctrl.cooldownUntil} />
+              </Alert>
+            ) : null}
             <EmptyState>
               {t("empty_state_prompt", { link: "___SPLIT___" }).split("___SPLIT___")[0]}
               <AppLink href="/app/library">{t("library_link")}</AppLink>
