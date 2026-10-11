@@ -307,7 +307,7 @@ export function LibraryView(props?: {
                     />
                   ) : (
                     <img
-                      src={resolveUploadUrl(item.url)}
+                      src={resolveUploadUrl(item.url, undefined, true)}
                       alt={item.prompt || item.alias || title}
                       loading="lazy"
                       decoding="async"
@@ -399,7 +399,7 @@ export function LibraryView(props?: {
                     />
                   ) : (
                     <img
-                      src={resolveUploadUrl(item.url)}
+                      src={resolveUploadUrl(item.url, undefined, true)}
                       alt={item.prompt || item.alias || title}
                       loading="lazy"
                       decoding="async"

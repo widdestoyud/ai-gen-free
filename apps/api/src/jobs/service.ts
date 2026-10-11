@@ -467,7 +467,7 @@ export async function listCustomerLibrary(opts: {
           size_bytes: asset?.bytes ?? null,
           created_at: row.createdAt.toISOString(),
           expires_at: asset?.expiresAt ? asset.expiresAt.toISOString() : null,
-          params: (row.params as Record<string, unknown>) ?? null,
+          params: sanitizeJobParams(row.params),
           is_spicy: spicy,
         });
       }
@@ -778,6 +778,28 @@ function toAccepted(job: { id: string; status: string; cost: Prisma.Decimal | nu
   };
 }
 
+export function sanitizeJobParams(params: unknown): Record<string, unknown> {
+  if (!params || typeof params !== "object" || Array.isArray(params)) {
+    return {};
+  }
+  const raw = params as Record<string, unknown>;
+  const clean: Record<string, unknown> = {};
+
+  for (const [key, value] of Object.entries(raw)) {
+    // Lewati mask base64 besar yang tidak pernah dipakai frontend list/galeri
+    if (key === "mask" || key === "mask_url" || key === "maskDataUrl") {
+      continue;
+    }
+    // Jika value string adalah data URL base64 yang sangat panjang (> 512 bytes), jangan sertakan
+    if (typeof value === "string" && value.startsWith("data:") && value.length > 512) {
+      continue;
+    }
+    clean[key] = value;
+  }
+
+  return clean;
+}
+
 async function serializeJob(
   job: {
     id: string;
@@ -806,7 +828,7 @@ async function serializeJob(
     mode: job.mode,
     modelId: toOpaqueModelId(job.mode, job.modelId),
     prompt: job.prompt,
-    params: (job.params as Record<string, unknown>) ?? {},
+    params: sanitizeJobParams(job.params),
     cost: Number(job.cost),
     progressPct: job.progressPct,
     errorCode: job.status === "failed" ? job.errorCode : null,

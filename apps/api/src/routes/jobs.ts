@@ -1,4 +1,5 @@
 import type { FastifyInstance } from "fastify";
+import sharp from "sharp";
 import type { Queue } from "bullmq";
 import { ErrorCodes, jobClientErrorMessage, type ObjectStorage } from "@ai-gen-free/core";
 import { prisma } from "@ai-gen-free/db";
@@ -478,15 +479,46 @@ export async function registerJobRoutes(
     if (!session) return;
     try {
       const { jobId } = req.params as { jobId: string };
+      const q = (req.query ?? {}) as { thumb?: string; w?: string };
+      const isThumbRequested = q.thumb === "1" || q.thumb === "true" || Boolean(q.w);
+      const targetWidth = q.w ? Math.min(Math.max(parseInt(q.w, 10) || 360, 64), 1080) : 360;
+
       const file = await getJobOutputFileForUser({
         userId: session.userId,
         id: jobId,
         storage: deps.storage,
       });
-      reply.header("Content-Type", file.contentType);
-      reply.header("Cache-Control", "private, max-age=86400, stale-while-revalidate=604800");
+
+      const isImage = (file.contentType || "").startsWith("image/");
+      const etagSuffix = isThumbRequested && isImage ? `-thumb-${targetWidth}` : "";
+      const etag = `W/"${jobId}${etagSuffix}"`;
+
+      if (req.headers["if-none-match"] === etag) {
+        reply.header("ETag", etag);
+        reply.header("Cache-Control", "private, max-age=31536000, immutable");
+        return reply.status(304).send();
+      }
+
+      let bodyBytes = Buffer.from(file.bytes);
+      let outContentType = file.contentType;
+
+      if (isThumbRequested && isImage) {
+        try {
+          bodyBytes = await sharp(bodyBytes)
+            .resize({ width: targetWidth, withoutEnlargement: true })
+            .webp({ quality: 80 })
+            .toBuffer();
+          outContentType = "image/webp";
+        } catch {
+          // Graceful fallback to original bytes
+        }
+      }
+
+      reply.header("Content-Type", outContentType);
+      reply.header("Cache-Control", "private, max-age=31536000, immutable");
+      reply.header("ETag", etag);
       reply.header("Content-Disposition", "inline");
-      return reply.send(Buffer.from(file.bytes));
+      return reply.send(bodyBytes);
     } catch (err) {
       return sendError(reply, err);
     }

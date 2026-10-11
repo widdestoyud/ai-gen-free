@@ -55,24 +55,27 @@ export function formatDurationId(totalSeconds: number): string {
   return formatDuration(totalSeconds, "id");
 }
 
-export function resolveUploadUrl(url: string | null | undefined, id?: string): string {
-  if (!url) return id ? `/api/customer-uploads/${id}/file` : "";
-  if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("blob:") || url.startsWith("data:")) {
+export function resolveUploadUrl(url: string | null | undefined, id?: string, thumb = false): string {
+  if (!url) return id ? `/api/customer-uploads/${id}/file${thumb ? "?thumb=1" : ""}` : "";
+  if (url.startsWith("blob:") || url.startsWith("data:")) {
     return url;
   }
-  if (url.startsWith("/customer/uploads/")) {
-    return `/api${url}`;
+  let resolved = url;
+  if (url.startsWith("http://") || url.startsWith("https://")) {
+    resolved = url;
+  } else if (url.startsWith("/customer/uploads/") || url.startsWith("/customer/generated/") || url.startsWith("/admin/uploads/")) {
+    resolved = `/api${url}`;
+  } else if (url.startsWith("/api/")) {
+    resolved = url;
+  } else {
+    resolved = url.startsWith("/") ? `/api${url}` : `/api/${url}`;
   }
-  if (url.startsWith("/customer/generated/")) {
-    return `/api${url}`;
+
+  if (thumb && !resolved.includes(".mp4") && !resolved.includes("video")) {
+    resolved += (resolved.includes("?") ? "&" : "?") + "thumb=1";
   }
-  if (url.startsWith("/admin/uploads/")) {
-    return `/api${url}`;
-  }
-  if (url.startsWith("/api/")) {
-    return url;
-  }
-  return url.startsWith("/") ? `/api${url}` : `/api/${url}`;
+
+  return resolved;
 }
 export function formatRelativeTime(iso?: string | null): string {
   if (!iso) return "";

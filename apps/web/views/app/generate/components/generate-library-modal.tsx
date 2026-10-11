@@ -20,6 +20,7 @@ import { CheckIcon, PencilIcon, TrashIcon, ZoomIcon } from "./generate-icons";
 import { isJobImage, type JobView } from "@/lib/job-status";
 import type { StudioUpload } from "@/hooks/use-generate-studio";
 import { useI18n } from "@/lib/i18n";
+import { resolveUploadUrl } from "@/lib/format";
 import classes from "./generate-studio.module.css";
 
 const UPLOADS_PER_PAGE = 15;
@@ -238,7 +239,7 @@ export function GenerateLibraryModal({
               <SimpleGrid cols={{ base: 2, sm: 2, md: 4 }} spacing="xs" className={classes.libraryGrid}>
                 {imageGenerations.map((job) => {
                   const selected = isSelected(job.id);
-                  const url = job.output?.url ?? "";
+                  const url = resolveUploadUrl(job.output?.url, undefined, true);
                   return (
                     <div key={job.id} className={classes.tileWrapper}>
                       <UnstyledButton
@@ -325,7 +326,7 @@ export function GenerateLibraryModal({
                           aria-label={item.name}
                         >
                           <img
-                            src={item.url}
+                            src={resolveUploadUrl(item.url, item.id, true)}
                             alt={item.name}
                             className={`${item.uploading ? classes.tileBlur : ""} ${selected ? classes.tileDimmed : ""}`}
                           />
