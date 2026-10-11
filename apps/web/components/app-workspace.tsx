@@ -1,8 +1,19 @@
 "use client";
 
-import { AppShell, Burger, Group, NavLink, Stack, Title } from "@mantine/core";
+import {
+  AppShell,
+  Burger,
+  Divider,
+  Group,
+  Menu,
+  NavLink,
+  Stack,
+  Text,
+  Title,
+  UnstyledButton,
+} from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, type ReactNode } from "react";
@@ -10,6 +21,8 @@ import { useI18n } from "@/lib/i18n";
 import { LanguageSwitcher } from "./language-switcher";
 import { LogoutConfirmModal } from "./logout-confirm-modal";
 import { useLogoutConfirm } from "@/hooks/use-logout-confirm";
+import { useWallet } from "@/hooks/use-wallet";
+import { requestJson } from "@/lib/api";
 import { queryKeys } from "@/lib/query-keys";
 import classes from "./app-workspace.module.css";
 
@@ -113,6 +126,64 @@ function OrderIcon({ size = 18 }: { size?: number }) {
   );
 }
 
+function GlobeIcon({ size = 16 }: { size?: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <circle cx="12" cy="12" r="10" />
+      <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" />
+      <path d="M2 12h20" />
+    </svg>
+  );
+}
+
+function CheckIcon({ size = 14 }: { size?: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <polyline points="20 6 9 17 4 12" />
+    </svg>
+  );
+}
+
+function MoreHorizontalIcon({ size = 18 }: { size?: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <circle cx="12" cy="12" r="1.5" />
+      <circle cx="19" cy="12" r="1.5" />
+      <circle cx="5" cy="12" r="1.5" />
+    </svg>
+  );
+}
+
 function LogoutIcon({ size = 18 }: { size?: number }) {
   return (
     <svg
@@ -134,18 +205,34 @@ function LogoutIcon({ size = 18 }: { size?: number }) {
 }
 
 export function AppWorkspace({ children }: { children: ReactNode }) {
-  const { t } = useI18n("nav");
+  const { t, locale, setLocale } = useI18n("nav");
   const pathname = usePathname();
   const [opened, { toggle, close }] = useDisclosure();
   const logout = useLogoutConfirm();
   const queryClient = useQueryClient();
+  const wallet = useWallet();
+
+  const { data: profileData } = useQuery<{
+    user?: { email?: string; displayName?: string; avatarUrl?: string };
+  }>({
+    queryKey: queryKeys.customerProfile(),
+    queryFn: async () => {
+      const res = await requestJson<{
+        user?: { email?: string; displayName?: string; avatarUrl?: string };
+      }>("/api/customer-profile");
+      return res.ok && res.data ? res.data : {};
+    },
+    staleTime: 30000,
+  });
+
+  const user = profileData?.user;
+  const userName = user?.displayName?.trim() || user?.email || "Pengguna";
+  const userInitial = (user?.displayName?.trim()?.[0] || user?.email?.[0] || "P").toUpperCase();
 
   const navItems = [
     { href: "/app/generate", label: t("generate"), icon: SparklesIcon },
     { href: "/app/library", label: t("library"), icon: LibraryIcon },
-    { href: "/app/profile", label: t("profile"), icon: ProfileIcon },
     { href: "/app/billing", label: t("billing"), icon: BillingIcon },
-    { href: "/app/order", label: t("order"), icon: OrderIcon },
   ];
 
   // Close mobile navbar on route changes
@@ -247,16 +334,127 @@ export function AppWorkspace({ children }: { children: ReactNode }) {
                 );
               })}
             </Stack>
-            <NavLink
-              label={t("logout")}
-              leftSection={<LogoutIcon size={18} />}
-              className={classes.logout}
-              onClick={(event) => {
-                event.preventDefault();
-                close();
-                logout.openConfirm();
-              }}
-            />
+
+            {/* Bottom Section: User Info Card & Ellipsis Menu */}
+            <div className={classes.bottomSection}>
+              <Divider my="xs" color="rgba(255, 255, 255, 0.08)" />
+
+              <Menu
+                position="top-start"
+                offset={10}
+                width={220}
+                shadow="xl"
+                withinPortal
+                transitionProps={{ transition: "pop", duration: 150 }}
+              >
+                <Menu.Target>
+                  <UnstyledButton
+                    className={classes.userCard}
+                    aria-label="Menu akun pengguna"
+                  >
+                    <div className={classes.userAvatar}>
+                      {userInitial}
+                    </div>
+                    <div className={classes.userInfo}>
+                      <span className={classes.userName} title={userName}>
+                        {userName}
+                      </span>
+                      <span className={classes.userSparks}>
+                        {wallet.available.toLocaleString()} Sparks
+                      </span>
+                    </div>
+                    <div className={classes.moreIcon}>
+                      <MoreHorizontalIcon size={18} />
+                    </div>
+                  </UnstyledButton>
+                </Menu.Target>
+
+                <Menu.Dropdown className={classes.menuDropdown}>
+                  {/* 1. Profil */}
+                  <Menu.Item
+                    component={Link}
+                    href="/app/profile"
+                    leftSection={<ProfileIcon size={16} />}
+                    className={classes.menuItem}
+                    onClick={() => close()}
+                  >
+                    {t("profile")}
+                  </Menu.Item>
+
+                  {/* 2. Pesanan */}
+                  <Menu.Item
+                    component={Link}
+                    href="/app/order"
+                    leftSection={<OrderIcon size={16} />}
+                    className={classes.menuItem}
+                    onClick={() => close()}
+                  >
+                    {t("order")}
+                  </Menu.Item>
+
+                  {/* 3. Bahasa */}
+                  <Menu.Sub>
+                    <Menu.Sub.Target>
+                      <Menu.Item
+                        leftSection={<GlobeIcon size={16} />}
+                        rightSection={
+                          <Text size="xs" c="dimmed" fw={600}>
+                            {locale.toUpperCase()} ❯
+                          </Text>
+                        }
+                        className={classes.menuItem}
+                      >
+                        {locale === "id" ? "Bahasa" : "Language"}
+                      </Menu.Item>
+                    </Menu.Sub.Target>
+                    <Menu.Sub.Dropdown className={classes.menuDropdown}>
+                      <Menu.Item
+                        leftSection={<span style={{ fontSize: "1.1rem" }}>🇮🇩</span>}
+                        rightSection={locale === "id" ? <CheckIcon size={14} /> : null}
+                        onClick={() => setLocale("id")}
+                        fw={locale === "id" ? 700 : 400}
+                        className={classes.menuItem}
+                        style={{
+                          color: locale === "id" ? "#38bdf8" : "#e2e8f0",
+                          backgroundColor: locale === "id" ? "rgba(56, 189, 248, 0.12)" : "transparent",
+                        }}
+                      >
+                        Indonesia
+                      </Menu.Item>
+                      <Menu.Item
+                        leftSection={<span style={{ fontSize: "1.1rem" }}>🇬🇧</span>}
+                        rightSection={locale === "en" ? <CheckIcon size={14} /> : null}
+                        onClick={() => setLocale("en")}
+                        fw={locale === "en" ? 700 : 400}
+                        className={classes.menuItem}
+                        style={{
+                          color: locale === "en" ? "#38bdf8" : "#e2e8f0",
+                          backgroundColor: locale === "en" ? "rgba(56, 189, 248, 0.12)" : "transparent",
+                        }}
+                      >
+                        English
+                      </Menu.Item>
+                    </Menu.Sub.Dropdown>
+                  </Menu.Sub>
+
+                  <Menu.Divider style={{ borderColor: "rgba(255, 255, 255, 0.1)" }} />
+
+                  {/* 4. Keluar */}
+                  <Menu.Item
+                    color="red"
+                    leftSection={<LogoutIcon size={16} />}
+                    className={classes.menuItem}
+                    style={{ color: "#f87171" }}
+                    onClick={() => {
+                      close();
+                      logout.openConfirm();
+                    }}
+                  >
+                    {t("logout")}
+                  </Menu.Item>
+                </Menu.Dropdown>
+              </Menu>
+            </div>
           </Stack>
         </AppShell.Navbar>
 
