@@ -50,4 +50,16 @@ test("Phase 5: Auth, Landing, Modals dictionary parity and completeness", async 
     assert.ok(idKeys.includes("terms.title"));
     assert.ok(idKeys.includes("upload_policy.title"));
   });
+
+  await t.test("Nav namespace has 100% key parity between ID and EN", () => {
+    const idKeys = getDeepKeys(idJson.nav).sort();
+    const enKeys = getDeepKeys(enJson.nav).sort();
+    assert.deepEqual(idKeys, enKeys, "Nav keys mismatch between ID and EN");
+    assert.ok(idKeys.includes("generate"));
+    assert.ok(idKeys.includes("billing"));
+    assert.ok(idKeys.includes("library"));
+    assert.ok(idKeys.includes("profile"));
+    assert.ok(idKeys.includes("order"));
+    assert.ok(idKeys.includes("logout"));
+  });
 });
