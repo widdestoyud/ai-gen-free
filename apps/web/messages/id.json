@@ -166,7 +166,7 @@
     }
   },
   "generate": {
-    "btn_generate": "Buat Visual",
+    "btn_generate": "Generate",
     "cooldown_text": "Jeda generate berikutnya: {duration} (sampai {time}).",
     "title": "Studio Kreasi AI",
     "subtitle": "Kreasikan gambar dan visual berkualitas tinggi dalam hitungan detik.",
@@ -191,7 +191,7 @@
       "video_duration": "Durasi video",
       "video_resolution": "Resolusi video",
       "magic_prompt": "Sempurnakan Prompt",
-      "generate": "Buat Visual"
+      "generate": "Generate"
     },
     "magic_prompt": {
       "title": "Sempurnakan Prompt",
@@ -216,7 +216,7 @@
       "spicy_badge": "18+"
     },
     "action": {
-      "btn_generate": "Buat Visual",
+      "btn_generate": "Generate",
       "btn_generating": "Sedang Menghasilkan Visual...",
       "cost": "{cost} Sparks",
       "free_tier": "Gratis (1x / 12 Jam)"
@@ -705,7 +705,7 @@
       "step_1_title": "Buat Akun & Masuk Cepat",
       "step_1_desc": "Daftar dengan email kamu dalam hitungan detik. Verifikasi mudah lewat kode OTP email tanpa ribet kata sandi rumit atau pengisian data berbelit-belit.",
       "step_2_title": "Ketik Ide & Atur Format",
-      "step_2_desc": "Tuliskan deskripsi ide visual dalam Bahasa Indonesia. Tentukan format gambar (1:1, 16:9, 9:16) atau durasi video, lalu klik Buat Visual.",
+      "step_2_desc": "Tuliskan deskripsi ide visual dalam Bahasa Indonesia. Tentukan format gambar (1:1, 16:9, 9:16) atau durasi video, lalu klik Generate.",
       "step_3_title": "Simpan & Unduh Karyamu",
       "step_3_desc": "Hasil langsung diproses secara cepat. Unduh langsung ke HP atau laptop dengan resolusi tajam, atau lihat arsip riwayatnya di Galeri akun privatmu."
     },
