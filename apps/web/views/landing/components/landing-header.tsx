@@ -6,11 +6,13 @@ import { LanguageSwitcher } from "@/components/language-switcher";
 import classes from "./landing.module.css";
 
 interface LandingHeaderProps {
+  onOpenLogin: () => void;
   onStartCreation: () => void;
   onScrollTo?: (id: string) => void;
 }
 
 export function LandingHeader({
+  onOpenLogin,
   onStartCreation,
 }: LandingHeaderProps) {
   const { t } = useI18n("nav");
@@ -55,9 +57,18 @@ export function LandingHeader({
         </span>
       </div>
 
-      {/* Right Group: Language Switcher with Dropdown & Coba Sekarang (Register Modal) */}
+      {/* Right Group: Language Switcher, Sign In, Coba Sekarang (Register Modal) */}
       <div className={classes.headerRightGroup}>
         <LanguageSwitcher />
+
+        <button
+          type="button"
+          className={classes.signInBtn}
+          onClick={onOpenLogin}
+          aria-label={t("login")}
+        >
+          {t("login")}
+        </button>
 
         <button
           type="button"
