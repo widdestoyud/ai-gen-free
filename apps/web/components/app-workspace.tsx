@@ -16,7 +16,7 @@ import { useDisclosure } from "@mantine/hooks";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useI18n } from "@/lib/i18n";
 import { LogoutConfirmModal } from "./logout-confirm-modal";
 import { useLogoutConfirm } from "@/hooks/use-logout-confirm";
