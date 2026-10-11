@@ -7,13 +7,12 @@ import classes from "./landing.module.css";
 
 interface LandingHeaderProps {
   onOpenLogin: () => void;
-  onStartCreation: () => void;
+  onStartCreation?: () => void;
   onScrollTo?: (id: string) => void;
 }
 
 export function LandingHeader({
   onOpenLogin,
-  onStartCreation,
 }: LandingHeaderProps) {
   const { t } = useI18n("nav");
   const [scrolled, setScrolled] = useState(false);
@@ -57,7 +56,7 @@ export function LandingHeader({
         </span>
       </div>
 
-      {/* Right Group: Language Switcher, Sign In, Coba Sekarang (Register Modal) */}
+      {/* Right Group: Language Switcher and Sign In */}
       <div className={classes.headerRightGroup}>
         <LanguageSwitcher />
 
@@ -68,15 +67,6 @@ export function LandingHeader({
           aria-label={t("login")}
         >
           {t("login")}
-        </button>
-
-        <button
-          type="button"
-          className={classes.createNowBtn}
-          onClick={onStartCreation}
-          aria-label={t("try_free")}
-        >
-          {t("try_free")}
         </button>
       </div>
     </header>
