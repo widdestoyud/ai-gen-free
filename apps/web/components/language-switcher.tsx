@@ -1,15 +1,16 @@
 "use client";
 
-import { Button, Group, Menu, Tooltip } from "@mantine/core";
+import { Button, Group, Menu, Text } from "@mantine/core";
 import { useI18n } from "@/lib/i18n";
 import type { Locale } from "@/lib/i18n/port";
 
-interface LanguageSwitcherProps {
-  variant?: "menu" | "toggle" | "button";
+export interface LanguageSwitcherProps {
   size?: "xs" | "sm" | "md";
+  variant?: "default" | "subtle" | "outline";
+  className?: string;
 }
 
-function GlobeIcon({ size = 14 }: { size?: number }) {
+function GlobeIcon({ size = 15 }: { size?: number }) {
   return (
     <svg
       width={size}
@@ -29,91 +30,142 @@ function GlobeIcon({ size = 14 }: { size?: number }) {
   );
 }
 
-export function LanguageSwitcher({ variant = "toggle", size = "xs" }: LanguageSwitcherProps) {
+function ChevronDownIcon({ size = 12 }: { size?: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <polyline points="6 9 12 15 18 9" />
+    </svg>
+  );
+}
+
+function CheckIcon({ size = 14 }: { size?: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <polyline points="20 6 9 17 4 12" />
+    </svg>
+  );
+}
+
+/**
+ * Reusable Language Switcher component.
+ * Displays a trigger button with the active language code ('ID' or 'EN')
+ * and opens a dropdown menu to select between 'Indonesia' and 'English'.
+ */
+export function LanguageSwitcher({
+  size = "xs",
+  className,
+}: LanguageSwitcherProps) {
   const { locale, setLocale } = useI18n();
 
-  const toggleLanguage = () => {
-    const nextLocale: Locale = locale === "id" ? "en" : "id";
+  const handleSelectLocale = (nextLocale: Locale) => {
     setLocale(nextLocale);
   };
 
-  if (variant === "toggle") {
-    return (
-      <Tooltip label={locale === "id" ? "Switch to English (EN)" : "Ganti ke Bahasa Indonesia (ID)"} withArrow position="bottom">
-        <Button
-          size={size}
-          variant="subtle"
-          color="gray"
-          onClick={toggleLanguage}
-          styles={{
-            root: {
-              padding: "0 10px",
-              height: size === "xs" ? 30 : 34,
-              borderRadius: 8,
-              background: "rgba(255, 255, 255, 0.06)",
-              border: "1px solid rgba(255, 255, 255, 0.14)",
-              color: "#f1f5f9",
-              fontWeight: 600,
-              fontSize: size === "xs" ? "0.8rem" : "0.875rem",
-              transition: "all 0.15s ease",
-              cursor: "pointer",
-              "&:hover": {
-                background: "rgba(255, 255, 255, 0.12)",
-                borderColor: "rgba(255, 255, 255, 0.25)",
-              },
-            },
-          }}
-          aria-label={locale === "id" ? "Ganti ke Bahasa Inggris" : "Switch to Indonesian"}
-        >
-          <Group gap={6} wrap="nowrap" align="center">
-            <GlobeIcon size={14} />
-            <span>{locale === "id" ? "ID" : "EN"}</span>
-          </Group>
-        </Button>
-      </Tooltip>
-    );
-  }
+  const buttonHeight = size === "xs" ? 32 : size === "sm" ? 36 : 40;
+  const fontSize = size === "xs" ? "0.8rem" : size === "sm" ? "0.875rem" : "1rem";
+  const displayLabel = locale === "id" ? "ID" : "EN";
 
   return (
-    <Menu shadow="md" width={160} position="bottom-end">
+    <Menu
+      shadow="xl"
+      width={160}
+      position="bottom-end"
+      withinPortal
+      transitionProps={{ transition: "pop", duration: 150 }}
+    >
       <Menu.Target>
         <Button
           size={size}
           variant="subtle"
           color="gray"
+          className={className}
           styles={{
             root: {
               padding: "0 10px",
-              height: size === "xs" ? 30 : 34,
+              height: buttonHeight,
               borderRadius: 8,
-              background: "rgba(255, 255, 255, 0.06)",
-              border: "1px solid rgba(255, 255, 255, 0.14)",
-              color: "#f1f5f9",
+              background: "rgba(255, 255, 255, 0.07)",
+              border: "1px solid rgba(255, 255, 255, 0.16)",
+              color: "#f8fafc",
               fontWeight: 600,
+              fontSize,
+              transition: "all 0.18s ease",
+              cursor: "pointer",
+              "&:hover": {
+                background: "rgba(255, 255, 255, 0.14)",
+                borderColor: "rgba(255, 255, 255, 0.3)",
+              },
             },
           }}
+          aria-label={locale === "id" ? "Pilih Bahasa (ID)" : "Select Language (EN)"}
         >
           <Group gap={6} wrap="nowrap" align="center">
-            <GlobeIcon size={14} />
-            <span>{locale === "id" ? "Bahasa Indonesia" : "English"}</span>
+            <GlobeIcon size={size === "xs" ? 14 : 16} />
+            <Text component="span" fw={700} fz="inherit">
+              {displayLabel}
+            </Text>
+            <ChevronDownIcon size={10} />
           </Group>
         </Button>
       </Menu.Target>
 
-      <Menu.Dropdown>
+      <Menu.Dropdown
+        style={{
+          background: "#0f172a",
+          borderColor: "rgba(255, 255, 255, 0.12)",
+          padding: 6,
+          borderRadius: 10,
+          boxShadow: "0 10px 30px rgba(0, 0, 0, 0.5)",
+        }}
+      >
         <Menu.Item
-          onClick={() => setLocale("id")}
-          leftSection={<span>🇮🇩</span>}
+          onClick={() => handleSelectLocale("id")}
+          leftSection={<span style={{ fontSize: "1.1rem" }}>🇮🇩</span>}
+          rightSection={locale === "id" ? <CheckIcon size={13} /> : null}
           fw={locale === "id" ? 700 : 400}
+          style={{
+            borderRadius: 6,
+            color: locale === "id" ? "#38bdf8" : "#e2e8f0",
+            backgroundColor: locale === "id" ? "rgba(56, 189, 248, 0.12)" : "transparent",
+            fontSize: "0.85rem",
+          }}
         >
-          Bahasa Indonesia (ID)
+          Indonesia
         </Menu.Item>
+
         <Menu.Item
-          onClick={() => setLocale("en")}
-          leftSection={<span>🇬🇧</span>}
+          onClick={() => handleSelectLocale("en")}
+          leftSection={<span style={{ fontSize: "1.1rem" }}>🇬🇧</span>}
+          rightSection={locale === "en" ? <CheckIcon size={13} /> : null}
           fw={locale === "en" ? 700 : 400}
+          style={{
+            borderRadius: 6,
+            color: locale === "en" ? "#38bdf8" : "#e2e8f0",
+            backgroundColor: locale === "en" ? "rgba(56, 189, 248, 0.12)" : "transparent",
+            fontSize: "0.85rem",
+          }}
         >
-          English (EN)
+          English
         </Menu.Item>
       </Menu.Dropdown>
     </Menu>

@@ -40,7 +40,6 @@ export function LandingPageView({ packages }: LandingPageViewProps = {}) {
   return (
     <div className={classes.wrapper}>
       <LandingHeader
-        onOpenLogin={handleOpenLogin}
         onStartCreation={handleStartCreation}
         onScrollTo={scrollToSection}
       />
