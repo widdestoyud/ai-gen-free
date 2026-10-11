@@ -323,6 +323,8 @@ export function useGenerateStudio(props?: {
   });
 
   const userCheckedRef = useRef(false);
+  const completedJobIdsRef = useRef<Set<string>>(new Set());
+  const handledUrlJobIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (props?.models) setModels(props.models);
@@ -355,13 +357,16 @@ export function useGenerateStudio(props?: {
   useEffect(() => {
     if (jobsQuery.data?.jobs) {
       setJobs(jobsQuery.data.jobs);
-      const activeItem = jobsQuery.data.jobs.find((j) => isJobActive(j.status));
+      const activeItem = jobsQuery.data.jobs.find(
+        (j) => isJobActive(j.status) && !completedJobIdsRef.current.has(j.id)
+      );
       if (activeItem) {
         setActiveJobId(activeItem.id);
         setActiveJob(activeItem);
-      } else if (activeJobId && !urlJobId) {
+      } else if (activeJobId) {
         const terminalItem = jobsQuery.data.jobs.find((j) => j.id === activeJobId);
         if (terminalItem && isJobTerminal(terminalItem.status)) {
+          completedJobIdsRef.current.add(terminalItem.id);
           if (terminalItem.status === "succeeded" && hasLiveOutput(terminalItem.output)) {
             setLastGeneratedJob(terminalItem);
           }
@@ -418,7 +423,8 @@ export function useGenerateStudio(props?: {
   }
 
   useEffect(() => {
-    if (urlJobId) {
+    if (urlJobId && handledUrlJobIdRef.current !== urlJobId) {
+      handledUrlJobIdRef.current = urlJobId;
       setActiveJobId(urlJobId);
       if (typeof window !== "undefined") {
         const url = new URL(window.location.href);
@@ -448,7 +454,7 @@ export function useGenerateStudio(props?: {
   const active =
     activeJob ??
     (activeJobId ? jobs.find((j) => j.id === activeJobId) : undefined) ??
-    jobs.find((j) => isJobActive(j.status));
+    jobs.find((j) => isJobActive(j.status) && !completedJobIdsRef.current.has(j.id));
   const isGenerating = busy || Boolean(activeJobId) || Boolean(active);
   const gallery = jobs.filter((j) => j.status === "succeeded" && hasLiveOutput(j.output) && isJobImage(j));
   const cooldownLeft = cooldownUntil ? remainingSeconds(cooldownUntil, now) : 0;
@@ -552,7 +558,9 @@ export function useGenerateStudio(props?: {
   useEffect(() => {
     if (props?.jobs) {
       setJobs(props.jobs);
-      const activeItem = props.jobs.find((j) => isJobActive(j.status));
+      const activeItem = props.jobs.find(
+        (j) => isJobActive(j.status) && !completedJobIdsRef.current.has(j.id)
+      );
       if (activeItem) {
         setActiveJobId(activeItem.id);
         setActiveJob(activeItem);
@@ -621,37 +629,59 @@ export function useGenerateStudio(props?: {
   useEffect(() => {
     if (!activeJobId) return;
     let cancelled = false;
+    let inFlightFallback = false;
 
     async function checkJobFallback() {
-      if (cancelled) return;
-      const result = await requestJson<JobView>(`/api/generate/${activeJobId}`);
-      if (cancelled || !result.ok) return;
-      const data = result.data;
-      setActiveJob(data);
+      if (cancelled || inFlightFallback || completedJobIdsRef.current.has(activeJobId!)) return;
+      inFlightFallback = true;
+      try {
+        const result = await requestJson<JobView>(`/api/generate/${activeJobId}`);
+        if (cancelled || !result.ok) return;
+        const data = result.data;
+        setActiveJob(data);
 
-      if (data.status === "succeeded") {
-        if (hasLiveOutput(data.output)) {
-          setLastGeneratedJob(data);
+        if (data.status === "succeeded") {
+          completedJobIdsRef.current.add(data.id);
+          if (hasLiveOutput(data.output)) {
+            setLastGeneratedJob(data);
+          }
+          if (data.nextGenerateAt && remainingSeconds(data.nextGenerateAt, Date.now()) > 0) {
+            setCooldownUntil(data.nextGenerateAt);
+          } else {
+            setCooldownUntil(null);
+          }
+          setActiveJobId(null);
+          setActiveJob(null);
+          setJobs((prev) => [data, ...prev.filter((j) => j.id !== data.id)]);
+          queryClient.setQueryData<JobsListView>(queryKeys.generatedJobs(), (old) => {
+            if (!old?.jobs) return { jobs: [data], nextGenerateAt: data.nextGenerateAt ?? null };
+            return {
+              jobs: [data, ...old.jobs.filter((j) => j.id !== data.id)],
+              nextGenerateAt: data.nextGenerateAt ?? old.nextGenerateAt ?? null,
+            };
+          });
+          void queryClient.invalidateQueries({ queryKey: queryKeys.generatedJobs() });
+          void queryClient.invalidateQueries({ queryKey: queryKeys.library() });
+          void queryClient.invalidateQueries({ queryKey: queryKeys.wallet() });
+        } else if (data.status === "failed" || data.status === "canceled") {
+          completedJobIdsRef.current.add(data.id);
+          setError(jobErrorMessage(data.errorCode, data.errorMessage));
+          setErrorCode(data.errorCode ?? "JOB_FAILED");
+          setActiveJobId(null);
+          setActiveJob(null);
+          setJobs((prev) => [data, ...prev.filter((j) => j.id !== data.id)]);
+          queryClient.setQueryData<JobsListView>(queryKeys.generatedJobs(), (old) => {
+            if (!old?.jobs) return { jobs: [data], nextGenerateAt: data.nextGenerateAt ?? null };
+            return {
+              jobs: [data, ...old.jobs.filter((j) => j.id !== data.id)],
+              nextGenerateAt: data.nextGenerateAt ?? old.nextGenerateAt ?? null,
+            };
+          });
+          void queryClient.invalidateQueries({ queryKey: queryKeys.generatedJobs() });
+          void queryClient.invalidateQueries({ queryKey: queryKeys.wallet() });
         }
-        if (data.nextGenerateAt && remainingSeconds(data.nextGenerateAt, Date.now()) > 0) {
-          setCooldownUntil(data.nextGenerateAt);
-        } else {
-          setCooldownUntil(null);
-        }
-        setActiveJobId(null);
-        setActiveJob(null);
-        setJobs((prev) => [data, ...prev.filter((j) => j.id !== data.id)]);
-        void queryClient.invalidateQueries({ queryKey: queryKeys.generatedJobs() });
-        void queryClient.invalidateQueries({ queryKey: queryKeys.library() });
-        void queryClient.invalidateQueries({ queryKey: queryKeys.wallet() });
-      } else if (data.status === "failed" || data.status === "canceled") {
-        setError(jobErrorMessage(data.errorCode, data.errorMessage));
-        setErrorCode(data.errorCode ?? "JOB_FAILED");
-        setActiveJobId(null);
-        setActiveJob(null);
-        setJobs((prev) => [data, ...prev.filter((j) => j.id !== data.id)]);
-        void queryClient.invalidateQueries({ queryKey: queryKeys.generatedJobs() });
-        void queryClient.invalidateQueries({ queryKey: queryKeys.wallet() });
+      } finally {
+        inFlightFallback = false;
       }
     }
 
@@ -671,17 +701,35 @@ export function useGenerateStudio(props?: {
               prev ? { ...prev, progressPct: payload.progressPct ?? prev.progressPct } : null
             );
           } else if (payload.status === "succeeded") {
+            if (eventSource) {
+              eventSource.close();
+              eventSource = null;
+            }
             void checkJobFallback();
-            eventSource?.close();
           } else if (payload.status === "failed" || payload.status === "canceled") {
+            if (eventSource) {
+              eventSource.close();
+              eventSource = null;
+            }
+            completedJobIdsRef.current.add(activeJobId!);
             setError(jobErrorMessage(payload.errorCode, payload.errorMessage));
             setErrorCode(payload.errorCode ?? "JOB_FAILED");
             setActiveJobId(null);
             setActiveJob(null);
-            eventSource?.close();
             void (async () => {
               const res = await requestJson<JobView>(`/api/generate/${activeJobId}`);
-              if (res.ok) setJobs((prev) => [res.data, ...prev.filter((j) => j.id !== res.data.id)]);
+              if (res.ok) {
+                setJobs((prev) => [res.data, ...prev.filter((j) => j.id !== res.data.id)]);
+                queryClient.setQueryData<JobsListView>(queryKeys.generatedJobs(), (old) => {
+                  if (!old?.jobs) return { jobs: [res.data], nextGenerateAt: res.data.nextGenerateAt ?? null };
+                  return {
+                    jobs: [res.data, ...old.jobs.filter((j) => j.id !== res.data.id)],
+                    nextGenerateAt: res.data.nextGenerateAt ?? old.nextGenerateAt ?? null,
+                  };
+                });
+                void queryClient.invalidateQueries({ queryKey: queryKeys.generatedJobs() });
+                void queryClient.invalidateQueries({ queryKey: queryKeys.wallet() });
+              }
             })();
           }
         } catch {
@@ -690,8 +738,11 @@ export function useGenerateStudio(props?: {
       };
 
       eventSource.onerror = () => {
-        eventSource?.close();
-        if (!cancelled) {
+        if (eventSource) {
+          eventSource.close();
+          eventSource = null;
+        }
+        if (!cancelled && !completedJobIdsRef.current.has(activeJobId!)) {
           void checkJobFallback();
         }
       };
@@ -703,6 +754,7 @@ export function useGenerateStudio(props?: {
       cancelled = true;
       if (eventSource) {
         eventSource.close();
+        eventSource = null;
       }
     };
   }, [activeJobId]);
@@ -797,6 +849,7 @@ export function useGenerateStudio(props?: {
 
     const newJobId = result.data.job_id ?? result.data.id;
     if (newJobId) {
+      completedJobIdsRef.current.delete(newJobId);
       setActiveJobId(newJobId);
       const newJob: JobView = {
         id: newJobId,
