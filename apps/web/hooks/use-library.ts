@@ -140,10 +140,10 @@ export function useLibrary(props?: {
           }
         : undefined,
     placeholderData: keepPreviousData,
-    staleTime: 1000 * 60, // 60 detik fresh cache
+    staleTime: 0,
     gcTime: 1000 * 60 * 60 * 24, // 24 jam retention di storage
-    refetchOnMount: false,
-    refetchOnWindowFocus: false,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
   });
 
   const items = data?.items ?? [];

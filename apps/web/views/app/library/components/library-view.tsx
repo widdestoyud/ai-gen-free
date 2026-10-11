@@ -10,6 +10,7 @@ import {
   Stack,
   Text,
   TextInput,
+  Tooltip,
   UnstyledButton,
 } from "@mantine/core";
 import Link from "next/link";
@@ -21,6 +22,7 @@ import {
   CloseIcon,
   FilterSlidersIcon,
   MediaStackIcon,
+  ReloadIcon,
   SearchIcon,
   VideoIcon,
 } from "./library-icons";
@@ -93,6 +95,19 @@ export function LibraryView(props?: {
               }
               className={classes.searchInput}
             />
+
+            {/* Refresh Button */}
+            <Tooltip label={t("toolbar.refresh_tooltip")} withArrow position="bottom">
+              <button
+                type="button"
+                className={classes.iconBtn}
+                aria-label={t("toolbar.refresh_tooltip")}
+                onClick={() => ctrl.refreshLibrary()}
+                disabled={ctrl.isFetching}
+              >
+                <ReloadIcon size={16} />
+              </button>
+            </Tooltip>
 
             {/* Filter & Sort Dropdown Menu */}
             <Menu shadow="md" width={220} position="bottom-end">

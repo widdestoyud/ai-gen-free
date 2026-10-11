@@ -77,6 +77,7 @@
     "toolbar": {
       "search_placeholder": "Cari...",
       "clear_search": "Bersihkan pencarian",
+      "refresh_tooltip": "Segarkan galeri",
       "options_menu_label": "Opsi Tampilan dan Urutan",
       "view_label": "Tampilan",
       "view_grid": "Kisi",
