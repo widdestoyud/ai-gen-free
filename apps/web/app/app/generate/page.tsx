@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { fetchUserApi } from "@/lib/server-api";
 import type { JobsListView, JobView } from "@/lib/job-status";
-import { type Model, GeneratePageView, GenerateSkeleton } from "@/views/app/generate";
+import { type Model, GeneratePageView, StudioSkeleton } from "@/views/app/generate";
 
 export const metadata: Metadata = {
   title: "AI Studio — Generate Image & Video",
@@ -56,7 +56,7 @@ async function GeneratePageContent() {
 
 export default function AppGeneratePage() {
   return (
-    <Suspense fallback={<GenerateSkeleton aspectRatio="1:1" />}>
+    <Suspense fallback={<StudioSkeleton />}>
       <GeneratePageContent />
     </Suspense>
   );

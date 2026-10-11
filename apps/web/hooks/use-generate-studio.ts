@@ -9,6 +9,7 @@ import {
   hasLiveOutput,
   isJobActive,
   isJobImage,
+  isJobTerminal,
   jobErrorMessage,
   signedRefreshDelayMs,
   type JobsListView,
@@ -76,6 +77,28 @@ export function getRefTag(ref: StudioRef, index?: number): string {
     return ref.tag.startsWith("@") ? ref.tag.trim() : `@${ref.tag.trim()}`;
   }
   return typeof index === "number" ? `@image${index + 1}` : "@image1";
+}
+
+const ACTIVE_GENERATE_JOB_STORAGE_KEY = "satulabs_active_generate_job_id";
+
+function getStoredActiveJobId(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return sessionStorage.getItem(ACTIVE_GENERATE_JOB_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function setStoredActiveJobId(jobId: string | null): void {
+  if (typeof window === "undefined") return;
+  try {
+    if (jobId) {
+      sessionStorage.setItem(ACTIVE_GENERATE_JOB_STORAGE_KEY, jobId);
+    } else {
+      sessionStorage.removeItem(ACTIVE_GENERATE_JOB_STORAGE_KEY);
+    }
+  } catch {}
 }
 
 const DEFAULT_T2I_MODEL_ID = "t2i-standard";
@@ -276,6 +299,29 @@ export function useGenerateStudio(props?: {
   const [policySaving, setPolicySaving] = useState(false);
   const [policyError, setPolicyError] = useState<string | null>(null);
 
+  const [lastGeneratedJob, setLastGeneratedJob] = useState<JobView | null>(null);
+  const initialStoredActiveId = getStoredActiveJobId();
+  const initialActive = (props?.jobs ?? []).find((j) => isJobActive(j.status));
+  const initialActiveJobId = urlJobId || initialStoredActiveId || initialActive?.id || null;
+  const [activeJobId, setActiveJobIdState] = useState<string | null>(() => initialActiveJobId);
+
+  const setActiveJobId = (id: string | null) => {
+    setActiveJobIdState(id);
+    setStoredActiveJobId(id);
+  };
+
+  const [activeJob, setActiveJob] = useState<JobView | null>(() => {
+    if (urlJobId) {
+      const found = (props?.jobs ?? []).find((j) => j.id === urlJobId);
+      if (found) return found;
+    }
+    if (initialStoredActiveId) {
+      const found = (props?.jobs ?? []).find((j) => j.id === initialStoredActiveId);
+      if (found) return found;
+    }
+    return initialActive ?? null;
+  });
+
   const userCheckedRef = useRef(false);
 
   useEffect(() => {
@@ -313,6 +359,15 @@ export function useGenerateStudio(props?: {
       if (activeItem) {
         setActiveJobId(activeItem.id);
         setActiveJob(activeItem);
+      } else if (activeJobId && !urlJobId) {
+        const terminalItem = jobsQuery.data.jobs.find((j) => j.id === activeJobId);
+        if (terminalItem && isJobTerminal(terminalItem.status)) {
+          if (terminalItem.status === "succeeded" && hasLiveOutput(terminalItem.output)) {
+            setLastGeneratedJob(terminalItem);
+          }
+          setActiveJobId(null);
+          setActiveJob(null);
+        }
       }
     }
     if (jobsQuery.data?.nextGenerateAt !== undefined) {
@@ -323,7 +378,7 @@ export function useGenerateStudio(props?: {
         setCooldownUntil(null);
       }
     }
-  }, [jobsQuery.data]);
+  }, [jobsQuery.data, activeJobId, urlJobId]);
 
   async function checkUserStatus(force = false) {
     if (!force && uploadPolicyAccepted && userCheckedRef.current) {
@@ -361,16 +416,6 @@ export function useGenerateStudio(props?: {
       spicyModeEnabled: spicyEnabled,
     };
   }
-  const [lastGeneratedJob, setLastGeneratedJob] = useState<JobView | null>(null);
-  const initialActive = (props?.jobs ?? []).find((j) => isJobActive(j.status));
-  const [activeJobId, setActiveJobId] = useState<string | null>(() => urlJobId || initialActive?.id || null);
-  const [activeJob, setActiveJob] = useState<JobView | null>(() => {
-    if (urlJobId) {
-      const found = (props?.jobs ?? []).find((j) => j.id === urlJobId);
-      if (found) return found;
-    }
-    return initialActive ?? null;
-  });
 
   useEffect(() => {
     if (urlJobId) {
@@ -400,7 +445,10 @@ export function useGenerateStudio(props?: {
     catalog.find((m) => m.modelId === modelId) ??
     catalog.find((m) => m.modelId === preferredDefaultId) ??
     catalog[0];
-  const active = activeJob ?? jobs.find((j) => isJobActive(j.status));
+  const active =
+    activeJob ??
+    (activeJobId ? jobs.find((j) => j.id === activeJobId) : undefined) ??
+    jobs.find((j) => isJobActive(j.status));
   const isGenerating = busy || Boolean(activeJobId) || Boolean(active);
   const gallery = jobs.filter((j) => j.status === "succeeded" && hasLiveOutput(j.output) && isJobImage(j));
   const cooldownLeft = cooldownUntil ? remainingSeconds(cooldownUntil, now) : 0;
@@ -750,7 +798,7 @@ export function useGenerateStudio(props?: {
     const newJobId = result.data.job_id ?? result.data.id;
     if (newJobId) {
       setActiveJobId(newJobId);
-      setActiveJob({
+      const newJob: JobView = {
         id: newJobId,
         status: "queued",
         mode,
@@ -761,7 +809,13 @@ export function useGenerateStudio(props?: {
         errorCode: null,
         output: null,
         nextGenerateAt: null,
-      });
+      };
+      setActiveJob(newJob);
+      setJobs((prev) => [newJob, ...prev.filter((j) => j.id !== newJobId)]);
+      queryClient.setQueryData<JobsListView>(queryKeys.generatedJobs(), (old) => ({
+        jobs: [newJob, ...(old?.jobs ?? []).filter((j) => j.id !== newJobId)],
+        nextGenerateAt: old?.nextGenerateAt ?? null,
+      }));
     }
   }
 

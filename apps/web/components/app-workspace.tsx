@@ -321,7 +321,7 @@ export function AppWorkspace({ children }: { children: ReactNode }) {
                     key={item.href}
                     component={Link}
                     href={item.href}
-                    prefetch={true}
+                    prefetch={item.href !== "/app/generate"}
                     label={item.label}
                     leftSection={<Icon size={18} />}
                     active={pathname === item.href}
