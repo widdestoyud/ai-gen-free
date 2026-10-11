@@ -215,7 +215,8 @@ export function useGenerateStudio(props?: {
       if (res.ok && res.data?.user) return res.data.user;
       return null;
     },
-    staleTime: 1000 * 60 * 5,
+    staleTime: 0,
+    refetchOnMount: "always",
     gcTime: 1000 * 60 * 30,
     refetchOnWindowFocus: false,
   });
@@ -324,9 +325,11 @@ export function useGenerateStudio(props?: {
     }
   }, [jobsQuery.data]);
 
-  async function checkUserStatus() {
-    if (userCheckedRef.current) return { accepted: uploadPolicyAccepted, spicyModeEnabled };
-    if (userStatusQuery.data) {
+  async function checkUserStatus(force = false) {
+    if (!force && uploadPolicyAccepted && userCheckedRef.current) {
+      return { accepted: uploadPolicyAccepted, spicyModeEnabled };
+    }
+    if (!force && userStatusQuery.data) {
       userCheckedRef.current = true;
       const accepted = Boolean(userStatusQuery.data.uploadPolicyAcceptedAt);
       const spicyEnabled = Boolean(userStatusQuery.data.spicyModeEnabled);
@@ -1151,6 +1154,11 @@ export function useGenerateStudio(props?: {
     setUploadPolicyAccepted(true);
     userCheckedRef.current = true;
     setUploadPolicyModalOpened(false);
+    queryClient.setQueryData(queryKeys.userStatus(), (old: any) =>
+      old ? { ...old, uploadPolicyAcceptedAt: new Date().toISOString() } : old
+    );
+    void queryClient.invalidateQueries({ queryKey: queryKeys.userStatus() });
+    void queryClient.invalidateQueries({ queryKey: queryKeys.customerProfile() });
     return true;
   }
 

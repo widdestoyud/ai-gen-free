@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   validateIndonesianPhoneNumber,
   validatePasswordFormat,
@@ -8,6 +9,7 @@ import {
 } from "@/lib/validation";
 import { requestJson } from "@/lib/api";
 import { hashPasswordClient } from "@/lib/crypto";
+import { queryKeys } from "@/lib/query-keys";
 import type { CustomerProfile } from "@/views/app/profile";
 
 export type EditableField = "displayName" | "phoneNumber" | "address" | "ktp" | "gender" | "dateOfBirth";
@@ -102,6 +104,7 @@ const EMPTY_PROFILE: CustomerProfile = {
 };
 
 export function useAccountSettings(initialProfile?: CustomerProfile | null): AccountSettingsState {
+  const queryClient = useQueryClient();
   const [profile, setProfile] = useState<CustomerProfile>(initialProfile ?? EMPTY_PROFILE);
   const [isLoading, setIsLoading] = useState(!initialProfile);
   const [editingField, setEditingField] = useState<EditableField | null>(null);
@@ -314,6 +317,8 @@ export function useAccountSettings(initialProfile?: CustomerProfile | null): Acc
     setSaveSuccessMessage(getFieldSuccessMessage(field));
     setEditingField(null);
     setValidationErrors({});
+    void queryClient.invalidateQueries({ queryKey: queryKeys.userStatus() });
+    void queryClient.invalidateQueries({ queryKey: queryKeys.customerProfile() });
     return true;
   }
 
@@ -444,6 +449,11 @@ export function useAccountSettings(initialProfile?: CustomerProfile | null): Acc
     }
     setSaveSuccessMessage("Kebijakan unggah media berhasil disetujui.");
     setPolicyModalOpened(false);
+    queryClient.setQueryData(queryKeys.userStatus(), (old: any) =>
+      old ? { ...old, uploadPolicyAcceptedAt: new Date().toISOString() } : old
+    );
+    void queryClient.invalidateQueries({ queryKey: queryKeys.userStatus() });
+    void queryClient.invalidateQueries({ queryKey: queryKeys.customerProfile() });
     return true;
   }
 
@@ -479,6 +489,11 @@ export function useAccountSettings(initialProfile?: CustomerProfile | null): Acc
       setProfile((prev) => ({ ...prev, spicyModeEnabled: enable }));
     }
     setSaveSuccessMessage(enable ? "Spicy Mode berhasil diaktifkan." : "Spicy Mode berhasil dinonaktifkan.");
+    queryClient.setQueryData(queryKeys.userStatus(), (old: any) =>
+      old ? { ...old, spicyModeEnabled: enable } : old
+    );
+    void queryClient.invalidateQueries({ queryKey: queryKeys.userStatus() });
+    void queryClient.invalidateQueries({ queryKey: queryKeys.customerProfile() });
     return true;
   }
 
@@ -506,6 +521,11 @@ export function useAccountSettings(initialProfile?: CustomerProfile | null): Acc
     }
     setSaveSuccessMessage("Spicy Mode berhasil diaktifkan.");
     setSpicyConsentModalOpened(false);
+    queryClient.setQueryData(queryKeys.userStatus(), (old: any) =>
+      old ? { ...old, spicyModeEnabled: true, spicyModeAcceptedAt: new Date().toISOString() } : old
+    );
+    void queryClient.invalidateQueries({ queryKey: queryKeys.userStatus() });
+    void queryClient.invalidateQueries({ queryKey: queryKeys.customerProfile() });
     return true;
   }
 
