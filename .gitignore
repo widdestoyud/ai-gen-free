@@ -28,5 +28,7 @@ destotoshokan
 postman/postman/
 postman/**/*.yaml
 postman/**/*.yml
-
+# DANA UAT scratch directories & files
+scratch_dana_uat/
 scratch_dana_uat
+*scratch_dana_uat*
