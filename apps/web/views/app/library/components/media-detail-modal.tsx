@@ -16,7 +16,7 @@ import {
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { type LibraryItem, isUpscaledImage } from "@/hooks/use-library";
+import { type LibraryItem, isUpscaledImage, isEditedImage } from "@/hooks/use-library";
 import { formatBytes, resolveUploadUrl } from "@/lib/format";
 import { extractReferenceImages, type ReferenceImageItem } from "@/lib/job-status";
 import { downloadMediaFile } from "@/lib/download-media";
@@ -290,6 +290,7 @@ function formatModalDateShort(iso?: string | null, locale = "id"): string {
 function getModeLabel(item: LibraryItem, t: (k: string) => string): string {
   if (item.type === "upload") return t("modal.mode_upload");
   if (isUpscaledImage(item)) return t("modal.mode_upscale");
+  if (isEditedImage(item)) return t("modal.mode_edit");
   if (item.kind === "video") return t("modal.mode_video");
   return t("modal.mode_image");
 }
@@ -404,12 +405,20 @@ export function MediaDetailModal({
   const isVideo = item.kind === "video" || item.mime_type.startsWith("video/");
   const isGenerated = item.type === "generated";
   const isUpscaled = isUpscaledImage(item);
+  const isEdited = isEditedImage(item);
   const cleanAlias = item.alias ? item.alias.replace(/\.[^/.]+$/, "") : "";
-  const displayLabel = item.type === "upload" ? (cleanAlias || item.id) : (item.prompt || cleanAlias || (isUpscaled ? "Upscaled Image" : item.id));
+  const displayLabel = item.type === "upload" ? (cleanAlias || item.id) : (item.prompt || cleanAlias || (isUpscaled ? t("card.upscaled_image") : isEdited ? t("card.edited_image") : item.id));
 
   const referenceImages = extractReferenceImages(item.params, item.prompt ?? undefined);
-  const originalImageUrl = isUpscaled && referenceImages.length > 0 ? resolveUploadUrl(referenceImages[0].url) : null;
-  const isCompareAvailable = Boolean(isUpscaled && originalImageUrl && item.url);
+  const originalImageUrl =
+    isEdited && referenceImages.length > 0
+      ? resolveUploadUrl(referenceImages[0].url)
+      : isEdited && typeof item.params?.image === "string" && item.params.image.trim()
+        ? resolveUploadUrl(item.params.image.trim())
+        : isEdited && typeof item.params?.original_image === "string" && item.params.original_image.trim()
+          ? resolveUploadUrl(item.params.original_image.trim())
+          : null;
+  const isCompareAvailable = Boolean(isEdited && originalImageUrl && item.url);
 
   const handleDownload = async () => {
     if (!item?.url) return;
@@ -525,6 +534,19 @@ export function MediaDetailModal({
                 />
               )}
 
+              {/* Floating Badge (Upscale 4K / Edit) */}
+              {isUpscaled ? (
+                <div className={classes.upscaleFloatingBadge}>
+                  <SparkleIcon size={12} />
+                  <span>{t("modal.badge_upscale_4k")}</span>
+                </div>
+              ) : isEdited ? (
+                <div className={classes.editedFloatingBadge}>
+                  <EditPencilIcon size={12} />
+                  <span>{t("modal.badge_edited")}</span>
+                </div>
+              ) : null}
+
               {/* Tombol Navigasi Prev / Next */}
               {hasPrev ? (
                 <button
@@ -628,7 +650,7 @@ export function MediaDetailModal({
               <div className={classes.sidebarContent}>
                 {/* Status & Mode Badges */}
                 <div className={classes.badgesRow}>
-                  <Badge className={isUpscaled ? classes.modeBadgeUpscale : classes.modeBadge}>
+                  <Badge className={isUpscaled ? classes.modeBadgeUpscale : isEdited ? classes.modeBadgeEdited : classes.modeBadge}>
                     {getModeLabel(item, t)}
                   </Badge>
                   <Badge className={classes.statusBadge}>
@@ -736,17 +758,19 @@ export function MediaDetailModal({
                         <span className={classes.promptHeading}>
                           {isUpscaled
                             ? t("modal.ref_original_image")
-                            : t("modal.ref_images")}
+                            : isEdited
+                              ? t("modal.ref_edited_source")
+                              : t("modal.ref_images")}
                         </span>
                       </div>
                       <div className={classes.referenceGrid}>
                         {referenceImages.map((ref, idx) => {
                           const imgUrl = resolveUploadUrl(ref.url);
-                          const tagLabel = isUpscaled ? "Original" : ref.tag;
+                          const tagLabel = isUpscaled ? "Original" : isEdited ? "Asli" : ref.tag;
                           return (
                             <Tooltip
                               key={idx}
-                              label={isUpscaled ? t("modal.ref_tooltip_upscale") : t("modal.ref_tooltip_tag", { tag: ref.tag })}
+                              label={isUpscaled ? t("modal.ref_tooltip_upscale") : isEdited ? t("modal.ref_tooltip_edit") : t("modal.ref_tooltip_tag", { tag: ref.tag })}
                               withArrow
                               position="top"
                             >
@@ -754,7 +778,7 @@ export function MediaDetailModal({
                                 type="button"
                                 onClick={() => setPreviewRef({ ...ref, tag: tagLabel })}
                                 className={classes.referenceCard}
-                                aria-label={isUpscaled ? t("modal.ref_tooltip_upscale") : t("modal.ref_tooltip_tag", { tag: tagLabel })}
+                                aria-label={isUpscaled ? t("modal.ref_tooltip_upscale") : isEdited ? t("modal.ref_tooltip_edit") : t("modal.ref_tooltip_tag", { tag: tagLabel })}
                               >
                                 <img
                                   src={imgUrl}
@@ -904,7 +928,7 @@ export function MediaDetailModal({
     <Modal
       opened={Boolean(previewRef)}
       onClose={() => setPreviewRef(null)}
-      title={isUpscaled ? t("modal.ref_original_image") : t("modal.ref_images")}
+      title={isUpscaled ? t("modal.ref_original_image") : isEdited ? t("modal.ref_edited_source") : t("modal.ref_images")}
       size="lg"
       centered
       zIndex={300}

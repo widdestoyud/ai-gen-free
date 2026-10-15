@@ -246,6 +246,23 @@
   pointer-events: none;
 }
 
+.upscaleBadgeOverlay {
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  padding: 2px 7px;
+  border-radius: var(--mantine-radius-sm);
+  background: rgba(147, 51, 234, 0.85);
+  backdrop-filter: blur(4px);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  border: 1px solid rgba(192, 132, 252, 0.4);
+  pointer-events: none;
+  text-transform: uppercase;
+}
+
 .cardMeta {
   display: flex;
   flex-direction: column;

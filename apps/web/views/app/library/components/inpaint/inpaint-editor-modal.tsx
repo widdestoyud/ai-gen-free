@@ -191,7 +191,8 @@ export function InpaintEditorModal({ opened, onClose, item, onSuccess }: Inpaint
         method: "POST",
         body: JSON.stringify({
           prompt: prompt.trim(),
-          image: item.id,
+          image: item.url || item.id,
+          original_image: item.url || item.id,
           mask: maskDataUrl,
           aspectRatio: "1:1",
         }),

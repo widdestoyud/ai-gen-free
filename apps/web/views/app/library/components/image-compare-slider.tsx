@@ -35,7 +35,7 @@ export function ImageCompareSlider({
   beforeUrl,
   afterUrl,
   beforeLabel = "Original",
-  afterLabel = "4x Upscaled",
+  afterLabel = "Edited",
   initialPosition = 50,
   className,
 }: ImageCompareSliderProps) {
@@ -114,10 +114,10 @@ export function ImageCompareSlider({
       aria-valuenow={Math.round(sliderPos)}
       aria-valuemin={0}
       aria-valuemax={100}
-      aria-label="Pembanding gambar sebelum dan sesudah upscale"
+      aria-label="Pembanding gambar sebelum dan sesudah diedit"
       onKeyDown={handleKeyDown}
     >
-      {/* Layer 1 (Bawah): After / Upscaled Image */}
+      {/* Layer 1 (Bawah): After / Edited Image */}
       <img
         src={afterUrl}
         alt={afterLabel}

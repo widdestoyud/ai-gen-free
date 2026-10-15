@@ -20,6 +20,7 @@ export type LibraryItem = {
   alias?: string | null;
   prompt?: string | null;
   model_id?: string | null;
+  mode?: string | null;
   cost?: number | null;
   status: string;
   url: string | null;
@@ -54,6 +55,31 @@ export function isUpscaledImage(item?: LibraryItem | null): boolean {
   ) {
     return true;
   }
+  return false;
+}
+
+export function isEditedImage(item?: LibraryItem | null): boolean {
+  if (!item) return false;
+  if (item.type === "upload") return false;
+  if (isUpscaledImage(item)) return false;
+
+  const mode = (item.mode || "").toLowerCase();
+  if (mode === "inpaint") return true;
+
+  const model = (item.model_id || "").toLowerCase();
+  if (model.includes("inpaint") || model.includes("image-edit")) return true;
+
+  if (
+    item.params &&
+    (item.params.mask !== undefined ||
+      item.params.mask_url !== undefined ||
+      item.params.maskDataUrl !== undefined ||
+      item.params.is_edited === true ||
+      item.params.isEdited === true)
+  ) {
+    return true;
+  }
+
   return false;
 }
 

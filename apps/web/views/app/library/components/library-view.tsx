@@ -15,7 +15,7 @@ import {
 } from "@mantine/core";
 import Link from "next/link";
 import { EmptyState } from "@/components/empty-state";
-import { useLibrary, type LibraryItem, type LibraryTab, isUpscaledImage } from "@/hooks/use-library";
+import { useLibrary, type LibraryItem, type LibraryTab, isUpscaledImage, isEditedImage } from "@/hooks/use-library";
 import { formatBytes, formatRelativeTime, resolveUploadUrl } from "@/lib/format";
 import {
   CheckIcon,
@@ -35,6 +35,7 @@ import classes from "./library-view.module.css";
 function getMediaTitle(item: LibraryItem, t: (k: string) => string): string {
   if (item.alias) return item.alias.replace(/\.[^/.]+$/, "");
   if (isUpscaledImage(item)) return t("card.upscaled_image");
+  if (isEditedImage(item)) return item.prompt || t("card.edited_image");
   if (item.prompt) {
     return item.kind === "video"
       ? `${item.prompt.slice(0, 32)}.mp4`
@@ -332,6 +333,11 @@ export function LibraryView(props?: {
                   <div className={classes.overlayIcon}>
                     {isVideo ? <VideoIcon /> : <MediaStackIcon />}
                   </div>
+                  {isUpscaledImage(item) ? (
+                    <div className={classes.upscaleBadgeOverlay}>
+                      4K Upscale
+                    </div>
+                  ) : null}
                 </div>
 
                 <div className={classes.cardMeta}>

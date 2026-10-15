@@ -234,6 +234,7 @@ export interface CustomerLibraryItem {
   alias: string | null;
   prompt: string | null;
   model_id?: string | null;
+  mode?: string | null;
   cost: number | null;
   status: string;
   url: string | null;
@@ -458,6 +459,7 @@ export async function listCustomerLibrary(opts: {
           alias: row.alias ?? null,
           prompt: row.prompt,
           model_id: row.modelId ?? null,
+          mode: row.mode ?? null,
           cost: Number(row.cost),
           status: row.status,
           url,
