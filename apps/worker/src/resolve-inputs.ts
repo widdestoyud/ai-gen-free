@@ -1,57 +1,9 @@
 import sharp from "sharp";
 import { prisma } from "@ai-gen-free/db";
-import type { ObjectStorage } from "@ai-gen-free/core";
+import { isSafePublicUrl, type ObjectStorage } from "@ai-gen-free/core";
 import type { FetchedBytes } from "./fetch-output.js";
 
-/**
- * Validasi apakah URL publik aman untuk di-fetch oleh worker.
- * Memblokir loopback, private IPv4/IPv6 ranges, internal service names, dan link-local cloud metadata.
- */
-export function isSafePublicUrl(urlStr: string): boolean {
-  try {
-    const parsed = new URL(urlStr);
-    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-      return false;
-    }
-    const hostname = parsed.hostname.toLowerCase().trim();
-    if (!hostname) return false;
-
-    // Block localhost, link-local, and internal hostnames
-    if (
-      hostname === "localhost" ||
-      hostname === "127.0.0.1" ||
-      hostname === "::1" ||
-      hostname.endsWith(".localhost") ||
-      hostname.endsWith(".local") ||
-      hostname.endsWith(".internal") ||
-      hostname === "redis" ||
-      hostname === "api" ||
-      hostname === "postgres" ||
-      hostname === "worker" ||
-      hostname === "web"
-    ) {
-      return false;
-    }
-
-    // Block IPv4 private ranges & cloud metadata (169.254.169.254)
-    // 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 127.0.0.0/8, 169.254.0.0/16, 0.0.0.0/8
-    const ipv4Match = hostname.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
-    if (ipv4Match) {
-      const octet1 = parseInt(ipv4Match[1], 10);
-      const octet2 = parseInt(ipv4Match[2], 10);
-      if (octet1 === 10) return false;
-      if (octet1 === 127) return false;
-      if (octet1 === 169 && octet2 === 254) return false;
-      if (octet1 === 172 && octet2 >= 16 && octet2 <= 31) return false;
-      if (octet1 === 192 && octet2 === 168) return false;
-      if (octet1 === 0) return false;
-    }
-
-    return true;
-  } catch {
-    return false;
-  }
-}
+export { isSafePublicUrl };
 
 export async function getStoragePublicOrSignedUrl(storage: ObjectStorage, key: string): Promise<string> {
   const publicEndpoint = process.env.STORAGE_PUBLIC_ENDPOINT?.trim();

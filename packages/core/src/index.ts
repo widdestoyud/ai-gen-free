@@ -111,6 +111,7 @@ export {
   type DPoPProofPayload,
 } from "./auth/dpop.js";
 export * from "./i18n/index.js";
+export { isSafePublicUrl } from "./net/safe-url.js";
 
 
 

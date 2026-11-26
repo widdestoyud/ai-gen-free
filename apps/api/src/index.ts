@@ -15,6 +15,7 @@ import { registerAdminRoutes } from "./routes/admin.js";
 import { registerJobRoutes } from "./routes/jobs.js";
 import { registerWalletRoutes } from "./routes/wallet.js";
 import { registerUploadRoutes } from "./routes/uploads.js";
+import { registerTemplateRoutes } from "./routes/templates.js";
 import { registerPaymentRoutes } from "./routes/payment.js";
 import { syncUploadsFromStorage } from "./uploads/service.js";
 import { rewriteRequestUrl } from "./http-rewrite.js";
@@ -254,6 +255,7 @@ await registerWalletRoutes(app, { storage, redis });
 await registerJobRoutes(app, { storage, queue, redis });
 await registerAdminRoutes(app, { storage, redis });
 await registerUploadRoutes(app, { storage, redis });
+await registerTemplateRoutes(app, { storage });
 
 // Payment routes (Midtrans, DANA & Xendit integrations)
 const configuredGateway = (
