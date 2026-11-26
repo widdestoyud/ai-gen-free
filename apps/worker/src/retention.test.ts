@@ -66,6 +66,10 @@ test("isRetentionKey only outputs/ and inputs/", () => {
   assert.equal(isRetentionKey("outputs"), false);
 });
 
+test("template objects are never retention keys", () => {
+  assert.equal(isRetentionKey("templates/abc123.webp"), false);
+});
+
 test("sweep deletes expired outputs, marks purged, keeps job metadata caller-side", async () => {
   const inner = new MemoryObjectStorage();
   await inner.put({ key: "outputs/u/j.png", body: new Uint8Array([1]), contentType: "image/png" });

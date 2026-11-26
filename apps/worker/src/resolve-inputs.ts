@@ -5,6 +5,70 @@ import type { FetchedBytes } from "./fetch-output.js";
 
 export { isSafePublicUrl };
 
+export const TEMPLATE_IMAGE_REF_PREFIX = "template-image:";
+const TEMPLATE_IMAGE_REF_RE = /^template-image:(c[a-z0-9]{24})$/;
+
+/** Mengekstrak ID `TemplateImage` (cuid) dari referensi kanonik `template-image:<id>`. */
+export function parseTemplateImageRef(ref: string): string | null {
+  const match = ref.match(TEMPLATE_IMAGE_REF_RE);
+  return match ? match[1]! : null;
+}
+
+/** Memastikan aset template masih aktif dan sesuai izin mode Spicy pengguna. */
+export function isTemplateRefAllowed(
+  t: { isActive: boolean; isSpicy: boolean },
+  userSpicyEnabled: boolean,
+): boolean {
+  if (!t.isActive) return false;
+  if (t.isSpicy && !userSpicyEnabled) return false;
+  return true;
+}
+
+export type ResolveInputsDb = {
+  templateImage: {
+    findUnique(args: {
+      where: { id: string };
+      include: { template: { select: { isActive: true; isSpicy: true } } };
+    }): Promise<{
+      storageKey: string;
+      template: { isActive: boolean; isSpicy: boolean } | null;
+    } | null>;
+  };
+  user: {
+    findUnique(args: {
+      where: { id: string };
+      select: { spicyModeEnabled: true };
+    }): Promise<{ spicyModeEnabled: boolean } | null>;
+  };
+  upload?: {
+    findFirst(args: {
+      where: { id: string; userId: string; deletedAt: null };
+      select: { storageKey: true };
+    }): Promise<{ storageKey: string } | null>;
+  };
+  jobAsset?: {
+    findFirst(args: {
+      where: { jobId: string; kind: "output"; job: { userId: string } };
+      select: { storageKey: true };
+    }): Promise<{ storageKey: string } | null>;
+  };
+};
+
+const defaultResolveInputsDb: ResolveInputsDb = {
+  templateImage: {
+    findUnique: (args) => prisma.templateImage.findUnique(args),
+  },
+  user: {
+    findUnique: (args) => prisma.user.findUnique(args),
+  },
+  upload: {
+    findFirst: (args) => prisma.upload.findFirst(args),
+  },
+  jobAsset: {
+    findFirst: (args) => prisma.jobAsset.findFirst(args),
+  },
+};
+
 export async function getStoragePublicOrSignedUrl(storage: ObjectStorage, key: string): Promise<string> {
   const publicEndpoint = process.env.STORAGE_PUBLIC_ENDPOINT?.trim();
   if (publicEndpoint) {
@@ -29,6 +93,7 @@ export async function resolveInputImages(opts: {
   params: Record<string, unknown>;
   storage: ObjectStorage;
   fetchBytes: (url: string) => Promise<FetchedBytes>;
+  db?: ResolveInputsDb;
 }): Promise<{ image?: string; images?: string[]; mask?: string; tempStorageKeys: string[] }> {
   const rawRefs: string[] = [];
   const tempStorageKeys: string[] = [];
@@ -79,6 +144,7 @@ export async function resolveInputImages(opts: {
           ref,
           storage: opts.storage,
           fetchBytes: opts.fetchBytes,
+          db: opts.db,
         });
         if (resolvedBuf) {
           const tempKey = `temp/jobs/${jobId}/image-${i}.png`;
@@ -129,6 +195,7 @@ export async function resolveInputImages(opts: {
           ref: rawMask,
           storage: opts.storage,
           fetchBytes: opts.fetchBytes,
+          db: opts.db,
         });
         if (resolvedMaskBuf) {
           const tempKey = `temp/jobs/${jobId}/mask.png`;
@@ -163,11 +230,55 @@ export async function resolveSingleImageBuffer(opts: {
   ref: string;
   storage: ObjectStorage;
   fetchBytes: (url: string) => Promise<FetchedBytes>;
+  db?: ResolveInputsDb;
 }): Promise<ResolvedImageBuffer | null> {
-  const { userId, ref, storage, fetchBytes } = opts;
+  const { userId, ref, storage, fetchBytes, db = defaultResolveInputsDb } = opts;
+  let imageBytes: Uint8Array | null = null;
 
-  // 1. Validasi & Sanitasi Base64 Data URL (Celah Keamanan 3)
-  if (ref.startsWith("data:image/")) {
+  // 0. Referensi gambar template (template-image:<id>) — cabang pertama, tidak boleh jatuh ke regex ID lama
+  const templateImageId = parseTemplateImageRef(ref);
+  if (templateImageId !== null || ref.startsWith(TEMPLATE_IMAGE_REF_PREFIX)) {
+    if (!templateImageId) {
+      return null;
+    }
+
+    let templateImage: {
+      storageKey: string;
+      template: { isActive: boolean; isSpicy: boolean } | null;
+    } | null = null;
+    let user: { spicyModeEnabled: boolean } | null = null;
+    try {
+      [templateImage, user] = await Promise.all([
+        db.templateImage.findUnique({
+          where: { id: templateImageId },
+          include: { template: { select: { isActive: true, isSpicy: true } } },
+        }),
+        db.user.findUnique({
+          where: { id: userId },
+          select: { spicyModeEnabled: true },
+        }),
+      ]);
+    } catch {
+      return null;
+    }
+
+    if (!templateImage?.template || !user) {
+      return null;
+    }
+    if (!isTemplateRefAllowed(templateImage.template, user.spicyModeEnabled)) {
+      return null;
+    }
+
+    try {
+      const obj = await storage.get(templateImage.storageKey);
+      if (obj?.body) {
+        imageBytes = obj.body;
+      }
+    } catch {
+      return null;
+    }
+  } else if (ref.startsWith("data:image/")) {
+    // 1. Validasi & Sanitasi Base64 Data URL (Celah Keamanan 3)
     const commaIdx = ref.indexOf(",");
     if (commaIdx === -1) return null;
     const base64Data = ref.slice(commaIdx + 1).trim();
@@ -183,82 +294,82 @@ export async function resolveSingleImageBuffer(opts: {
     } catch {
       return null;
     }
-  }
+  } else {
+    // 2. Ekstrak jika merupakan referensi ID (Upload atau Job Generate)
+    const idMatch = ref.match(/(up_[a-f0-9]+|up-[a-f0-9-]+|c[a-z0-9]{24}|[a-z0-9_-]{10,40})/i);
+    if (idMatch) {
+      const assetId = idMatch[1];
 
-  let imageBytes: Uint8Array | null = null;
-
-  // 2. Ekstrak jika merupakan referensi ID (Upload atau Job Generate)
-  const idMatch = ref.match(/(up_[a-f0-9]+|up-[a-f0-9-]+|c[a-z0-9]{24}|[a-z0-9_-]{10,40})/i);
-  if (idMatch) {
-    const assetId = idMatch[1];
-
-    // 2a. Coba cari di objek Upload milik user
-    const uploadKeys = [
-      `uploads/customer/${userId}/${assetId}.webp`,
-      `uploads/admin/${userId}/${assetId}.webp`,
-    ];
-    for (const key of uploadKeys) {
-      try {
-        const obj = await storage.get(key);
-        if (obj && obj.body) {
-          imageBytes = obj.body;
-          break;
-        }
-      } catch {}
-    }
-
-    if (!imageBytes) {
-      try {
-        const uploadRow = await prisma.upload.findFirst({
-          where: { id: assetId, userId, deletedAt: null },
-          select: { storageKey: true },
-        });
-        if (uploadRow?.storageKey) {
-          const obj = await storage.get(uploadRow.storageKey);
-          if (obj?.body) imageBytes = obj.body;
-        }
-      } catch {}
-    }
-
-    // 2b. Coba cari di objek Output Job milik user (IDOR Safe)
-    if (!imageBytes) {
-      const jobKey = `outputs/${userId}/${assetId}.webp`;
-      try {
-        const obj = await storage.get(jobKey);
-        if (obj && obj.body) {
-          imageBytes = obj.body;
-        }
-      } catch {}
+      // 2a. Coba cari di objek Upload milik user
+      const uploadKeys = [
+        `uploads/customer/${userId}/${assetId}.webp`,
+        `uploads/admin/${userId}/${assetId}.webp`,
+      ];
+      for (const key of uploadKeys) {
+        try {
+          const obj = await storage.get(key);
+          if (obj && obj.body) {
+            imageBytes = obj.body;
+            break;
+          }
+        } catch {}
+      }
 
       if (!imageBytes) {
         try {
-          const jobRow = await prisma.jobAsset.findFirst({
-            where: {
-              jobId: assetId,
-              kind: "output",
-              job: { userId }, // Wajib pemilik job
-            },
+          const uploadRepo = db.upload ?? prisma.upload;
+          const uploadRow = await uploadRepo.findFirst({
+            where: { id: assetId, userId, deletedAt: null },
             select: { storageKey: true },
           });
-          if (jobRow?.storageKey) {
-            const obj = await storage.get(jobRow.storageKey);
+          if (uploadRow?.storageKey) {
+            const obj = await storage.get(uploadRow.storageKey);
             if (obj?.body) imageBytes = obj.body;
           }
         } catch {}
       }
-    }
-  }
 
-  // 3. Jika merupakan URL HTTP/HTTPS publik
-  // Perbaikan Celah Keamanan 2 (SSRF): Verifikasi URL aman sebelum melakukan fetch
-  if (!imageBytes && /^https?:\/\//i.test(ref)) {
-    if (isSafePublicUrl(ref)) {
-      try {
-        const fetched = await fetchBytes(ref);
-        if (fetched && fetched.body) {
-          imageBytes = fetched.body;
+      // 2b. Coba cari di objek Output Job milik user (IDOR Safe)
+      if (!imageBytes) {
+        const jobKey = `outputs/${userId}/${assetId}.webp`;
+        try {
+          const obj = await storage.get(jobKey);
+          if (obj && obj.body) {
+            imageBytes = obj.body;
+          }
+        } catch {}
+
+        if (!imageBytes) {
+          try {
+            const jobAssetRepo = db.jobAsset ?? prisma.jobAsset;
+            const jobRow = await jobAssetRepo.findFirst({
+              where: {
+                jobId: assetId,
+                kind: "output",
+                job: { userId }, // Wajib pemilik job
+              },
+              select: { storageKey: true },
+            });
+            if (jobRow?.storageKey) {
+              const obj = await storage.get(jobRow.storageKey);
+              if (obj?.body) imageBytes = obj.body;
+            }
+          } catch {}
         }
-      } catch {}
+      }
+    }
+
+    // 3. Jika merupakan URL HTTP/HTTPS publik
+    // Perbaikan Celah Keamanan 2 (SSRF): Verifikasi URL aman sebelum melakukan fetch
+    if (!imageBytes && /^https?:\/\//i.test(ref)) {
+      if (isSafePublicUrl(ref)) {
+        try {
+          const fetched = await fetchBytes(ref);
+          if (fetched && fetched.body) {
+            imageBytes = fetched.body;
+          }
+        } catch {}
+      }
     }
   }
 
@@ -280,6 +391,7 @@ export async function resolveSingleImageToDataUrl(opts: {
   ref: string;
   storage: ObjectStorage;
   fetchBytes: (url: string) => Promise<FetchedBytes>;
+  db?: ResolveInputsDb;
 }): Promise<string | null> {
   const resolved = await resolveSingleImageBuffer(opts);
   if (!resolved) return null;
