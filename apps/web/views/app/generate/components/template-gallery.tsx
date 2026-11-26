@@ -39,6 +39,7 @@ export interface TemplateGalleryProps {
 
 const INITIAL_SKELETON_COUNT = 12;
 const NEXT_PAGE_SKELETON_COUNT = 4;
+const STAGGERED_SKELETON_ASPECTS = ["3 / 4", "9 / 16", "1 / 1", "4 / 5", "16 / 9", "2 / 3"];
 
 export function TemplateGallery({
   items,
@@ -192,9 +193,17 @@ export function TemplateGallery({
 
       <div className={classes.gridSection}>
         {isLoading ? (
-          <div className={classes.grid} aria-busy="true" aria-label={tCommon("loading")}>
+          <div className={classes.masonry} aria-busy="true" aria-label={tCommon("loading")}>
             {Array.from({ length: INITIAL_SKELETON_COUNT }).map((_, idx) => (
-              <Skeleton key={idx} radius={12} className={classes.skeletonCard} />
+              <div key={idx} className={classes.masonryItem}>
+                <Skeleton
+                  radius={12}
+                  className={classes.skeletonCard}
+                  style={{
+                    aspectRatio: STAGGERED_SKELETON_ASPECTS[idx % STAGGERED_SKELETON_ASPECTS.length],
+                  }}
+                />
+              </div>
             ))}
           </div>
         ) : isError && items.length === 0 ? (
@@ -208,28 +217,33 @@ export function TemplateGallery({
           <EmptyState>{t("templates.empty")}</EmptyState>
         ) : (
           <>
-            <div className={classes.grid}>
+            <div className={classes.masonry}>
               {items.map((tpl) => (
-                <TemplateCard
-                  key={tpl.id}
-                  template={tpl}
-                  revealed={revealedId === tpl.id}
-                  onReveal={setRevealedId}
-                  onTry={(selected) => {
-                    setRevealedId("");
-                    onTryTemplate(selected);
-                  }}
-                  tryLabel={t("templates.try")}
-                />
+                <div key={tpl.id} className={classes.masonryItem}>
+                  <TemplateCard
+                    template={tpl}
+                    revealed={revealedId === tpl.id}
+                    onReveal={setRevealedId}
+                    onTry={(selected) => {
+                      setRevealedId("");
+                      onTryTemplate(selected);
+                    }}
+                    tryLabel={t("templates.try")}
+                  />
+                </div>
               ))}
 
               {isFetchingNextPage
                 ? Array.from({ length: NEXT_PAGE_SKELETON_COUNT }).map((_, idx) => (
-                    <Skeleton
-                      key={`next-skeleton-${idx}`}
-                      radius={12}
-                      className={classes.skeletonCard}
-                    />
+                    <div key={`next-skeleton-${idx}`} className={classes.masonryItem}>
+                      <Skeleton
+                        radius={12}
+                        className={classes.skeletonCard}
+                        style={{
+                          aspectRatio: STAGGERED_SKELETON_ASPECTS[(items.length + idx) % STAGGERED_SKELETON_ASPECTS.length],
+                        }}
+                      />
+                    </div>
                   ))
                 : null}
             </div>

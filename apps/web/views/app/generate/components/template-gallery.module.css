@@ -169,24 +169,30 @@
   padding-top: 14px;
 }
 
-.grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
+.masonry {
+  column-count: 4;
+  column-gap: 12px;
   width: 100%;
 }
 
-@media (max-width: 1023px) {
-  .grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 12px;
+@media (min-width: 1600px) {
+  .masonry {
+    column-count: 5;
+    column-gap: 14px;
+  }
+}
+
+@media (max-width: 1200px) {
+  .masonry {
+    column-count: 3;
+    column-gap: 12px;
   }
 }
 
 @media (max-width: 767px) {
-  .grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 8px;
+  .masonry {
+    column-count: 2;
+    column-gap: 8px;
   }
 
   .searchInput {
@@ -205,11 +211,31 @@
   }
 }
 
+.masonryItem {
+  display: block;
+  width: 100%;
+  break-inside: avoid;
+  margin-bottom: 12px;
+}
+
+@media (max-width: 767px) {
+  .masonryItem {
+    margin-bottom: 8px;
+  }
+}
+
 .skeletonCard {
   width: 100%;
-  aspect-ratio: 3 / 4;
   height: auto;
   border-radius: 12px;
+  break-inside: avoid;
+  margin-bottom: 12px;
+}
+
+@media (max-width: 767px) {
+  .skeletonCard {
+    margin-bottom: 8px;
+  }
 }
 
 .statusArea {
