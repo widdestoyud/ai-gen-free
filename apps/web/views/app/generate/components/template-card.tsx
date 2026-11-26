@@ -1,6 +1,6 @@
 "use client";
 
-import type { CustomerTemplate } from "@/lib/template-apply";
+import { getTemplateAspectRatio, type CustomerTemplate } from "@/lib/template-apply";
 import classes from "./template-card.module.css";
 
 export interface TemplateCardProps {
@@ -40,9 +40,12 @@ export function TemplateCard({
     onTry(template);
   };
 
+  const aspectValue = getTemplateAspectRatio(template);
+
   return (
     <article
       className={`${classes.card} ${revealed ? classes.cardRevealed : ""}`}
+      style={{ aspectRatio: aspectValue }}
       onClick={handleCardClick}
     >
       <img

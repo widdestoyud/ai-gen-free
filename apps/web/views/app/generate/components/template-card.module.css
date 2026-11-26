@@ -1,7 +1,6 @@
 .card {
   position: relative;
   width: 100%;
-  aspect-ratio: 3 / 4;
   border-radius: 12px;
   overflow: hidden;
   background: var(--mantine-color-dark-7);
@@ -9,7 +8,14 @@
   cursor: pointer;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
-  transition: border-color 180ms ease, box-shadow 180ms ease;
+  transition: border-color 180ms ease, box-shadow 180ms ease, transform 200ms ease;
+  break-inside: avoid;
+}
+
+@media (max-width: 767px) {
+  .card {
+    border-radius: 10px;
+  }
 }
 
 .coverImage {
