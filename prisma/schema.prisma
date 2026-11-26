@@ -434,3 +434,40 @@ model ChatMessage {
 
   @@index([sessionId, createdAt])
 }
+
+model Template {
+  id              String          @id @default(cuid())
+  title           String
+  prompt          String          @db.Text
+  category        String?
+  modelId         String?
+  aspectRatio     String          @default("1:1")
+  isSpicy         Boolean         @default(false)
+  isActive        Boolean         @default(true)
+  sortOrder       Int             @default(0)
+  usageCount      Int             @default(0)
+  coverStorageKey String
+  coverWidth      Int             @default(0)
+  coverHeight     Int             @default(0)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  images          TemplateImage[]
+
+  @@index([isActive, isSpicy, sortOrder, createdAt])
+  @@index([isActive, isSpicy, usageCount])
+  @@index([category, isActive])
+}
+
+model TemplateImage {
+  id         String   @id @default(cuid())
+  templateId String
+  template   Template @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  storageKey String
+  alias      String?
+  position   Int      @default(0)
+  width      Int      @default(0)
+  height     Int      @default(0)
+  createdAt  DateTime @default(now())
+
+  @@index([templateId, position])
+}
