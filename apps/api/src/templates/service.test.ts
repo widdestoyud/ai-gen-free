@@ -551,6 +551,7 @@ test("template routes reject unauthenticated requests with 401 A006", async () =
     ["GET", "/customer/templates"],
     ["GET", "/customer/templates/categories"],
     ["POST", "/customer/templates/tpl_1/use"],
+    ["GET", "/customer/templates/images/img_1/file"],
     ["GET", "/admin/templates"],
     ["POST", "/admin/templates"],
     ["POST", "/admin/templates/assets"],

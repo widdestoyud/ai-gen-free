@@ -89,6 +89,11 @@ test("resolveBackendPath maps template FE paths to BE canonical paths", () => {
     "/customer/templates/categories?spicy=1",
   );
   assert.equal(resolveBackendPath("/api/templates/t1/use", "POST"), "/customer/templates/t1/use");
+  assert.equal(resolveBackendPath("/api/templates/images/img123/file", "GET"), "/customer/templates/images/img123/file");
+  assert.equal(
+    resolveBackendPath("/api/templates/images/img123/file?thumb=1", "GET"),
+    "/customer/templates/images/img123/file?thumb=1",
+  );
 
   assert.equal(resolveBackendPath("/api/admin/templates", "GET"), "/admin/templates");
   assert.equal(

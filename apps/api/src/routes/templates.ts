@@ -1,6 +1,7 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import "@fastify/cookie";
 import "@fastify/multipart";
+import sharp from "sharp";
 import { AppError, ErrorCodes, type ObjectStorage } from "@ai-gen-free/core";
 import { AuthError, userFromCookie } from "../auth/service.js";
 import { requestIp, sendError } from "../http.js";
@@ -276,6 +277,52 @@ export async function registerTemplateRoutes(
       const { id } = req.params as { id: string };
       const res = await service.recordUse(session.userId, id);
       return reply.status(200).send(res);
+    } catch (err) {
+      return sendError(reply, err, req);
+    }
+  });
+
+  app.get("/customer/templates/images/:id/file", async (req: FastifyRequest, reply: FastifyReply) => {
+    const session = await requireUser(req, reply);
+    if (!session) return;
+    try {
+      const { id } = req.params as { id: string };
+      const q = (req.query ?? {}) as { thumb?: string; w?: string };
+      const isThumbRequested = q.thumb === "1" || q.thumb === "true" || Boolean(q.w);
+      const targetWidth = q.w ? Math.min(Math.max(parseInt(q.w, 10) || 360, 64), 1080) : 360;
+
+      const file = await service.getImageFile(session.userId, id, storage);
+
+      const isImage = (file.contentType || "").startsWith("image/");
+      const etagSuffix = isThumbRequested && isImage ? `-thumb-${targetWidth}` : "";
+      const etag = `W/"tpl-img-${id}${etagSuffix}"`;
+
+      if (req.headers["if-none-match"] === etag) {
+        reply.header("ETag", etag);
+        reply.header("Cache-Control", "private, max-age=31536000, immutable");
+        return reply.status(304).send();
+      }
+
+      let bodyBytes = Buffer.from(file.body);
+      let outContentType = file.contentType;
+
+      if (isThumbRequested && isImage) {
+        try {
+          bodyBytes = await sharp(bodyBytes)
+            .resize({ width: targetWidth, withoutEnlargement: true })
+            .webp({ quality: 80 })
+            .toBuffer();
+          outContentType = "image/webp";
+        } catch {
+          // Fallback to original bytes
+        }
+      }
+
+      reply.header("Content-Type", outContentType);
+      reply.header("Cache-Control", "private, max-age=31536000, immutable");
+      reply.header("ETag", etag);
+      reply.header("Content-Disposition", "inline");
+      return reply.send(bodyBytes);
     } catch (err) {
       return sendError(reply, err, req);
     }

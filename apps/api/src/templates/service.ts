@@ -726,5 +726,44 @@ export function createTemplateService(deps: {
 
       return { ok: true };
     },
+
+    async getImageFile(
+      userId: string,
+      imageId: string,
+      storage: ObjectStorage,
+    ): Promise<{ body: Uint8Array; contentType: string; storageKey: string }> {
+      const userSpicyEnabled = await assertUserSpicyFlag(userId);
+
+      const image = await db.templateImage.findUnique({
+        where: { id: imageId },
+        include: {
+          template: {
+            select: {
+              isActive: true,
+              isSpicy: true,
+            },
+          },
+        },
+      });
+
+      if (!image || !image.template || !image.template.isActive) {
+        throw new AppError(ErrorCodes.NOT_FOUND, "Gambar template tidak ditemukan", 404);
+      }
+
+      if (image.template.isSpicy && !userSpicyEnabled) {
+        throw new AppError(
+          ErrorCodes.SPICY_CONSENT_REQUIRED,
+          "Konten spicy memerlukan persetujuan",
+          403,
+        );
+      }
+
+      const file = await storage.get(image.storageKey);
+      return {
+        body: file.body,
+        contentType: file.contentType || "image/webp",
+        storageKey: image.storageKey,
+      };
+    },
   };
 }

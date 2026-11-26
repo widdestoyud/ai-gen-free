@@ -60,6 +60,10 @@ export function resolveUploadUrl(url: string | null | undefined, id?: string, th
   if (url.startsWith("blob:") || url.startsWith("data:")) {
     return url;
   }
+  if (url.startsWith("template-image:")) {
+    const imgId = url.replace("template-image:", "").trim();
+    return `/api/templates/images/${imgId}/file${thumb ? "?thumb=1" : ""}`;
+  }
   if (url.startsWith("up_")) {
     return `/api/customer-uploads/${url}/file${thumb ? "?thumb=1" : ""}`;
   }

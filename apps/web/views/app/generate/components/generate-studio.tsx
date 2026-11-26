@@ -232,6 +232,12 @@ export function GenerateStudio(props?: {
     measureHeight();
   }, [ctrl.prompt]);
 
+  useEffect(() => {
+    if (ctrl.isGenerating) {
+      setActiveTab("tasks");
+    }
+  }, [ctrl.isGenerating]);
+
   const targetWrapperHeight = isPromptFocused || isMagicPromptLoading
     ? Math.min(Math.max(contentHeight || singleLineHeight, singleLineHeight), maxAllowedHeight)
     : hasText
@@ -365,7 +371,12 @@ export function GenerateStudio(props?: {
             ) : null}
           </div>
         ) : null}
-        <form onSubmit={(e) => void ctrl.submit(e)}>
+        <form
+          onSubmit={(e) => {
+            setActiveTab("tasks");
+            void ctrl.submit(e);
+          }}
+        >
           {/* Mobile Configs Row (Hanya muncul di mobile/tab ketika aktif mengetik / memilih gambar) */}
           {isComposerActive ? (
             <div className={classes.mobileConfigsRow}>

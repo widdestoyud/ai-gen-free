@@ -9,6 +9,7 @@ import {
   type CustomerTemplate,
 } from "./template-apply";
 import { queryKeys } from "./query-keys";
+import { resolveUploadUrl } from "./format";
 
 const tplFixture: CustomerTemplate = {
   id: "tpl_1",
@@ -136,4 +137,15 @@ test("pickTemplateModelId picks valid filtered model and falls back otherwise", 
   assert.equal(pickTemplateModelId("i2i-spicy", catalog, "i2i-standard"), "i2i-spicy");
   assert.equal(pickTemplateModelId("t2i-standard", catalog, "i2i-standard"), "i2i-standard");
   assert.equal(pickTemplateModelId(null, catalog, "i2i-standard"), "i2i-standard");
+});
+
+test("resolveUploadUrl resolves template-image reference without broken path", () => {
+  assert.equal(
+    resolveUploadUrl("template-image:cmu1efgfz0001qz0zntv0iy2z"),
+    "/api/templates/images/cmu1efgfz0001qz0zntv0iy2z/file",
+  );
+  assert.equal(
+    resolveUploadUrl("template-image:cmu1efgfz0001qz0zntv0iy2z", undefined, true),
+    "/api/templates/images/cmu1efgfz0001qz0zntv0iy2z/file?thumb=1",
+  );
 });

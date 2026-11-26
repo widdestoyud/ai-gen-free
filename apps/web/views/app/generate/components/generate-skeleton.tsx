@@ -1,8 +1,6 @@
 "use client";
 
-import { Text } from "@mantine/core";
 import { useEffect, useRef, useState } from "react";
-import { getProgressMessage, getProgressStageKey } from "@/lib/progress-messages";
 import classes from "./generate-studio.module.css";
 
 function parseAspectRatio(ratioStr: string): { w: number; h: number; ratio: number } {
@@ -23,8 +21,6 @@ export function GenerateSkeleton({
   mediaType?: "image" | "video";
 }) {
   const [fakeProgress, setFakeProgress] = useState(12);
-  const [msgIndex, setMsgIndex] = useState(() => Math.floor(Math.random() * 20));
-  const prevStageRef = useRef<string>("10");
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const { w: ratioW, h: ratioH, ratio: ratioMultiplier } = parseAspectRatio(aspectRatio);
@@ -43,21 +39,6 @@ export function GenerateSkeleton({
   }, [progress]);
 
   const progressVal = typeof progress === "number" && progress > 0 ? progress : fakeProgress;
-  const currentStage = getProgressStageKey(progressVal);
-
-  useEffect(() => {
-    if (prevStageRef.current !== currentStage) {
-      prevStageRef.current = currentStage;
-      setMsgIndex(Math.floor(Math.random() * 20));
-    }
-  }, [currentStage]);
-
-  useEffect(() => {
-    const interval = window.setInterval(() => {
-      setMsgIndex((prev) => (prev + 1) % 20);
-    }, 3800);
-    return () => window.clearInterval(interval);
-  }, []);
 
   // Canvas Interactive Ripple Wave simulation with small white squares (HD & 4K optimized)
   useEffect(() => {
@@ -234,8 +215,6 @@ export function GenerateSkeleton({
     };
   }, []);
 
-  const activeMessage = getProgressMessage(progressVal, msgIndex);
-
   return (
     <div data-fal-mv-react-root="" className={`${classes.falMvRoot} flex max-h-full max-w-full items-center justify-center f-html`}>
       <div
@@ -258,19 +237,11 @@ export function GenerateSkeleton({
             height={478}
           />
 
-          {/* Overlay Progress UI: Persentase + Slide-in-up Text */}
+          {/* Overlay Progress UI: Persentase murni tanpa embel-embel teks */}
           <div className={classes.falMvOverlay}>
             <div className={classes.skeletonProgressContainer}>
               <div className={classes.skeletonPercentText}>
                 {Math.round(progressVal)}%
-              </div>
-
-              <div className={classes.skeletonMessageWrapper}>
-                <div key={activeMessage} className={classes.skeletonSlideInText}>
-                  <Text size="sm" ta="center" className={classes.skeletonMessageContent}>
-                    {activeMessage}
-                  </Text>
-                </div>
               </div>
             </div>
           </div>
