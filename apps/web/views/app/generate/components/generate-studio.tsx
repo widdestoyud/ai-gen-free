@@ -6,13 +6,15 @@ import { AppLink } from "@/components/app-link";
 import { CooldownText } from "@/components/cooldown-text";
 import { EmptyState } from "@/components/empty-state";
 import { ErrorAlert } from "@/components/error-alert";
+import { SpicyConsentModal } from "@/components/spicy-consent-modal";
 import { UploadPolicyModal } from "@/components/upload-policy-modal";
 import { WaitAlert } from "@/components/wait-alert";
 import { getRefTag, useGenerateStudio, type StudioRef, type StudioUpload } from "@/hooks/use-generate-studio";
+import { useSpicyConsent } from "@/hooks/use-spicy-consent";
 import { useTemplateGallery } from "@/hooks/use-template-gallery";
 import { isJobActive, type JobView } from "@/lib/job-status";
 import { useI18n } from "@/lib/i18n";
-import type { CustomerTemplate } from "@/lib/template-apply";
+import { needsOverwriteConfirm, type CustomerTemplate } from "@/lib/template-apply";
 import type { Model, DefaultGenerationModelsConfig } from "../types";
 import { GenerateAspectMenu } from "./generate-aspect-menu";
 import { GenerateLibraryModal } from "./generate-library-modal";
@@ -23,6 +25,7 @@ import { CloseIcon, GearIcon, ImageIcon, MagicWandIcon, SparkleIcon, VideoIcon }
 import { GenerateDurationMenu, GenerateResolutionMenu } from "./generate-video-menu";
 import { StudioTabs, type StudioTabValue } from "./studio-tabs";
 import { TemplateGallery } from "./template-gallery";
+import { TemplateOverwriteModal } from "./template-overwrite-modal";
 import classes from "./generate-studio.module.css";
 
 function hasLiveJobOutput(
@@ -80,10 +83,16 @@ export function GenerateStudio(props?: {
   initialUploads?: StudioUpload[];
   initialUploadsTotal?: number;
   initialSpicyModeEnabled?: boolean;
+  initialHasDob?: boolean;
   initialUploadPolicyAccepted?: boolean;
 }) {
   const { t } = useI18n("generate");
   const ctrl = useGenerateStudio(props);
+  const spicyConsent = useSpicyConsent({
+    initialEnabled: ctrl.spicyModeEnabled,
+    initialHasDob: ctrl.hasDob,
+  });
+  const effectiveSpicyEnabled = spicyConsent.enabled || ctrl.spicyModeEnabled;
   const lastJob = ctrl.lastGeneratedJob;
   const activeJobIds = new Set(
     ctrl.jobs.filter((j) => isJobActive(j.status)).map((j) => j.id),
@@ -99,8 +108,10 @@ export function GenerateStudio(props?: {
       : "templates",
   );
   const prevActiveIdRef = useRef<string | null>(ctrl.active?.id ?? null);
-  const templateGallery = useTemplateGallery({ spicyEnabled: ctrl.spicyModeEnabled });
-  const [spicyHint, setSpicyHint] = useState<string | null>(null);
+  const templateGallery = useTemplateGallery({ spicyEnabled: effectiveSpicyEnabled });
+  const [pendingTemplate, setPendingTemplate] = useState<CustomerTemplate | null>(null);
+  const [pendingAdultEnable, setPendingAdultEnable] = useState(false);
+  const [pendingOverwriteTemplate, setPendingOverwriteTemplate] = useState<CustomerTemplate | null>(null);
   const [previewRef, setPreviewRef] = useState<StudioRef | null>(null);
   const [settingsModalOpened, setSettingsModalOpened] = useState(false);
   const [isPromptFocused, setIsPromptFocused] = useState(false);
@@ -118,34 +129,63 @@ export function GenerateStudio(props?: {
   }, [ctrl.active?.id]);
 
   useEffect(() => {
-    if (ctrl.spicyModeEnabled) {
-      setSpicyHint(null);
+    if (spicyConsent.enabled && !ctrl.spicyModeEnabled) {
+      ctrl.setSpicyModeEnabled(true);
     }
-  }, [ctrl.spicyModeEnabled]);
+  }, [spicyConsent.enabled, ctrl.spicyModeEnabled, ctrl.setSpicyModeEnabled]);
+
+  const proceedAfterSpicyCheck = (tpl: CustomerTemplate) => {
+    if (needsOverwriteConfirm(ctrl.composerSnapshot(), ctrl.lastApplied.current)) {
+      setPendingOverwriteTemplate(tpl);
+      return;
+    }
+    ctrl.applyTemplate(tpl);
+  };
+
+  useEffect(() => {
+    if (!effectiveSpicyEnabled) return;
+    if (pendingAdultEnable) {
+      setPendingAdultEnable(false);
+      templateGallery.setAdultOn(true);
+    }
+    if (pendingTemplate) {
+      const target = pendingTemplate;
+      setPendingTemplate(null);
+      proceedAfterSpicyCheck(target);
+    }
+  }, [effectiveSpicyEnabled, pendingAdultEnable, pendingTemplate]);
 
   const handleAdultToggle = (next: boolean) => {
-    if (next && !ctrl.spicyModeEnabled) {
-      setSpicyHint(t("templates.spicy_need_dob"));
+    if (!next) {
+      setPendingAdultEnable(false);
+      spicyConsent.clearError();
       templateGallery.setAdultOn(false);
       return;
     }
-    setSpicyHint(null);
-    templateGallery.setAdultOn(next);
+    if (!spicyConsent.request()) {
+      if (spicyConsent.hasDob) {
+        setPendingAdultEnable(true);
+      }
+      templateGallery.setAdultOn(false);
+      return;
+    }
+    templateGallery.setAdultOn(true);
   };
 
   const handleTryTemplate = (tpl: CustomerTemplate) => {
-    if (tpl.isSpicy && !ctrl.spicyModeEnabled) {
-      setSpicyHint(t("templates.spicy_need_dob"));
+    if (tpl.isSpicy && !spicyConsent.request()) {
+      if (spicyConsent.hasDob) {
+        setPendingTemplate(tpl);
+      }
       return;
     }
-    setSpicyHint(null);
-    ctrl.setMediaType("image");
-    ctrl.setPrompt(tpl.prompt);
-    ctrl.setAspectRatio(tpl.aspectRatio);
-    if (ctrl.spicyModeEnabled) {
-      ctrl.setSpicyFilter(tpl.isSpicy ? "spicy" : "normal");
-    }
-    ctrl.textareaRef.current?.focus();
+    proceedAfterSpicyCheck(tpl);
+  };
+
+  const handleCloseSpicyConsent = () => {
+    setPendingAdultEnable(false);
+    setPendingTemplate(null);
+    spicyConsent.close();
   };
 
   const hasText = Boolean(ctrl.prompt && ctrl.prompt.trim().length > 0);
@@ -290,6 +330,7 @@ export function GenerateStudio(props?: {
               onSortChange={templateGallery.setSort}
               adultOn={templateGallery.adultOn}
               onAdultToggle={handleAdultToggle}
+              adultDisabled={spicyConsent.saving}
               hasNextPage={templateGallery.hasNextPage}
               isFetchingNextPage={templateGallery.isFetchingNextPage}
               isLoading={templateGallery.isLoading}
@@ -299,8 +340,8 @@ export function GenerateStudio(props?: {
               onTryTemplate={handleTryTemplate}
               sentinelRef={templateGallery.sentinelRef}
               scrollRootRef={templateGallery.scrollRootRef}
-              spicyHint={spicyHint}
-              onDismissSpicyHint={() => setSpicyHint(null)}
+              spicyHint={!spicyConsent.modalOpened ? spicyConsent.error : null}
+              onDismissSpicyHint={spicyConsent.clearError}
             />
           </div>
         )}
@@ -328,7 +369,7 @@ export function GenerateStudio(props?: {
           {/* Mobile Configs Row (Hanya muncul di mobile/tab ketika aktif mengetik / memilih gambar) */}
           {isComposerActive ? (
             <div className={classes.mobileConfigsRow}>
-              {ctrl.spicyModeEnabled ? (
+              {effectiveSpicyEnabled ? (
                 <div className={classes.pillSegment}>
                   <button
                     type="button"
@@ -587,7 +628,7 @@ export function GenerateStudio(props?: {
                     </button>
                   </div>
 
-                  {ctrl.spicyModeEnabled ? (
+                  {effectiveSpicyEnabled ? (
                     <div className={classes.pillSegment}>
                       <button
                         type="button"
@@ -733,7 +774,7 @@ export function GenerateStudio(props?: {
         opened={settingsModalOpened}
         onClose={() => setSettingsModalOpened(false)}
         mediaType={ctrl.mediaType}
-        spicyModeEnabled={ctrl.spicyModeEnabled}
+        spicyModeEnabled={effectiveSpicyEnabled}
         spicyFilter={ctrl.spicyFilter}
         onSpicyFilterChange={ctrl.setSpicyFilter}
         aspectRatio={ctrl.aspectRatio}
@@ -779,6 +820,27 @@ export function GenerateStudio(props?: {
         onAccept={ctrl.acceptUploadPolicy}
         loading={ctrl.policySaving}
         error={ctrl.policyError}
+      />
+
+      <SpicyConsentModal
+        opened={spicyConsent.modalOpened}
+        onClose={handleCloseSpicyConsent}
+        onConfirm={spicyConsent.confirm}
+        loading={spicyConsent.saving}
+        error={spicyConsent.error}
+      />
+
+      <TemplateOverwriteModal
+        opened={Boolean(pendingOverwriteTemplate)}
+        onCancel={() => setPendingOverwriteTemplate(null)}
+        onConfirm={() => {
+          const target = pendingOverwriteTemplate;
+          setPendingOverwriteTemplate(null);
+          if (target) {
+            ctrl.applyTemplate(target);
+          }
+        }}
+        onAfterConfirm={() => ctrl.textareaRef.current?.focus()}
       />
 
       {/* Modal Lihat Detail Media (Full Size Preview + Metadata) */}

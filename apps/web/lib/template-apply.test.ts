@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   needsOverwriteConfirm,
+  pickTemplateModelId,
+  resolveSpicyGate,
   templateToStudioRefs,
   type ComposerSnapshot,
   type CustomerTemplate,
@@ -120,4 +122,18 @@ test("queryKeys includes templates, templateCategories, and adminTemplates", () 
     { page: 1, limit: 20 },
   ]);
   assert.deepEqual(queryKeys.adminTemplates(), ["admin-templates", undefined]);
+});
+
+test("resolveSpicyGate handles enabled, missing DOB, and consent needed", () => {
+  assert.equal(resolveSpicyGate(true, false), "allow");
+  assert.equal(resolveSpicyGate(true, true), "allow");
+  assert.equal(resolveSpicyGate(false, false), "need_dob");
+  assert.equal(resolveSpicyGate(false, true), "need_consent");
+});
+
+test("pickTemplateModelId picks valid filtered model and falls back otherwise", () => {
+  const catalog = ["i2i-standard", "i2i-spicy"];
+  assert.equal(pickTemplateModelId("i2i-spicy", catalog, "i2i-standard"), "i2i-spicy");
+  assert.equal(pickTemplateModelId("t2i-standard", catalog, "i2i-standard"), "i2i-standard");
+  assert.equal(pickTemplateModelId(null, catalog, "i2i-standard"), "i2i-standard");
 });

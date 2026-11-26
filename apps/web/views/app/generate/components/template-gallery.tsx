@@ -23,6 +23,7 @@ export interface TemplateGalleryProps {
   onSortChange: (sort: TemplateSort) => void;
   adultOn: boolean;
   onAdultToggle: (next: boolean) => void;
+  adultDisabled?: boolean;
   hasNextPage: boolean;
   isFetchingNextPage: boolean;
   isLoading: boolean;
@@ -50,6 +51,7 @@ export function TemplateGallery({
   onSortChange,
   adultOn,
   onAdultToggle,
+  adultDisabled = false,
   hasNextPage,
   isFetchingNextPage,
   isLoading,
@@ -88,6 +90,7 @@ export function TemplateGallery({
             <Switch
               checked={adultOn}
               onChange={(e) => onAdultToggle(e.currentTarget.checked)}
+              disabled={adultDisabled}
               label={t("templates.adult_toggle")}
               size="sm"
               color="red"

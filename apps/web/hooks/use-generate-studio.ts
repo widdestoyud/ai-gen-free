@@ -25,7 +25,13 @@ import {
 } from "@/lib/aspect-ratio";
 import { uploadFileWithProgress } from "@/lib/upload";
 import { queryKeys } from "@/lib/query-keys";
-import { resequenceRefs } from "@/lib/template-apply";
+import {
+  pickTemplateModelId,
+  resequenceRefs,
+  templateToStudioRefs,
+  type ComposerSnapshot,
+  type CustomerTemplate,
+} from "@/lib/template-apply";
 import { useWallet } from "./use-wallet";
 
 export { STUDIO_ASPECTS, getAspectMetadata, transformAspectRatioToSize, type AspectRatioId, type AspectRatioOption };
@@ -161,6 +167,28 @@ function nearestSignedRefresh(jobs: JobView[]): number | null {
   return best;
 }
 
+function resolveStudioAspectMeta(ratio: string): {
+  value: string;
+  preview: "tall" | "wide" | "square";
+  dimension: string;
+  tierSize: "1k" | "2k";
+} {
+  const standard = STUDIO_ASPECTS.find((item) => item.value === ratio);
+  if (standard) return standard;
+  switch (ratio) {
+    case "3:4":
+      return { value: "3:4", preview: "tall", dimension: "896x1152", tierSize: "1k" };
+    case "4:3":
+      return { value: "4:3", preview: "wide", dimension: "1152x896", tierSize: "1k" };
+    case "4:5":
+      return { value: "4:5", preview: "tall", dimension: "896x1120", tierSize: "1k" };
+    case "5:4":
+      return { value: "5:4", preview: "wide", dimension: "1120x896", tierSize: "1k" };
+    default:
+      return getAspectMetadata(ratio);
+  }
+}
+
 export function useGenerateStudio(props?: {
   available?: number;
   held?: number;
@@ -171,6 +199,7 @@ export function useGenerateStudio(props?: {
   initialUploads?: StudioUpload[];
   initialUploadsTotal?: number;
   initialSpicyModeEnabled?: boolean;
+  initialHasDob?: boolean;
   initialUploadPolicyAccepted?: boolean;
 }) {
   const wallet = useWallet(
@@ -224,6 +253,7 @@ export function useGenerateStudio(props?: {
           hasUploads?: boolean;
           nextGenerateAt: string | null;
           spicyModeEnabled?: boolean;
+          dateOfBirth?: string | null;
         };
       }>("/api/me");
       if (res.ok && res.data?.user) return res.data.user;
@@ -254,6 +284,7 @@ export function useGenerateStudio(props?: {
 
   const [mediaType, setMediaType] = useState<"image" | "video">("image");
   const [spicyModeEnabled, setSpicyModeEnabled] = useState(() => props?.initialSpicyModeEnabled ?? false);
+  const [hasDob, setHasDob] = useState(() => props?.initialHasDob ?? false);
   const [spicyFilter, setSpicyFilter] = useState<"normal" | "spicy">("normal");
   const [selectedRefs, setSelectedRefs] = useState<StudioRef[]>([]);
   const hasImageRefs = selectedRefs.length > 0;
@@ -284,6 +315,7 @@ export function useGenerateStudio(props?: {
   const [mentionIndex, setMentionIndex] = useState(0);
   const fileRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const lastApplied = useRef<ComposerSnapshot | null>(null);
   const [resultModalOpened, setResultModalOpened] = useState(false);
   const [uploadPolicyAccepted, setUploadPolicyAccepted] = useState(() => props?.initialUploadPolicyAccepted ?? false);
   const [uploadPolicyModalOpened, setUploadPolicyModalOpened] = useState(false);
@@ -332,6 +364,12 @@ export function useGenerateStudio(props?: {
   }, [props?.initialSpicyModeEnabled]);
 
   useEffect(() => {
+    if (typeof props?.initialHasDob === "boolean") {
+      setHasDob(props.initialHasDob);
+    }
+  }, [props?.initialHasDob]);
+
+  useEffect(() => {
     if (typeof props?.initialUploadPolicyAccepted === "boolean") {
       setUploadPolicyAccepted(props.initialUploadPolicyAccepted);
     }
@@ -342,6 +380,9 @@ export function useGenerateStudio(props?: {
       userCheckedRef.current = true;
       setUploadPolicyAccepted(Boolean(userStatusQuery.data.uploadPolicyAcceptedAt));
       setSpicyModeEnabled(Boolean(userStatusQuery.data.spicyModeEnabled));
+      if (userStatusQuery.data.dateOfBirth !== undefined) {
+        setHasDob(Boolean(userStatusQuery.data.dateOfBirth));
+      }
     }
   }, [userStatusQuery.data]);
 
@@ -378,18 +419,24 @@ export function useGenerateStudio(props?: {
 
   async function checkUserStatus(force = false) {
     if (!force && uploadPolicyAccepted && userCheckedRef.current) {
-      return { accepted: uploadPolicyAccepted, spicyModeEnabled };
+      return { accepted: uploadPolicyAccepted, spicyModeEnabled, hasDob };
     }
     if (!force && userStatusQuery.data) {
       userCheckedRef.current = true;
       const accepted = Boolean(userStatusQuery.data.uploadPolicyAcceptedAt);
       const spicyEnabled = Boolean(userStatusQuery.data.spicyModeEnabled);
+      const userHasDob =
+        userStatusQuery.data.dateOfBirth !== undefined
+          ? Boolean(userStatusQuery.data.dateOfBirth)
+          : hasDob;
       setUploadPolicyAccepted(accepted);
       setSpicyModeEnabled(spicyEnabled);
+      setHasDob(userHasDob);
       return {
         accepted,
         hasUploads: userStatusQuery.data.hasUploads,
         spicyModeEnabled: spicyEnabled,
+        hasDob: userHasDob,
       };
     }
     const res = await requestJson<{
@@ -398,18 +445,25 @@ export function useGenerateStudio(props?: {
         hasUploads?: boolean;
         nextGenerateAt: string | null;
         spicyModeEnabled?: boolean;
+        dateOfBirth?: string | null;
       };
     }>("/api/me");
     if (!res.ok || !res.data?.user) return null;
     userCheckedRef.current = true;
     const accepted = Boolean(res.data.user.uploadPolicyAcceptedAt);
     const spicyEnabled = Boolean(res.data.user.spicyModeEnabled);
+    const userHasDob =
+      res.data.user.dateOfBirth !== undefined
+        ? Boolean(res.data.user.dateOfBirth)
+        : hasDob;
     setUploadPolicyAccepted(accepted);
     setSpicyModeEnabled(spicyEnabled);
+    setHasDob(userHasDob);
     return {
       accepted,
       hasUploads: res.data.user.hasUploads,
       spicyModeEnabled: spicyEnabled,
+      hasDob: userHasDob,
     };
   }
 
@@ -454,7 +508,7 @@ export function useGenerateStudio(props?: {
     .filter((j) => hasLiveOutput(j.output) && j.output.signedExpiresAt)
     .map((j) => `${j.id}:${j.output?.signedExpiresAt ?? ""}`)
     .join("|");
-  const aspectMeta = STUDIO_ASPECTS.find((item) => item.value === aspectRatio) ?? STUDIO_ASPECTS[1];
+  const aspectMeta = resolveStudioAspectMeta(aspectRatio);
 
   useEffect(() => {
     if (props?.initialUploads && props.initialUploads.length > 0) {
@@ -797,7 +851,7 @@ export function useGenerateStudio(props?: {
           ? (mode === "i2i" ? DEFAULT_SPICY_I2I_MODEL_ID : DEFAULT_SPICY_T2I_MODEL_ID)
           : (mode === "i2i" ? DEFAULT_I2I_MODEL_ID : DEFAULT_T2I_MODEL_ID));
 
-    const currentAspectMeta = getAspectMetadata(aspectRatio);
+    const currentAspectMeta = resolveStudioAspectMeta(aspectRatio);
     const params: Record<string, unknown> = {
       aspectRatio: currentAspectMeta.value,
       size: currentAspectMeta.dimension,
@@ -1260,6 +1314,55 @@ export function useGenerateStudio(props?: {
     return true;
   }
 
+  function composerSnapshot(): ComposerSnapshot {
+    return {
+      prompt,
+      refIds: selectedRefs.map((r) => r.id),
+    };
+  }
+
+  function applyTemplate(t: CustomerTemplate): void {
+    const nextRefs = templateToStudioRefs(t);
+    const nextMode: "t2i" | "i2i" = nextRefs.length > 0 ? "i2i" : "t2i";
+    const nextSpicyFilter: "normal" | "spicy" = t.isSpicy ? "spicy" : "normal";
+    const targetCatalog = filterModels(models, nextMode, nextSpicyFilter);
+    const fallbackModelId = pickInitialModel(targetCatalog, nextMode, nextSpicyFilter, defaults);
+    const nextModelId = pickTemplateModelId(
+      t.modelId,
+      targetCatalog.map((m) => m.modelId),
+      fallbackModelId,
+    );
+
+    prevModeRef.current = nextMode;
+    prevSpicyRef.current = nextSpicyFilter;
+
+    setMediaType("image");
+    setSpicyFilter(nextSpicyFilter);
+    setSelectedRefs(nextRefs);
+    setPrompt(t.prompt);
+    setAspectRatio(t.aspectRatio);
+    setMentionOpen(false);
+    if (nextModelId) {
+      setModelId(nextModelId);
+    }
+
+    lastApplied.current = {
+      prompt: t.prompt,
+      refIds: nextRefs.map((r) => r.id),
+    };
+
+    void requestJson(`/api/templates/${encodeURIComponent(t.id)}/use`, {
+      method: "POST",
+    });
+
+    textareaRef.current?.focus();
+    if (typeof window !== "undefined") {
+      window.requestAnimationFrame(() => {
+        textareaRef.current?.focus();
+      });
+    }
+  }
+
   return {
     available: wallet.available,
     held: wallet.held,
@@ -1283,6 +1386,9 @@ export function useGenerateStudio(props?: {
     handlePromptChange,
     handlePromptKeyDown,
     textareaRef,
+    lastApplied,
+    composerSnapshot,
+    applyTemplate,
     mentionOpen,
     mentionIndex,
     selectMention,
@@ -1336,6 +1442,8 @@ export function useGenerateStudio(props?: {
     policyError,
     acceptUploadPolicy,
     spicyModeEnabled,
+    setSpicyModeEnabled,
+    hasDob,
     spicyFilter,
     setSpicyFilter,
   };

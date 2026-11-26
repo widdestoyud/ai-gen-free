@@ -64,6 +64,31 @@ export function needsOverwriteConfirm(
   return true;
 }
 
+export type SpicyGateDecision = "allow" | "need_dob" | "need_consent";
+
+/**
+ * Menentukan langkah gerbang Spicy Mode saat pengguna meminta fitur 18+.
+ */
+export function resolveSpicyGate(enabled: boolean, hasDob: boolean): SpicyGateDecision {
+  if (enabled) return "allow";
+  if (!hasDob) return "need_dob";
+  return "need_consent";
+}
+
+/**
+ * Memilih modelId template jika masih tersedia di katalog terfilter, jika tidak fallback ke default aktif.
+ */
+export function pickTemplateModelId(
+  requestedModelId: string | null | undefined,
+  filteredModelIds: readonly string[],
+  fallbackModelId: string,
+): string {
+  if (requestedModelId && filteredModelIds.includes(requestedModelId)) {
+    return requestedModelId;
+  }
+  return fallbackModelId;
+}
+
 /**
  * Memetakan gambar referensi milik template menjadi item `StudioRef` siap-submit (`template-image:<id>`).
  */

@@ -24,7 +24,7 @@ async function load() {
   if (!wallet || !wallet.ok) return null;
   const jobsBody = jobsRes?.ok ? ((await jobsRes.json()) as JobsListView) : { jobs: [] as JobView[], nextGenerateAt: null };
   const catalogBody = catalog?.ok ? ((await catalog.json()) as { models?: Model[]; defaults?: any }) : { models: [] };
-  const profileBody = profileRes?.ok ? ((await profileRes.json()) as { user?: { spicyModeEnabled?: boolean; uploadPolicyAcceptedAt?: string | null } }) : {};
+  const profileBody = profileRes?.ok ? ((await profileRes.json()) as { user?: { spicyModeEnabled?: boolean; uploadPolicyAcceptedAt?: string | null; dateOfBirth?: string | null } }) : {};
 
   return {
     wallet: (await wallet.json()) as { available: number; held: number },
@@ -33,6 +33,7 @@ async function load() {
     jobs: jobsBody?.jobs ?? [],
     nextGenerateAt: jobsBody?.nextGenerateAt ?? null,
     spicyModeEnabled: Boolean(profileBody?.user?.spicyModeEnabled),
+    hasDob: Boolean(profileBody?.user?.dateOfBirth),
     uploadPolicyAccepted: Boolean(profileBody?.user?.uploadPolicyAcceptedAt),
   };
 }
@@ -49,6 +50,7 @@ async function GeneratePageContent() {
       jobs={data.jobs}
       nextGenerateAt={data.nextGenerateAt}
       initialSpicyModeEnabled={data.spicyModeEnabled}
+      initialHasDob={data.hasDob}
       initialUploadPolicyAccepted={data.uploadPolicyAccepted}
     />
   );
