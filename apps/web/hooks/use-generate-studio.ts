@@ -25,14 +25,17 @@ import {
 } from "@/lib/aspect-ratio";
 import { uploadFileWithProgress } from "@/lib/upload";
 import { queryKeys } from "@/lib/query-keys";
+import { resequenceRefs } from "@/lib/template-apply";
 import { useWallet } from "./use-wallet";
 
 export { STUDIO_ASPECTS, getAspectMetadata, transformAspectRatioToSize, type AspectRatioId, type AspectRatioOption };
+export { resequenceRefs };
 
 export type StudioRef = {
   id: string;
   url: string;
-  kind: "generation" | "upload";
+  kind: "generation" | "upload" | "template";
+  submitUrl?: string;
   uploading?: boolean;
   progress?: number;
   alias?: string | null;
@@ -56,18 +59,6 @@ export type StudioUpload = {
   width?: number;
   height?: number;
 };
-
-export function resequenceRefs(refs: StudioRef[]): StudioRef[] {
-  let imageCounter = 1;
-  return refs.map((ref) => {
-    if (ref.alias && ref.alias.trim().length > 0) {
-      return { ...ref, tag: `@${ref.alias.trim()}` };
-    }
-    const tag = `@image${imageCounter}`;
-    imageCounter++;
-    return { ...ref, tag };
-  });
-}
 
 export function getRefTag(ref: StudioRef, index?: number): string {
   if (ref.alias && ref.alias.trim().length > 0) {
@@ -818,12 +809,12 @@ export function useGenerateStudio(props?: {
     }
     if (hasImageRefs) {
       params.refs = selectedRefs.map((r, idx) => ({
-        url: r.url,
+        url: r.submitUrl ?? r.url,
         tag: getRefTag(r, idx),
         alias: r.alias || null,
       }));
-      params.image = selectedRefs[0]?.url;
-      params.images = selectedRefs.map((r) => r.url);
+      params.image = selectedRefs[0]?.submitUrl ?? selectedRefs[0]?.url;
+      params.images = selectedRefs.map((r) => r.submitUrl ?? r.url);
     }
 
     const result = await requestJson<{ job_id?: string; id?: string }>("/api/generate", {

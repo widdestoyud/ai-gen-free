@@ -46,3 +46,58 @@ test("resolveBackendPath maps FE paths to BE canonical paths", () => {
   assert.equal(resolveBackendPath("/api/admin/uploads/up_123/file", "GET"), "/admin/uploads/up_123/file");
   assert.equal(resolveBackendPath("/api/health", "GET"), "/api/health");
 });
+
+test("API_MAPPINGS contains template mappings in specific-before-wildcard order", () => {
+  const findIdx = (fe: string, method: string) =>
+    API_MAPPINGS.findIndex((m) => m.FE === fe && m.method === method);
+
+  const custListIdx = findIdx("/api/templates", "GET");
+  const custCatIdx = findIdx("/api/templates/categories", "GET");
+  const custUseIdx = findIdx("/api/templates/:id/use", "POST");
+  assert.ok(custListIdx >= 0);
+  assert.ok(custCatIdx >= 0);
+  assert.ok(custUseIdx >= 0);
+  assert.ok(custCatIdx < custUseIdx);
+
+  const adminListIdx = findIdx("/api/admin/templates", "GET");
+  const adminCreateIdx = findIdx("/api/admin/templates", "POST");
+  const adminAssetIdx = findIdx("/api/admin/templates/assets", "POST");
+  const adminGetIdx = findIdx("/api/admin/templates/:id", "GET");
+  const adminPatchIdx = findIdx("/api/admin/templates/:id", "PATCH");
+  const adminDeleteIdx = findIdx("/api/admin/templates/:id", "DELETE");
+
+  assert.ok(adminListIdx >= 0);
+  assert.ok(adminCreateIdx >= 0);
+  assert.ok(adminAssetIdx >= 0);
+  assert.ok(adminGetIdx >= 0);
+  assert.ok(adminPatchIdx >= 0);
+  assert.ok(adminDeleteIdx >= 0);
+  assert.ok(adminAssetIdx < adminGetIdx);
+  assert.ok(adminAssetIdx < adminPatchIdx);
+  assert.ok(adminAssetIdx < adminDeleteIdx);
+});
+
+test("resolveBackendPath maps template FE paths to BE canonical paths", () => {
+  assert.equal(resolveBackendPath("/api/templates", "GET"), "/customer/templates");
+  assert.equal(
+    resolveBackendPath("/api/templates?page=2&limit=12&sort=trending&spicy=0", "GET"),
+    "/customer/templates?page=2&limit=12&sort=trending&spicy=0",
+  );
+  assert.equal(resolveBackendPath("/api/templates/categories", "GET"), "/customer/templates/categories");
+  assert.equal(
+    resolveBackendPath("/api/templates/categories?spicy=1", "GET"),
+    "/customer/templates/categories?spicy=1",
+  );
+  assert.equal(resolveBackendPath("/api/templates/t1/use", "POST"), "/customer/templates/t1/use");
+
+  assert.equal(resolveBackendPath("/api/admin/templates", "GET"), "/admin/templates");
+  assert.equal(
+    resolveBackendPath("/api/admin/templates?page=1&limit=20", "GET"),
+    "/admin/templates?page=1&limit=20",
+  );
+  assert.equal(resolveBackendPath("/api/admin/templates", "POST"), "/admin/templates");
+  assert.equal(resolveBackendPath("/api/admin/templates/assets", "POST"), "/admin/templates/assets");
+  assert.equal(resolveBackendPath("/api/admin/templates/t1", "GET"), "/admin/templates/t1");
+  assert.equal(resolveBackendPath("/api/admin/templates/t1", "PATCH"), "/admin/templates/t1");
+  assert.equal(resolveBackendPath("/api/admin/templates/t1", "DELETE"), "/admin/templates/t1");
+});

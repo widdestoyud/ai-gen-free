@@ -77,6 +77,25 @@ export const queryKeys = {
    * Endpoint: GET /api/generate
    */
   generatedJobs: () => ["generated-jobs"] as const,
+
+  /**
+   * Customer Template Gallery (Infinite Scroll & Filters)
+   * Endpoint: GET /api/templates
+   */
+  templates: (filters: { q?: string | null; category?: string | null; sort?: string; spicy?: boolean }) =>
+    ["templates", filters] as const,
+
+  /**
+   * Active Template Categories for Filter Pills
+   * Endpoint: GET /api/templates/categories
+   */
+  templateCategories: (spicy: boolean) => ["template-categories", { spicy }] as const,
+
+  /**
+   * Admin Template Management List
+   * Endpoint: GET /api/admin/templates
+   */
+  adminTemplates: (params?: Record<string, unknown>) => ["admin-templates", params] as const,
 } as const;
 
 /**
@@ -155,6 +174,24 @@ export const QUERY_KEY_REGISTRY = [
     description: "Daftar riwayat pekerjaan generate gambar/video AI & status aktif",
     endpoint: "GET /api/generate",
     usedIn: ["hooks/use-generate-studio.ts", "views/app/library/components/media-detail-modal.tsx"],
+  },
+  {
+    key: "templates",
+    description: "Daftar galeri template studio dengan filter pencarian, kategori, urutan, dan mode spicy",
+    endpoint: "GET /api/templates",
+    usedIn: ["hooks/use-template-gallery.ts"],
+  },
+  {
+    key: "template-categories",
+    description: "Daftar kategori template aktif untuk pill filter di studio",
+    endpoint: "GET /api/templates/categories",
+    usedIn: ["hooks/use-template-gallery.ts"],
+  },
+  {
+    key: "admin-templates",
+    description: "Daftar manajemen template studio di panel admin",
+    endpoint: "GET /api/admin/templates",
+    usedIn: ["views/admin/templates/admin-templates-view.tsx"],
   },
 ] as const;
 

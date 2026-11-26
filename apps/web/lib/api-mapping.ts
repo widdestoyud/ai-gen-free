@@ -177,6 +177,24 @@ export const API_MAPPINGS: readonly ApiRouteMapping[] = [
     method: "GET",
     description: "Daftar sesi riwayat chat pengguna",
   },
+  {
+    FE: "/api/templates",
+    BE: "/customer/templates",
+    method: "GET",
+    description: "Daftar galeri template aktif untuk pelanggan",
+  },
+  {
+    FE: "/api/templates/categories",
+    BE: "/customer/templates/categories",
+    method: "GET",
+    description: "Daftar kategori template aktif untuk pelanggan",
+  },
+  {
+    FE: "/api/templates/:id/use",
+    BE: "/customer/templates/:id/use",
+    method: "POST",
+    description: "Catat penggunaan template oleh pelanggan",
+  },
 
   // -------------------------------------------------------------
   // 2. Auth & Pelanggan (Registrasi, OTP, Reset Password)
@@ -559,6 +577,42 @@ export const API_MAPPINGS: readonly ApiRouteMapping[] = [
     method: "DELETE",
     description: "Menghapus paket topup oleh admin",
   },
+  {
+    FE: "/api/admin/templates",
+    BE: "/admin/templates",
+    method: "GET",
+    description: "Daftar template studio untuk dikelola admin",
+  },
+  {
+    FE: "/api/admin/templates",
+    BE: "/admin/templates",
+    method: "POST",
+    description: "Membuat template studio baru oleh admin",
+  },
+  {
+    FE: "/api/admin/templates/assets",
+    BE: "/admin/templates/assets",
+    method: "POST",
+    description: "Unggah atau impor aset gambar template oleh admin",
+  },
+  {
+    FE: "/api/admin/templates/:id",
+    BE: "/admin/templates/:id",
+    method: "GET",
+    description: "Detail template studio spesifik untuk admin",
+  },
+  {
+    FE: "/api/admin/templates/:id",
+    BE: "/admin/templates/:id",
+    method: "PATCH",
+    description: "Memperbarui data dan aset template studio oleh admin",
+  },
+  {
+    FE: "/api/admin/templates/:id",
+    BE: "/admin/templates/:id",
+    method: "DELETE",
+    description: "Menghapus template studio beserta asetnya oleh admin",
+  },
 
   // -------------------------------------------------------------
   // 6. Uploads (Pelanggan & Admin)
@@ -847,6 +901,16 @@ export function resolveBackendPath(fePath: string, method = "GET"): string {
   // Operasi spesifik upload user (/api/customer-uploads/:id, /api/customer-images/:id, /api/customer/uploads/:id)
   const customerUploadDetailMatch = path.match(/^\/api\/(?:customer-uploads|customer-images|customer\/uploads)\/([^/]+)$/);
   if (customerUploadDetailMatch) return `/customer/uploads/${customerUploadDetailMatch[1]}` + search;
+
+  // Templates (customer & admin)
+  const templateUseMatch = m === "POST" ? path.match(/^\/api\/templates\/([^/]+)\/use$/) : null;
+  if (templateUseMatch) return `/customer/templates/${templateUseMatch[1]}/use` + search;
+
+  const adminTemplateDetailMatch =
+    (m === "GET" || m === "PATCH" || m === "DELETE") && path !== "/api/admin/templates/assets"
+      ? path.match(/^\/api\/admin\/templates\/([^/]+)$/)
+      : null;
+  if (adminTemplateDetailMatch) return `/admin/templates/${adminTemplateDetailMatch[1]}` + search;
 
   // Fallback: strip /api jika diawali /api/
   if (path !== "/api/health" && path.startsWith("/api/")) {

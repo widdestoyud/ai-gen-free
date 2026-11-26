@@ -6,7 +6,7 @@
     "dev": "next dev --port 3000",
     "build": "next build",
     "start": "next start --port 3000",
-    "test": "node --test --import tsx/esm lib/**/*.test.ts"
+    "test": "tsx --test lib/*.test.ts lib/i18n/*.test.ts"
   },
   "dependencies": {
     "@mantine/core": "^8.3.18",
