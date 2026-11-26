@@ -41,6 +41,8 @@ export type CustomerTemplateView = {
   aspectRatio: string;
   isSpicy: boolean;
   coverUrl: string;
+  coverWidth?: number;
+  coverHeight?: number;
   images: CustomerTemplateImageView[];
 };
 
@@ -159,6 +161,8 @@ export async function toCustomerView(
     aspectRatio: row.aspectRatio,
     isSpicy: row.isSpicy,
     coverUrl,
+    coverWidth: typeof row.coverWidth === "number" && row.coverWidth > 0 ? row.coverWidth : undefined,
+    coverHeight: typeof row.coverHeight === "number" && row.coverHeight > 0 ? row.coverHeight : undefined,
     images: sortedImages.map((img, idx) => ({
       id: img.id,
       url: imageUrls[idx] ?? "",

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+  getTemplateAspectRatio,
   needsOverwriteConfirm,
   pickTemplateModelId,
   resolveSpicyGate,
@@ -148,4 +149,10 @@ test("resolveUploadUrl resolves template-image reference without broken path", (
     resolveUploadUrl("template-image:cmu1efgfz0001qz0zntv0iy2z", undefined, true),
     "/api/templates/images/cmu1efgfz0001qz0zntv0iy2z/file?thumb=1",
   );
+});
+
+test("getTemplateAspectRatio returns numeric ratio or fallback", () => {
+  assert.equal(getTemplateAspectRatio({ ...tplFixture, coverWidth: 1080, coverHeight: 1920 }), "9 / 16");
+  assert.equal(getTemplateAspectRatio({ ...tplFixture, coverWidth: 0, coverHeight: 0, aspectRatio: "16:9" }), "16 / 9");
+  assert.equal(getTemplateAspectRatio({ ...tplFixture, coverWidth: undefined, coverHeight: undefined, aspectRatio: "invalid" }), "3 / 4");
 });
