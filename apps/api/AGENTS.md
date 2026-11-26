@@ -8,5 +8,6 @@ Baca root `AGENTS.md`. Jangan edit `apps/web`.
 - `POST /auth/otp-validation` merespons `{ user, sessionToken }`. Cookie `sid` boleh tetap untuk klien API langsung.
 - NextAuth hidup di `apps/web`; jangan pasang Auth.js di Fastify.
 - Jangan percaya `cost` / `role` / `balance` / `modelId` dari body untuk menentukan priviledge. Hold/capture di server.
-- Endpoint pelanggan publik (`/customer/models`, `/customer/generated-lists`, dsb.) DILARANG mengekspos upstream model names / provider ID. Gunakan `toOpaqueModelId` / `listCustomerCatalog`.
+- Endpoint pelanggan publik (`/customer/models`, `/customer/generated-lists`, `/customer/templates*`, dsb.) DILARANG mengekspos upstream model names / provider ID maupun raw `storageKey`. Gunakan `toOpaqueModelId` / `listCustomerCatalog` / `toCustomerView`.
+- Aset galeri template menggunakan prefix R2 `templates/` (`^templates\/[a-z0-9]+\.webp$`, permanen di luar retensi) dan impor URL wajib melewati `isSafePublicUrl` (proteksi SSRF).
 - `POST /generate/...` → 202. Jangan blokir request pada latency Siray.

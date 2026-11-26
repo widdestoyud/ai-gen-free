@@ -2456,6 +2456,387 @@
       ]
     },
     {
+      "name": "Templates",
+      "item": [
+        {
+          "name": "GET /customer/templates",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var json = pm.response.json();",
+                  "    if (json.items && json.items[0] && json.items[0].id && !pm.environment.get(\"templateId\")) {",
+                  "        pm.environment.set(\"templateId\", json.items[0].id);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-session-token",
+                "value": "{{userSessionToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/customer/templates?page=1&limit=12&sort=default&spicy=0",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "customer",
+                "templates"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "12",
+                  "description": "Default 12, maksimal 24"
+                },
+                {
+                  "key": "sort",
+                  "value": "default",
+                  "description": "default | trending | newest"
+                },
+                {
+                  "key": "spicy",
+                  "value": "0",
+                  "description": "0 | 1 (spicy=1 membutuhkan spicyModeEnabled=true)"
+                },
+                {
+                  "key": "category",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "q",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Daftar galeri template aktif untuk pelanggan (server-side pagination batch 12, maks 24). Hanya mengembalikan modelId abstrak (t2i-standard, t2i-spicy, i2i-standard, i2i-spicy, atau null) tanpa nama model/provider upstream maupun storageKey."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /customer/templates/categories",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-session-token",
+                "value": "{{userSessionToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/customer/templates/categories?spicy=0",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "customer",
+                "templates",
+                "categories"
+              ],
+              "query": [
+                {
+                  "key": "spicy",
+                  "value": "0",
+                  "description": "0 | 1 (spicy=1 membutuhkan spicyModeEnabled=true)"
+                }
+              ]
+            },
+            "description": "Daftar kategori unik template aktif untuk pelanggan sesuai scope Safe/Spicy."
+          },
+          "response": []
+        },
+        {
+          "name": "POST /customer/templates/:id/use",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-session-token",
+                "value": "{{userSessionToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/customer/templates/{{templateId}}/use",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "customer",
+                "templates",
+                "{{templateId}}",
+                "use"
+              ]
+            },
+            "description": "Mencatat pemakaian template oleh pelanggan (increment usageCount). Mengembalikan 404 jika template tidak aktif atau mode Spicy belum diizinkan."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /admin/templates",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var json = pm.response.json();",
+                  "    if (json.items && json.items[0] && json.items[0].id && !pm.environment.get(\"templateId\")) {",
+                  "        pm.environment.set(\"templateId\", json.items[0].id);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-session-token",
+                "value": "{{adminSessionToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/templates?page=1&limit=20&sortBy=createdAt&sortOrder=desc",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "templates"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20",
+                  "description": "Default 20, maksimal 100"
+                },
+                {
+                  "key": "sortBy",
+                  "value": "createdAt",
+                  "description": "sortOrder | createdAt | usageCount | title"
+                },
+                {
+                  "key": "sortOrder",
+                  "value": "desc",
+                  "description": "asc | desc"
+                },
+                {
+                  "key": "q",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "category",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "isSpicy",
+                  "value": "false",
+                  "description": "true | false",
+                  "disabled": true
+                },
+                {
+                  "key": "isActive",
+                  "value": "true",
+                  "description": "true | false",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Daftar seluruh template studio untuk admin dengan paginasi, penyaringan, dan pengurutan server-side."
+          },
+          "response": []
+        },
+        {
+          "name": "POST /admin/templates/assets",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-session-token",
+                "value": "{{adminSessionToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sourceUrl\": \"https://images.example.com/sample-template-cover.png\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/templates/assets",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "templates",
+                "assets"
+              ]
+            },
+            "description": "Mengunggah atau mengimpor aset gambar template ke prefix R2 templates/ (WebP). Mendukung JSON { sourceUrl } (dengan proteksi SSRF) atau multipart/form-data field 'file' (PNG, JPG, JPEG, WebP maks 5 MB)."
+          },
+          "response": []
+        },
+        {
+          "name": "POST /admin/templates",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    var json = pm.response.json();",
+                  "    if (json.id) {",
+                  "        pm.environment.set(\"templateId\", json.id);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-session-token",
+                "value": "{{adminSessionToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Cafe Portrait\",\n  \"prompt\": \"[TEST:DEV] Cinematic portrait of a character in a sunlit cafe holding coffee, @character\",\n  \"category\": \"Portrait\",\n  \"modelId\": \"i2i-standard\",\n  \"aspectRatio\": \"3:4\",\n  \"isSpicy\": false,\n  \"isActive\": true,\n  \"sortOrder\": 0,\n  \"cover\": {\n    \"key\": \"templates/cm000000000000000000cover1.webp\",\n    \"width\": 768,\n    \"height\": 1024\n  },\n  \"images\": [\n    {\n      \"key\": \"templates/cm0000000000000000000ref01.webp\",\n      \"alias\": \"character\",\n      \"width\": 768,\n      \"height\": 1024\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/templates",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "templates"
+              ]
+            },
+            "description": "Membuat template studio baru oleh admin (HTTP 201). Kunci cover & images (0–4 item) wajib berpola ^templates/[a-z0-9]+.webp$. modelId opsional hanya menerima ID abstrak (t2i-standard, t2i-spicy, i2i-standard, i2i-spicy)."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /admin/templates/:id",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-session-token",
+                "value": "{{adminSessionToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/templates/{{templateId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "templates",
+                "{{templateId}}"
+              ]
+            },
+            "description": "Mengambil detail template lengkap beserta cover.key dan images[].key untuk admin."
+          },
+          "response": []
+        },
+        {
+          "name": "PATCH /admin/templates/:id",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-session-token",
+                "value": "{{adminSessionToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Cafe Portrait Updated\",\n  \"prompt\": \"[TEST:DEV] Warm afternoon portrait in a cozy cafe, @character\",\n  \"category\": \"Portrait\",\n  \"modelId\": \"i2i-standard\",\n  \"aspectRatio\": \"3:4\",\n  \"isSpicy\": false,\n  \"isActive\": true,\n  \"sortOrder\": 1,\n  \"cover\": {\n    \"key\": \"templates/cm000000000000000000cover1.webp\",\n    \"width\": 768,\n    \"height\": 1024\n  },\n  \"images\": [\n    {\n      \"key\": \"templates/cm0000000000000000000ref01.webp\",\n      \"alias\": \"character\",\n      \"width\": 768,\n      \"height\": 1024\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/templates/{{templateId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "templates",
+                "{{templateId}}"
+              ]
+            },
+            "description": "Memperbarui data/aset template oleh admin dan menghapus objek R2 lama yang sudah tidak direferensikan. Mendukung juga payload ringkas { \"isActive\": false } untuk toggle status."
+          },
+          "response": []
+        },
+        {
+          "name": "DELETE /admin/templates/:id",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "x-session-token",
+                "value": "{{adminSessionToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/templates/{{templateId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "templates",
+                "{{templateId}}"
+              ]
+            },
+            "description": "Menghapus template beserta relasi TemplateImage dan membersihkan objek aset templates/ dari ObjectStorage (best-effort)."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
       "name": "payment",
       "item": [
         {

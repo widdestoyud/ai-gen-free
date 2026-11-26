@@ -23,7 +23,8 @@ Baca root `AGENTS.md` dan ADR 0010, 0011, 0012, 0013, 0016, 0017.
 - **Login & OTP Flow**:
   - Landing `/` menampilkan CTA Masuk/Daftar. Modal login **tidak** dibuka otomatis.
   - Setelah login sukses → `/app/generate`. Area pelanggan memakai AppShell sidebar: Generate, Library, Profile, Usage, Billing, Logout.
-  - `/app/generate`: berfokus pada studio input prompt, rasio, model generator, dan hasil aktif. Riwayat hasil yang telah selesai dipindahkan ke `/app/library`.
+  - `/app/generate`: berfokus pada studio input prompt, rasio, model generator, hasil aktif (tab **Tasks**), serta galeri template infinite scroll (tab **Templates**, `hooks/use-template-gallery.ts`, `lib/template-apply.ts`). Riwayat hasil yang telah selesai dipindahkan ke `/app/library`.
+- `/admin/templates`: halaman manajemen galeri template (`views/admin/templates/`) dengan server-side paginasi/filter/sort berbasis URL search params (ADR 0018).
   - OTP muncul sebagai **Modal** di landing setelah login perangkat baru (`requiresOtp`).
   - Admin: HTTP Basic (bukan publik) + form username/password di `/admin`. **Tanpa OTP**.
   - Dilarang mengirim email lewat URL query params (`/otp?email=...`) atau menyimpan email/OTP di `sessionStorage` / `localStorage`.

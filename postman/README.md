@@ -13,7 +13,7 @@ postman/
   README.md
 ```
 
-Folder di dalam koleksi (bukan file terpisah): `health` → `auth` → `customer` → `generate` → `admin`.
+Folder di dalam koleksi (bukan file terpisah): `health` → `auth` → `customer` → `generate` → `admin` → `Templates` → `payment` → `telemetry`.
 
 Jangan impor folder `postman/postman/` atau file `.yaml` hasil export app — itu koleksi ganda. Abaikan jika muncul di disk (sudah di `.gitignore`).
 
@@ -106,5 +106,18 @@ Aplikasi server & dashboard mandiri berbasis Splunk-style tracing & Redis Observ
 - `GET /api/redis/queues`: Status BullMQ queues (`generate`, `retention`), counts (waiting, active, completed, failed, delayed), dan sample jobs.
 - `GET /api/redis/keys`: Ringkasan distribusi kategori keyspace Redis (BullMQ, ratelimit, session, wallet, cooldown) dan sampel keys dengan TTL dan tipe data.
 - `GET /api/redis/summary`: Mengambil seluruh data telemetry Redis (server, queues, keyspace) dalam 1 panggilan API efisien.
+
+### 12. Galeri Template Studio (`Templates` folder)
+- **Customer** (`x-session-token: {{userSessionToken}}`):
+  - `GET /customer/templates`: Daftar template aktif dengan paginasi server-side (`page`, `limit` default 12 maks 24, `sort=default|trending|newest`, `spicy=0|1`, `category`, `q`). Hanya mengembalikan `modelId` abstrak tanpa nama upstream dan tanpa `storageKey`.
+  - `GET /customer/templates/categories`: Daftar kategori unik template aktif sesuai scope Safe/Spicy.
+  - `POST /customer/templates/:id/use`: Mencatat pemakaian template (`usageCount`) saat customer klik *Try Template*.
+- **Admin** (`x-session-token: {{adminSessionToken}}`):
+  - `GET /admin/templates`: Daftar template admin dengan paginasi, filter (`q`, `category`, `isSpicy`, `isActive`), dan sort (`sortBy`, `sortOrder`).
+  - `POST /admin/templates/assets`: Unggah gambar (multipart `file`) atau impor URL publik (`{ "sourceUrl": "..." }`, dilindungi cek SSRF) → WebP di prefix R2 `templates/`.
+  - `POST /admin/templates`: Membuat template baru (`prompt` contoh memakai prefix `[TEST:DEV]`, `cover.key` & `images[].key` pola `^templates/[a-z0-9]+.webp$`).
+  - `GET /admin/templates/:id`: Detail template admin termasuk `cover.key` dan `images[].key`.
+  - `PATCH /admin/templates/:id`: Pembaruan penuh template (atau `{ "isActive": false }` untuk toggle status) dan pembersihan aset R2 lama.
+  - `DELETE /admin/templates/:id`: Hapus template dan aset `templates/` miliknya (best-effort).
 
 

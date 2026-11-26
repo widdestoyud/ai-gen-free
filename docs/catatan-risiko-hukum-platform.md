@@ -290,3 +290,14 @@ Risiko paling berat untuk penyedia, berurutan:
 6. Pornografi anak — zero tolerance.
 
 Kalau produk tetap ingin longgar: longgar hanya untuk **karakter fiksi dewasa**. Face swap dan i2v atas orang nyata adalah pusat risiko hukum, bukan fitur sampingan.
+
+---
+
+## 9. Catatan Khusus Fitur Galeri Template (`templates/`)
+
+Berbeda dari *explore publik* hasil generate pengguna, galeri template di `/app/generate` (ADR 0019) adalah **kurasi tertutup oleh admin** lewat `/admin/templates`. Risiko hukum dan mitigasi operasional yang berlaku:
+
+1. **Tidak ada kontribusi publik UGC:** Hanya admin terautentikasi yang dapat membuat template dan mengunggah aset ke prefix `templates/` (terpisah dari `uploads/customer/` dan `outputs/`). User tidak bisa menerbitkan prompt atau gambar hasil generate ke galeri publik.
+2. **Larangan potret orang nyata & apparent minor:** Admin wajib hanya memakai karakter fiksi/aset berizin untuk cover dan gambar referensi template (0–4 gambar). Mengunggah wajah orang nyata tanpa dasar hukum/izin tetap memicu risiko UU PDP, Pasal 12 UU Hak Cipta, PMH, serta risiko NCII jika dipasangkan dengan preset edit/spicy. Konten yang menyerupai anak di bawah umur tetap *zero tolerance*.
+3. **Gating mode Spicy server-side:** Template berlabel `isSpicy = true` disembunyikan dari daftar default dan hanya dapat diakses atau dipakai (`GET /customer/templates?spicy=1`, `GET /customer/templates/categories?spicy=1`, `POST /customer/templates/:id/use`, dan resolusi `template-image:<id>` di worker) apabila akun pengguna telah memenuhi verifikasi tanggal lahir serta `spicyModeEnabled = true` (ditolak HTTP 403 di API dan gagal resolusi di worker bila tidak terpenuhi).
+4. **Take down cepat & penghapusan aset:** Menonaktifkan (`isActive = false`) atau menghapus template via `/admin/templates` segera menghentikan resolusi `template-image:<id>` di worker dan menghapus file di prefix `templates/` secara best-effort (sementara log `AuditLog` tetap tercatat).

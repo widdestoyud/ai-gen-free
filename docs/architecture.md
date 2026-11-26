@@ -9,7 +9,7 @@ Web app: user login email+OTP, top up poin (unggah bukti di dashboard, admin men
 ## Bukan tujuan v1
 
 - Face swap orang nyata sebagai fitur default
-- Explore/gallery publik
+- Explore/gallery publik hasil generate pengguna (galeri kurasi admin `/app/generate` memakai tabel `Template` terpisah dengan autentikasi & gating spicy)
 - Multi-session
 - Generate paralel per user
 - Firebase Auth
@@ -99,13 +99,24 @@ Lapisan:
 1. Basic Auth reverse proxy pada `/admin` dan `/api/admin`
 2. Form login admin terpisah; NextAuth cookie admin + `sid_admin` ke API
 3. `users.role = admin` hanya dari seed/CLI
-4. Menu: **notifikasi bukti transfer**, kurasi invoice, user, job, **pengaturan cooldown**, adjust poin beralasan, audit log
+4. Menu: **notifikasi bukti transfer**, kurasi invoice, paket topup, **galeri template** (`/admin/templates`), user, job, **pengaturan cooldown**, adjust poin beralasan, audit log
 
-## Penyimpanan 14 hari
+## Penyimpanan 14 hari & Aset Template Permanen
 
-- Bucket privat, signed URL pendek
-- Lifecycle 14 hari dari `succeeded_at`
+- Bucket privat, signed URL pendek (atau `STORAGE_PUBLIC_ENDPOINT` untuk URL tampilan)
+- Lifecycle/retensi 14 hari dari `succeeded_at` / `expiresAt` hanya menyapu prefix sementara (`outputs/`, `inputs/`, `uploads/customer/`, `uploads/admin/`, `temp/` sesuai `isRetentionKey`)
 - Metadata job + prompt + hash tetap setelah file hilang
+- **Aset Galeri Template (`templates/`)**: cover dan gambar referensi template dikompres ke WebP dengan pola key `^templates\/[a-z0-9]+\.webp$`. Prefix `templates/` berada **di luar** `isRetentionKey` sehingga permanen (tanpa TTL) dan hanya dihapus secara eksplisit (best-effort) ketika admin mengganti gambar atau menghapus template
+
+## Galeri Template (`apps/api/src/templates/`)
+
+- **Schema & ADR**: Model `Template` dan `TemplateImage` (`onDelete: Cascade`) di `prisma/schema.prisma` tanpa kolom TTL/retensi ([ADR 0019](./adr/0019-template-gallery.md)), dengan indeks komposit untuk paginasi/filter/sort server-side ([ADR 0018](./adr/0018-server-side-pagination-sorting-filtering.md)).
+- **Modul API (`apps/api/src/templates/` + `apps/api/src/routes/templates.ts`)**:
+  - `parse.ts`: validasi input admin (`parseTemplateInput`, batas 0–4 gambar referensi, regex key `^templates\/[a-z0-9]+\.webp$`, aspect ratio kanonik, dan whitelist `modelId` abstrak) serta parser query paginasi (`parseCustomerListQuery` batch default 12 maks 24; `parseAdminListQuery` default 20 maks 100).
+  - `service.ts`: CRUD admin + `AuditLog` (`template.create|update|delete`), upload multipart atau impor URL gambar dengan proteksi SSRF (`isSafePublicUrl` dari `@ai-gen-free/core`), kompresi WebP (`sharp`), pembersihan key lama `templates/` setelah transaksi DB sukses, serta endpoint customer (`customerList`, `customerCategories`, `recordUse`).
+  - **Isolasi data customer**: Endpoint `/customer/templates` dan `/customer/templates/categories` hanya mengembalikan template `isActive = true`, tidak pernah membocorkan `storageKey` (hanya `coverUrl` & `images[].url`), hanya mengekspos `modelId` abstrak (`t2i-standard`, `t2i-spicy`, `i2i-standard`, `i2i-spicy`, atau `null`), serta menegakkan `spicyModeEnabled` (HTTP 403 bila belum aktif).
+- **Worker (`apps/worker/src/resolve-inputs.ts`)**: Referensi gambar dari template dikirim sebagai `template-image:<TemplateImage.id>`. Worker memprioritaskan resolusi prefix `template-image:`, memvalidasi ulang `Template.isActive` dan `Template.isSpicy` terhadap `User.spicyModeEnabled`, lalu mengambil objek `templates/...` dari `ObjectStorage`. Jika template tidak aktif/dihapus atau tidak diizinkan, resolusi gagal sehingga job gagal dan hold poin dilepas.
+- **Web (`apps/web`)**: Studio `/app/generate` menampilkan tab **Tasks** dan **Templates** (`hooks/use-template-gallery.ts`, `lib/template-apply.ts`, `views/app/generate/components/template-gallery.tsx`), manajemen admin di `/admin/templates` (`views/admin/templates/`), dan semua rute BFF tercatat di `apps/web/lib/api-mapping.ts`.
 
 ## Docker
 
