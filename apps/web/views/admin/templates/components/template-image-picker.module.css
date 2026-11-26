@@ -1,0 +1,127 @@
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.labelRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.label {
+  font-size: var(--mantine-font-size-sm);
+  font-weight: 500;
+  color: var(--mantine-color-text);
+}
+
+.requiredMark {
+  color: var(--mantine-color-red-5);
+  margin-left: 3px;
+}
+
+.hiddenInput {
+  display: none;
+}
+
+.dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 112px;
+  padding: 14px 16px;
+  border-radius: var(--mantine-radius-md);
+  border: 1px dashed var(--mantine-color-default-border);
+  background-color: rgba(255, 255, 255, 0.02);
+  cursor: pointer;
+  text-align: center;
+  transition: border-color 150ms ease, background-color 150ms ease;
+}
+
+.dropzone:hover {
+  border-color: var(--mantine-color-blue-5);
+  background-color: rgba(59, 130, 246, 0.05);
+}
+
+.dropzone:focus-visible {
+  outline: 2px solid var(--mantine-color-blue-5);
+  outline-offset: 2px;
+}
+
+.dropzoneDragging {
+  border-color: var(--mantine-color-blue-4);
+  background-color: rgba(59, 130, 246, 0.12);
+}
+
+.dropzoneDisabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.dropzoneIcon {
+  color: var(--mantine-color-dimmed);
+}
+
+.urlRow {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.urlInput {
+  flex: 1;
+}
+
+.previewCard {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: var(--mantine-radius-md);
+  border: 1px solid var(--mantine-color-default-border);
+  background-color: rgba(255, 255, 255, 0.02);
+}
+
+.previewInfo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  flex: 1;
+}
+
+.previewThumbWrap {
+  width: 60px;
+  height: 80px;
+  border-radius: var(--mantine-radius-sm);
+  overflow: hidden;
+  border: 1px solid var(--mantine-color-default-border);
+  background-color: var(--mantine-color-dark-8);
+  flex-shrink: 0;
+}
+
+.previewImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.previewMeta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.keyText {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--mantine-font-family-monospace);
+}

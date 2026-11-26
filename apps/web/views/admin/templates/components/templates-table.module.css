@@ -1,0 +1,168 @@
+.container {
+  margin-top: var(--mantine-spacing-md);
+  background-color: var(--mantine-color-body);
+  border-radius: var(--mantine-radius-md);
+  border: 1px solid var(--mantine-color-default-border);
+  padding: var(--mantine-spacing-md) var(--mantine-spacing-lg);
+}
+
+.headerRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--mantine-spacing-sm);
+  margin-bottom: var(--mantine-spacing-md);
+}
+
+.title {
+  font-size: var(--mantine-font-size-lg);
+  font-weight: 600;
+  color: var(--mantine-color-text);
+}
+
+.subtitle {
+  font-size: var(--mantine-font-size-xs);
+  color: var(--mantine-color-dimmed);
+}
+
+.filterBar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--mantine-spacing-xs);
+  margin-bottom: var(--mantine-spacing-md);
+}
+
+.searchInput {
+  flex: 1 1 220px;
+  min-width: 180px;
+}
+
+.filterSelect {
+  min-width: 140px;
+}
+
+.sortSelect {
+  min-width: 155px;
+}
+
+.limitSelect {
+  width: 112px;
+}
+
+.tableHeader {
+  color: var(--mantine-color-dimmed);
+  font-size: var(--mantine-font-size-sm);
+  font-weight: 500;
+  border-bottom: 1px solid var(--mantine-color-default-border);
+}
+
+.tableRow {
+  border-bottom: 1px solid var(--mantine-color-default-border);
+  transition: background-color 150ms ease;
+}
+
+.tableRow:last-child {
+  border-bottom: none;
+}
+
+.tableRow:hover {
+  background-color: var(--mantine-color-dark-7);
+}
+
+.coverThumb {
+  width: 45px;
+  height: 60px;
+  aspect-ratio: 3 / 4;
+  border-radius: var(--mantine-radius-sm);
+  overflow: hidden;
+  border: 1px solid var(--mantine-color-default-border);
+  background-color: var(--mantine-color-dark-8);
+  flex-shrink: 0;
+}
+
+.coverImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.titleCell {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  max-width: 300px;
+}
+
+.templateTitle {
+  color: var(--mantine-color-text);
+  font-size: var(--mantine-font-size-sm);
+  font-weight: 600;
+}
+
+.metaRow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.usageCell {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.actionCell {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.paginationRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--mantine-spacing-sm);
+  margin-top: var(--mantine-spacing-md);
+  padding-top: var(--mantine-spacing-sm);
+  border-top: 1px solid var(--mantine-color-default-border);
+}
+
+.mobileCard {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--mantine-color-default-border);
+  border-radius: var(--mantine-radius-md);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.mobileHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.mobileThumbRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+  flex: 1;
+}
+
+.mobileMetaBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
