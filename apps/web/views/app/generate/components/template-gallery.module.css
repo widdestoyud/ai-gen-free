@@ -1,0 +1,245 @@
+.scrollContainer {
+  flex: 1 1 0%;
+  min-height: 0;
+  width: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-gutter: stable;
+  overscroll-behavior: contain;
+  padding: 0 var(--mantine-spacing-md) var(--mantine-spacing-lg);
+  box-sizing: border-box;
+}
+
+.stickyHeader {
+  position: sticky;
+  top: 0;
+  z-index: 15;
+  margin-inline: calc(-1 * var(--mantine-spacing-md));
+  padding: 12px var(--mantine-spacing-md) 10px;
+  background: rgba(20, 21, 24, 0.88);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.controlsRow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  width: 100%;
+}
+
+.adultSwitchPill {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 12px 5px 8px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: background-color 160ms ease, border-color 160ms ease;
+  flex-shrink: 0;
+}
+
+.adultSwitchPillActive {
+  background: rgba(244, 63, 94, 0.14);
+  border-color: rgba(244, 63, 94, 0.42);
+}
+
+.adultSwitchLabel {
+  font-size: var(--mantine-font-size-xs);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--mantine-color-gray-2);
+  cursor: pointer;
+}
+
+.searchInput {
+  flex: 1 1 200px;
+  min-width: 170px;
+  max-width: 300px;
+}
+
+.searchField {
+  background: var(--mantine-color-dark-7);
+  border-color: rgba(255, 255, 255, 0.1);
+  font-size: var(--mantine-font-size-sm);
+  transition: border-color 150ms ease, background-color 150ms ease;
+}
+
+.searchField:focus {
+  border-color: rgba(96, 165, 250, 0.65);
+  background: var(--mantine-color-dark-6);
+}
+
+.sortPillGroup {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px;
+  border-radius: 9999px;
+  background: var(--mantine-color-dark-8);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
+}
+
+.sortPill {
+  border: none;
+  background: transparent;
+  color: var(--mantine-color-dimmed);
+  border-radius: 9999px;
+  padding: 6px 13px;
+  font-size: var(--mantine-font-size-xs);
+  font-weight: 500;
+  line-height: 1;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 150ms ease, background-color 150ms ease;
+}
+
+.sortPill:hover {
+  color: var(--mantine-color-white);
+}
+
+.sortPill:focus-visible {
+  outline: 2px solid rgba(96, 165, 250, 0.75);
+  outline-offset: 1px;
+}
+
+.sortPillActive {
+  background: var(--mantine-color-dark-5);
+  color: var(--mantine-color-white);
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+}
+
+.categoryRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 2px;
+}
+
+.categoryRow::-webkit-scrollbar {
+  display: none;
+}
+
+.categoryPill {
+  flex: 0 0 auto;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--mantine-color-dimmed);
+  border-radius: 9999px;
+  padding: 5px 12px;
+  font-size: var(--mantine-font-size-xs);
+  font-weight: 500;
+  line-height: 1.1;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 150ms ease, background-color 150ms ease, border-color 150ms ease;
+}
+
+.categoryPill:hover {
+  color: var(--mantine-color-white);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.categoryPill:focus-visible {
+  outline: 2px solid rgba(96, 165, 250, 0.75);
+  outline-offset: 1px;
+}
+
+.categoryPillActive {
+  background: rgba(59, 130, 246, 0.18);
+  border-color: rgba(96, 165, 250, 0.48);
+  color: #f8fafc;
+  font-weight: 600;
+}
+
+.spicyHintAlert {
+  margin-top: 10px;
+}
+
+.gridSection {
+  padding-top: 14px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  width: 100%;
+}
+
+@media (max-width: 1023px) {
+  .grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+  }
+}
+
+@media (max-width: 767px) {
+  .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .searchInput {
+    max-width: none;
+    flex: 1 1 140px;
+  }
+
+  .sortPillGroup {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .sortPill {
+    flex: 1 1 0%;
+    text-align: center;
+  }
+}
+
+.skeletonCard {
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  height: auto;
+  border-radius: 12px;
+}
+
+.statusArea {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 28px 12px 12px;
+  text-align: center;
+}
+
+.endText {
+  padding: 20px 12px 8px;
+  text-align: center;
+  color: var(--mantine-color-dimmed);
+  font-size: var(--mantine-font-size-xs);
+}
+
+.sentinel {
+  width: 100%;
+  height: 1px;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .adultSwitchPill,
+  .searchField,
+  .sortPill,
+  .categoryPill {
+    transition: none;
+  }
+}

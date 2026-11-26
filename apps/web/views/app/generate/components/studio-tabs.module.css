@@ -1,0 +1,84 @@
+.tabList {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  width: 100%;
+  padding: 6px var(--mantine-spacing-md) 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  flex: 0 0 auto;
+}
+
+.tabButton {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 2px 12px;
+  border: none;
+  background: transparent;
+  color: var(--mantine-color-dimmed);
+  font-size: var(--mantine-font-size-sm);
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  transition: color 160ms ease;
+  white-space: nowrap;
+}
+
+.tabButton:hover {
+  color: var(--mantine-color-gray-1);
+}
+
+.tabButton:focus-visible {
+  outline: 2px solid rgba(96, 165, 250, 0.75);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.tabButtonActive {
+  color: var(--mantine-color-white);
+  font-weight: 600;
+}
+
+.tabButton::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 2px;
+  border-radius: 2px 2px 0 0;
+  background: var(--mantine-color-white);
+  transform: scaleX(0);
+  opacity: 0;
+  transition: transform 180ms cubic-bezier(0.22, 1, 0.36, 1), opacity 160ms ease;
+}
+
+.tabButtonActive::after {
+  transform: scaleX(1);
+  opacity: 1;
+}
+
+.activeBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: 9999px;
+  background: rgba(59, 130, 246, 0.22);
+  border: 1px solid rgba(96, 165, 250, 0.45);
+  color: #93c5fd;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tabButton,
+  .tabButton::after {
+    transition: none;
+  }
+}

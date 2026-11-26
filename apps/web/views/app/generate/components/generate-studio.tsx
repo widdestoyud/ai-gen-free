@@ -9,8 +9,10 @@ import { ErrorAlert } from "@/components/error-alert";
 import { UploadPolicyModal } from "@/components/upload-policy-modal";
 import { WaitAlert } from "@/components/wait-alert";
 import { getRefTag, useGenerateStudio, type StudioRef, type StudioUpload } from "@/hooks/use-generate-studio";
-import { hasLiveOutput, type JobView } from "@/lib/job-status";
+import { useTemplateGallery } from "@/hooks/use-template-gallery";
+import { isJobActive, type JobView } from "@/lib/job-status";
 import { useI18n } from "@/lib/i18n";
+import type { CustomerTemplate } from "@/lib/template-apply";
 import type { Model, DefaultGenerationModelsConfig } from "../types";
 import { GenerateAspectMenu } from "./generate-aspect-menu";
 import { GenerateLibraryModal } from "./generate-library-modal";
@@ -19,6 +21,8 @@ import { GenerateSettingsModal } from "./generate-settings-modal";
 import { GenerateSkeleton } from "./generate-skeleton";
 import { CloseIcon, GearIcon, ImageIcon, MagicWandIcon, SparkleIcon, VideoIcon } from "./generate-icons";
 import { GenerateDurationMenu, GenerateResolutionMenu } from "./generate-video-menu";
+import { StudioTabs, type StudioTabValue } from "./studio-tabs";
+import { TemplateGallery } from "./template-gallery";
 import classes from "./generate-studio.module.css";
 
 function hasLiveJobOutput(
@@ -81,6 +85,22 @@ export function GenerateStudio(props?: {
   const { t } = useI18n("generate");
   const ctrl = useGenerateStudio(props);
   const lastJob = ctrl.lastGeneratedJob;
+  const activeJobIds = new Set(
+    ctrl.jobs.filter((j) => isJobActive(j.status)).map((j) => j.id),
+  );
+  if (ctrl.active && isJobActive(ctrl.active.status)) {
+    activeJobIds.add(ctrl.active.id);
+  }
+  const activeJobCount = activeJobIds.size;
+
+  const [activeTab, setActiveTab] = useState<StudioTabValue>(() =>
+    ctrl.isGenerating || activeJobCount > 0 || hasLiveJobOutput(lastJob)
+      ? "tasks"
+      : "templates",
+  );
+  const prevActiveIdRef = useRef<string | null>(ctrl.active?.id ?? null);
+  const templateGallery = useTemplateGallery({ spicyEnabled: ctrl.spicyModeEnabled });
+  const [spicyHint, setSpicyHint] = useState<string | null>(null);
   const [previewRef, setPreviewRef] = useState<StudioRef | null>(null);
   const [settingsModalOpened, setSettingsModalOpened] = useState(false);
   const [isPromptFocused, setIsPromptFocused] = useState(false);
@@ -88,6 +108,45 @@ export function GenerateStudio(props?: {
   const [isMagicPromptLoading, setIsMagicPromptLoading] = useState(false);
   const backdropRef = useRef<HTMLDivElement>(null);
   const measureRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const currentActiveId = ctrl.active?.id ?? null;
+    if (currentActiveId && currentActiveId !== prevActiveIdRef.current) {
+      setActiveTab("tasks");
+    }
+    prevActiveIdRef.current = currentActiveId;
+  }, [ctrl.active?.id]);
+
+  useEffect(() => {
+    if (ctrl.spicyModeEnabled) {
+      setSpicyHint(null);
+    }
+  }, [ctrl.spicyModeEnabled]);
+
+  const handleAdultToggle = (next: boolean) => {
+    if (next && !ctrl.spicyModeEnabled) {
+      setSpicyHint(t("templates.spicy_need_dob"));
+      templateGallery.setAdultOn(false);
+      return;
+    }
+    setSpicyHint(null);
+    templateGallery.setAdultOn(next);
+  };
+
+  const handleTryTemplate = (tpl: CustomerTemplate) => {
+    if (tpl.isSpicy && !ctrl.spicyModeEnabled) {
+      setSpicyHint(t("templates.spicy_need_dob"));
+      return;
+    }
+    setSpicyHint(null);
+    ctrl.setMediaType("image");
+    ctrl.setPrompt(tpl.prompt);
+    ctrl.setAspectRatio(tpl.aspectRatio);
+    if (ctrl.spicyModeEnabled) {
+      ctrl.setSpicyFilter(tpl.isSpicy ? "spicy" : "normal");
+    }
+    ctrl.textareaRef.current?.focus();
+  };
 
   const hasText = Boolean(ctrl.prompt && ctrl.prompt.trim().length > 0);
   const singleLineHeight = 26;
@@ -144,69 +203,127 @@ export function GenerateStudio(props?: {
   return (
     <div className={classes.page}>
       <div className={classes.stage}>
-        {ctrl.isGenerating ? (
-          <GenerateSkeleton
-            aspectRatio={ctrl.aspectRatio}
-            progress={ctrl.active?.progressPct}
-            mediaType={ctrl.mediaType}
-          />
-        ) : hasLiveJobOutput(lastJob) ? (
-          <div className={classes.previewContainerFull}>
-            {ctrl.cooldownUntil && ctrl.cooldownLeft > 0 ? (
-              <Alert color="yellow" variant="light" radius="md" className={classes.stageAlert}>
-                <CooldownText until={ctrl.cooldownUntil} />
-              </Alert>
-            ) : null}
-            <div className={classes.previewCard} onClick={ctrl.openResultModal} role="button" tabIndex={0}>
-              <div className={classes.stageMediaWrapper}>
-                {lastJob.output.contentType.includes("video") ||
-                lastJob.mode === "t2v" ||
-                lastJob.mode === "i2v" ? (
-                  <video
-                    src={lastJob.output.url}
-                    controls
-                    autoPlay
-                    loop
-                    className={classes.stageMedia}
-                  />
-                ) : (
-                  <img
-                    src={lastJob.output.url}
-                    alt={lastJob.prompt}
-                    className={classes.stageMedia}
-                  />
-                )}
+        <StudioTabs
+          value={activeTab}
+          onChange={setActiveTab}
+          activeJobCount={activeJobCount}
+        />
+
+        {activeTab === "tasks" ? (
+          <div
+            id="studio-panel-tasks"
+            role="tabpanel"
+            aria-labelledby="studio-tab-tasks"
+            className={classes.tasksPanel}
+          >
+            {ctrl.isGenerating ? (
+              <GenerateSkeleton
+                aspectRatio={ctrl.aspectRatio}
+                progress={ctrl.active?.progressPct}
+                mediaType={ctrl.mediaType}
+              />
+            ) : hasLiveJobOutput(lastJob) ? (
+              <div className={classes.previewContainerFull}>
+                {ctrl.cooldownUntil && ctrl.cooldownLeft > 0 ? (
+                  <Alert color="yellow" variant="light" radius="md" className={classes.stageAlert}>
+                    <CooldownText until={ctrl.cooldownUntil} />
+                  </Alert>
+                ) : null}
+                <div className={classes.previewCard} onClick={ctrl.openResultModal} role="button" tabIndex={0}>
+                  <div className={classes.stageMediaWrapper}>
+                    {lastJob.output.contentType.includes("video") ||
+                    lastJob.mode === "t2v" ||
+                    lastJob.mode === "i2v" ? (
+                      <video
+                        src={lastJob.output.url}
+                        controls
+                        autoPlay
+                        loop
+                        className={classes.stageMedia}
+                      />
+                    ) : (
+                      <img
+                        src={lastJob.output.url}
+                        alt={lastJob.prompt}
+                        className={classes.stageMedia}
+                      />
+                    )}
+                  </div>
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className={classes.stageDefaultWrapper}>
+                {ctrl.error ? (
+                  ctrl.waiting ? (
+                    <div className={classes.stageAlert}>
+                      <WaitAlert message={ctrl.error} />
+                    </div>
+                  ) : (
+                    <div className={classes.stageAlert}>
+                      <ErrorAlert message={ctrl.error} />
+                    </div>
+                  )
+                ) : null}
+                {ctrl.cooldownUntil && ctrl.cooldownLeft > 0 ? (
+                  <Alert color="yellow" variant="light" radius="md" className={classes.stageAlert}>
+                    <CooldownText until={ctrl.cooldownUntil} />
+                  </Alert>
+                ) : null}
+                <EmptyState>
+                  {t("empty_state_prompt", { link: "___SPLIT___" }).split("___SPLIT___")[0]}
+                  <AppLink href="/app/library">{t("library_link")}</AppLink>
+                  {t("empty_state_prompt", { link: "___SPLIT___" }).split("___SPLIT___")[1] ?? ""}
+                </EmptyState>
+              </div>
+            )}
           </div>
         ) : (
-          <div className={classes.stageDefaultWrapper}>
-            {ctrl.error ? (
-              ctrl.waiting ? (
-                <div className={classes.stageAlert}>
-                  <WaitAlert message={ctrl.error} />
-                </div>
-              ) : (
-                <div className={classes.stageAlert}>
-                  <ErrorAlert message={ctrl.error} />
-                </div>
-              )
-            ) : null}
-            {ctrl.cooldownUntil && ctrl.cooldownLeft > 0 ? (
-              <Alert color="yellow" variant="light" radius="md" className={classes.stageAlert}>
-                <CooldownText until={ctrl.cooldownUntil} />
-              </Alert>
-            ) : null}
-            <EmptyState>
-              {t("empty_state_prompt", { link: "___SPLIT___" }).split("___SPLIT___")[0]}
-              <AppLink href="/app/library">{t("library_link")}</AppLink>
-              {t("empty_state_prompt", { link: "___SPLIT___" }).split("___SPLIT___")[1] ?? ""}
-            </EmptyState>
+          <div className={classes.templatesPanel}>
+            <TemplateGallery
+              items={templateGallery.items}
+              categories={templateGallery.categories}
+              query={templateGallery.query}
+              onQueryChange={templateGallery.setQuery}
+              category={templateGallery.category}
+              onCategoryChange={templateGallery.setCategory}
+              sort={templateGallery.sort}
+              onSortChange={templateGallery.setSort}
+              adultOn={templateGallery.adultOn}
+              onAdultToggle={handleAdultToggle}
+              hasNextPage={templateGallery.hasNextPage}
+              isFetchingNextPage={templateGallery.isFetchingNextPage}
+              isLoading={templateGallery.isLoading}
+              isError={templateGallery.isError}
+              errorMessage={templateGallery.errorMessage}
+              onRetry={() => void templateGallery.refetch()}
+              onTryTemplate={handleTryTemplate}
+              sentinelRef={templateGallery.sentinelRef}
+              scrollRootRef={templateGallery.scrollRootRef}
+              spicyHint={spicyHint}
+              onDismissSpicyHint={() => setSpicyHint(null)}
+            />
           </div>
         )}
       </div>
 
       <div className={classes.dock}>
+        {activeTab === "templates" &&
+        (ctrl.error || (ctrl.cooldownUntil && ctrl.cooldownLeft > 0)) ? (
+          <div className={classes.dockAlerts}>
+            {ctrl.error ? (
+              ctrl.waiting ? (
+                <WaitAlert message={ctrl.error} />
+              ) : (
+                <ErrorAlert message={ctrl.error} />
+              )
+            ) : null}
+            {ctrl.cooldownUntil && ctrl.cooldownLeft > 0 ? (
+              <Alert color="yellow" variant="light" radius="md">
+                <CooldownText until={ctrl.cooldownUntil} />
+              </Alert>
+            ) : null}
+          </div>
+        ) : null}
         <form onSubmit={(e) => void ctrl.submit(e)}>
           {/* Mobile Configs Row (Hanya muncul di mobile/tab ketika aktif mengetik / memilih gambar) */}
           {isComposerActive ? (
@@ -698,9 +815,19 @@ export function GenerateStudio(props?: {
                         <Badge
                           size="sm"
                           variant="light"
-                          color={activePreviewRef.kind === "upload" ? "blue" : "violet"}
+                          color={
+                            activePreviewRef.kind === "upload"
+                              ? "blue"
+                              : activePreviewRef.kind === "template"
+                                ? "grape"
+                                : "violet"
+                          }
                         >
-                          {activePreviewRef.kind === "upload" ? t("ref_detail_modal.source_upload") : t("ref_detail_modal.source_generation")}
+                          {activePreviewRef.kind === "upload"
+                            ? t("ref_detail_modal.source_upload")
+                            : activePreviewRef.kind === "template"
+                              ? t("tabs.templates")
+                              : t("ref_detail_modal.source_generation")}
                         </Badge>
                       </Group>
                     </div>
