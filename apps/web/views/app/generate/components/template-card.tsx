@@ -41,6 +41,9 @@ export function TemplateCard({
   };
 
   const aspectValue = getTemplateAspectRatio(template);
+  const coverSrc = template.coverUrl.includes("?")
+    ? `${template.coverUrl}&thumb=1`
+    : `${template.coverUrl}?thumb=1`;
 
   return (
     <article
@@ -49,7 +52,7 @@ export function TemplateCard({
       onClick={handleCardClick}
     >
       <img
-        src={template.coverUrl}
+        src={coverSrc}
         alt={template.title}
         loading="lazy"
         decoding="async"

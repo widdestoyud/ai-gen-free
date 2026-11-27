@@ -96,8 +96,9 @@ export function useTemplateGallery(opts: { spicyEnabled: boolean }) {
       }
       return Array.isArray(res.data?.categories) ? res.data.categories : [];
     },
-    staleTime: 60_000,
-    refetchOnMount: true,
+    staleTime: 5 * 60_000,
+    gcTime: 30 * 60_000,
+    refetchOnMount: false,
     refetchOnWindowFocus: false,
   });
 
@@ -124,8 +125,9 @@ export function useTemplateGallery(opts: { spicyEnabled: boolean }) {
     },
     getNextPageParam: (lastPage) =>
       lastPage.hasMore ? lastPage.page + 1 : undefined,
-    staleTime: 60_000,
-    refetchOnMount: true,
+    staleTime: 5 * 60_000,
+    gcTime: 30 * 60_000,
+    refetchOnMount: false,
     refetchOnWindowFocus: false,
   });
 

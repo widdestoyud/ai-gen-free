@@ -327,6 +327,52 @@ export async function registerTemplateRoutes(
       return sendError(reply, err, req);
     }
   });
+
+  app.get("/customer/templates/:id/cover", async (req: FastifyRequest, reply: FastifyReply) => {
+    const session = await requireUser(req, reply);
+    if (!session) return;
+    try {
+      const { id } = req.params as { id: string };
+      const q = (req.query ?? {}) as { thumb?: string; w?: string };
+      const isThumbRequested = q.thumb === "1" || q.thumb === "true" || Boolean(q.w);
+      const targetWidth = q.w ? Math.min(Math.max(parseInt(q.w, 10) || 480, 64), 1440) : 480;
+
+      const file = await service.getCoverFile(session.userId, id, storage);
+
+      const isImage = (file.contentType || "").startsWith("image/");
+      const etagSuffix = isThumbRequested && isImage ? `-thumb-${targetWidth}` : "";
+      const etag = `W/"tpl-cover-${id}${etagSuffix}"`;
+
+      if (req.headers["if-none-match"] === etag) {
+        reply.header("ETag", etag);
+        reply.header("Cache-Control", "private, max-age=31536000, immutable");
+        return reply.status(304).send();
+      }
+
+      let bodyBytes = Buffer.from(file.body);
+      let outContentType = file.contentType;
+
+      if (isThumbRequested && isImage) {
+        try {
+          bodyBytes = await sharp(bodyBytes)
+            .resize({ width: targetWidth, withoutEnlargement: true })
+            .webp({ quality: 82 })
+            .toBuffer();
+          outContentType = "image/webp";
+        } catch {
+          // Fallback to original bytes
+        }
+      }
+
+      reply.header("Content-Type", outContentType);
+      reply.header("Cache-Control", "private, max-age=31536000, immutable");
+      reply.header("ETag", etag);
+      reply.header("Content-Disposition", "inline");
+      return reply.send(bodyBytes);
+    } catch (err) {
+      return sendError(reply, err, req);
+    }
+  });
 }
 
 export const templatesRoutes = registerTemplateRoutes;

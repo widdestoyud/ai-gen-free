@@ -335,11 +335,16 @@ test("toPage: exactly limit rows means no more", () => {
 
 test("toCustomerView never leaks storage keys and orders images by position", async () => {
   const v = await toCustomerView(rowFixture, async (k) => `https://cdn.test/${k.split("/")[1]}`);
-  assert.ok(!JSON.stringify(v).includes("templates/"));
+  assert.ok(!JSON.stringify(v).includes("templates/cover001"));
+  assert.ok(!JSON.stringify(v).includes("templates/ref001"));
   assert.equal(v.images.length, rowFixture.images.length);
   assert.equal(v.images[0]?.alias, "face");
   assert.equal(v.images[1]?.alias, "outfit");
-  assert.equal(v.coverUrl, "https://cdn.test/cover001.webp");
+  assert.equal(v.coverUrl, `/api/templates/${rowFixture.id}/cover`);
+  assert.equal(v.images[0]?.id, "cimg000000000000000000001");
+  assert.equal(v.images[0]?.url, `/api/templates/images/cimg000000000000000000001/file`);
+  assert.equal(v.images[1]?.id, "cimg000000000000000000002");
+  assert.equal(v.images[1]?.url, `/api/templates/images/cimg000000000000000000002/file`);
   assert.equal(v.modelId, "i2i-standard");
 });
 
@@ -552,6 +557,7 @@ test("template routes reject unauthenticated requests with 401 A006", async () =
     ["GET", "/customer/templates/categories"],
     ["POST", "/customer/templates/tpl_1/use"],
     ["GET", "/customer/templates/images/img_1/file"],
+    ["GET", "/customer/templates/tpl_1/cover"],
     ["GET", "/admin/templates"],
     ["POST", "/admin/templates"],
     ["POST", "/admin/templates/assets"],

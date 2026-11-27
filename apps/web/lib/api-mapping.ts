@@ -201,6 +201,12 @@ export const API_MAPPINGS: readonly ApiRouteMapping[] = [
     method: "GET",
     description: "Stream berkas gambar template untuk referensi studio",
   },
+  {
+    FE: "/api/templates/:id/cover",
+    BE: "/customer/templates/:id/cover",
+    method: "GET",
+    description: "Stream berkas cover template untuk kartu galeri studio",
+  },
 
   // -------------------------------------------------------------
   // 2. Auth & Pelanggan (Registrasi, OTP, Reset Password)
@@ -909,6 +915,9 @@ export function resolveBackendPath(fePath: string, method = "GET"): string {
   if (customerUploadDetailMatch) return `/customer/uploads/${customerUploadDetailMatch[1]}` + search;
 
   // Templates (customer & admin)
+  const templateCoverFileMatch = m === "GET" ? path.match(/^\/api\/templates\/([^/]+)\/cover$/) : null;
+  if (templateCoverFileMatch) return `/customer/templates/${templateCoverFileMatch[1]}/cover` + search;
+
   const templateImgFileMatch = m === "GET" ? path.match(/^\/api\/templates\/images\/([^/]+)\/file$/) : null;
   if (templateImgFileMatch) return `/customer/templates/images/${templateImgFileMatch[1]}/file` + search;
 

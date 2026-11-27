@@ -144,10 +144,8 @@ export async function toCustomerView(
   urlOf: (key: string) => Promise<string>,
 ): Promise<CustomerTemplateView> {
   const sortedImages = [...row.images].sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
-  const [coverUrl, imageUrls] = await Promise.all([
-    urlOf(row.coverStorageKey),
-    Promise.all(sortedImages.map((img) => urlOf(img.storageKey))),
-  ]);
+  const coverUrl = `/api/templates/${row.id}/cover`;
+  const imageUrls = sortedImages.map((img) => `/api/templates/images/${img.id}/file`);
 
   const safeModelId =
     row.modelId && VALID_MODEL_ID_SET.has(row.modelId) ? row.modelId : null;
@@ -165,7 +163,7 @@ export async function toCustomerView(
     coverHeight: typeof row.coverHeight === "number" && row.coverHeight > 0 ? row.coverHeight : undefined,
     images: sortedImages.map((img, idx) => ({
       id: img.id,
-      url: imageUrls[idx] ?? "",
+      url: imageUrls[idx] ?? `/api/templates/images/${img.id}/file`,
       alias: img.alias ?? null,
       width: img.width,
       height: img.height,
@@ -767,6 +765,42 @@ export function createTemplateService(deps: {
         body: file.body,
         contentType: file.contentType || "image/webp",
         storageKey: image.storageKey,
+      };
+    },
+
+    async getCoverFile(
+      userId: string,
+      templateId: string,
+      storage: ObjectStorage,
+    ): Promise<{ body: Uint8Array; contentType: string; storageKey: string }> {
+      const userSpicyEnabled = await assertUserSpicyFlag(userId);
+
+      const template = await db.template.findUnique({
+        where: { id: templateId },
+        select: {
+          isActive: true,
+          isSpicy: true,
+          coverStorageKey: true,
+        },
+      });
+
+      if (!template || !template.isActive) {
+        throw new AppError(ErrorCodes.NOT_FOUND, "Cover template tidak ditemukan", 404);
+      }
+
+      if (template.isSpicy && !userSpicyEnabled) {
+        throw new AppError(
+          ErrorCodes.SPICY_CONSENT_REQUIRED,
+          "Konten spicy memerlukan persetujuan",
+          403,
+        );
+      }
+
+      const file = await storage.get(template.coverStorageKey);
+      return {
+        body: file.body,
+        contentType: file.contentType || "image/webp",
+        storageKey: template.coverStorageKey,
       };
     },
   };
