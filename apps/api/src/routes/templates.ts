@@ -291,7 +291,7 @@ export async function registerTemplateRoutes(
       const isThumbRequested = q.thumb === "1" || q.thumb === "true" || Boolean(q.w);
       const targetWidth = q.w ? Math.min(Math.max(parseInt(q.w, 10) || 360, 64), 1080) : 360;
 
-      const file = await service.getImageFile(session.userId, id, storage);
+      const file = await service.getImageFile(session.userId, id, deps.storage);
 
       const isImage = (file.contentType || "").startsWith("image/");
       const etagSuffix = isThumbRequested && isImage ? `-thumb-${targetWidth}` : "";
@@ -337,7 +337,7 @@ export async function registerTemplateRoutes(
       const isThumbRequested = q.thumb === "1" || q.thumb === "true" || Boolean(q.w);
       const targetWidth = q.w ? Math.min(Math.max(parseInt(q.w, 10) || 480, 64), 1440) : 480;
 
-      const file = await service.getCoverFile(session.userId, id, storage);
+      const file = await service.getCoverFile(session.userId, id, deps.storage);
 
       const isImage = (file.contentType || "").startsWith("image/");
       const etagSuffix = isThumbRequested && isImage ? `-thumb-${targetWidth}` : "";
